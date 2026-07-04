@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Liànxí · Pratique du chinois</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="apple-mobile-web-app-title" content="Liànxí">
+<meta name="theme-color" content="#2F6D66">
+<style>
+  :root {
+    --paper: #F6F4EF;
+    --card: #FFFFFF;
+    --ink: #211F1C;
+    --muted: #6E6A61;
+    --line: #E2DED4;
+    --accent: #2F6D66;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #E4EEEC;
+    --bad: #B3402E;
+    --bad-soft: #F6E6E2;
+    --good: #4A7C59;
+    --good-soft: #E6EFE8;
+    --t1: #C24437;
+    --t2: #3E8914;
+    --t3: #2C6FBF;
+    --t4: #7B4FA6;
+    --t0: #8A867C;
+    --shadow: 0 1px 3px rgba(33,31,28,.07), 0 8px 24px rgba(33,31,28,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #161719; --card: #1F2124; --ink: #EDEAE2; --muted: #9C978C;
+      --line: #2E3036; --accent: #63A79D; --accent-ink: #10201D; --accent-soft: #23332F;
+      --bad: #E06A55; --bad-soft: #3A2521; --good: #7FB78A; --good-soft: #22312A;
+      --t1: #E5766A; --t2: #7CBF5A; --t3: #6FA8E8; --t4: #B48AD9; --t0: #8F8B82;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "Avenir Next", Avenir, -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 1.1rem; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .hanzi { font-family: "Kaiti SC", "STKaiti", KaiTi, "AR PL KaitiM GB", serif; }
+
+  .wrap { max-width: 460px; margin: 0 auto; padding: 0 1rem 5rem; }
+
+  header.app {
+    display: flex; align-items: center; gap: .8rem; padding: 1.1rem 0 .9rem;
+  }
+  .seal {
+    width: 2.6rem; height: 2.6rem; flex: none; border: 2px solid var(--accent);
+    border-radius: .45rem; display: grid; place-items: center;
+    color: var(--accent); font-size: 1.6rem; line-height: 1;
+  }
+  header.app h1 { font-size: 1.35rem; margin: 0; font-weight: 600; letter-spacing: .01em; }
+  header.app .sub { font-size: .95rem; color: var(--muted); margin: 0; }
+  .streak {
+    margin-left: auto; background: var(--card); border: 1px solid var(--line);
+    border-radius: 999px; padding: .3rem .85rem; font-size: .95rem; font-weight: 600;
+    box-shadow: var(--shadow);
+  }
+
+  nav.tabs { display: flex; gap: .5rem; margin-bottom: 1.1rem; }
+  nav.tabs button {
+    flex: 1; padding: .6rem 0; font-size: 1.05rem; font-weight: 600;
+    font-family: inherit; border: 1px solid var(--line); border-radius: .6rem;
+    background: var(--card); color: var(--muted); cursor: pointer;
+  }
+  nav.tabs button[aria-selected="true"] {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+  }
+
+  .panel {
+    background: var(--card); border: 1px solid var(--line); border-radius: .9rem;
+    padding: 1.2rem 1.1rem; margin-bottom: 1rem; box-shadow: var(--shadow);
+  }
+  .panel h2 {
+    font-size: .95rem; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--muted); margin: 0 0 .8rem; font-weight: 600;
+  }
+
+  .due-big { font-size: 2.6rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .due-label { color: var(--muted); font-size: 1.05rem; }
+
+  .chips { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; margin-top: .9rem; }
+  .chip {
+    padding: .35rem .95rem; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--paper); color: var(--muted); font-size: .98rem; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  .btn {
+    display: block; width: 100%; padding: .95rem; margin-top: 1rem;
+    font-size: 1.15rem; font-weight: 600; font-family: inherit;
+    border: none; border-radius: .7rem; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink);
+  }
+  .btn.secondary { background: var(--accent-soft); color: var(--accent); }
+  .btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 2px;
+  }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
+  .stat { text-align: center; padding: .5rem .2rem; }
+  .stat .n { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: .95rem; color: var(--muted); }
+
+  .tone-legend { display: flex; flex-wrap: wrap; gap: .4rem .9rem; font-size: .98rem; margin-top: .6rem; }
+  .t1 { color: var(--t1); } .t2 { color: var(--t2); } .t3 { color: var(--t3); }
+  .t4 { color: var(--t4); } .t0 { color: var(--t0); }
+
+  ul.words { list-style: none; margin: 0; padding: 0; }
+  ul.words li {
+    display: flex; align-items: baseline; gap: .7rem; padding: .65rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  ul.words li:last-child { border-bottom: none; }
+  .w-hanzi { font-size: 1.5rem; flex: none; }
+  .w-mid { min-width: 0; }
+  .w-pinyin { font-size: 1.02rem; }
+  .w-fr { color: var(--muted); font-size: 1rem; }
+  .w-theme {
+    font-size: .82rem; color: var(--accent); background: var(--accent-soft);
+    border-radius: 999px; padding: .05rem .55rem; margin-left: .4rem; white-space: nowrap;
+  }
+  .w-err {
+    margin-left: auto; flex: none; font-size: .9rem; font-weight: 600;
+    color: var(--bad); background: var(--bad-soft); border-radius: 999px; padding: .1rem .6rem;
+  }
+  .w-lvl { margin-left: auto; flex: none; font-size: .9rem; color: var(--muted); }
+
+  textarea {
+    width: 100%; min-height: 7rem; font-size: 1rem; font-family: ui-monospace, Menlo, monospace;
+    border: 1px solid var(--line); border-radius: .6rem; padding: .7rem;
+    background: var(--paper); color: var(--ink); resize: vertical;
+  }
+  .hint { font-size: .98rem; color: var(--muted); margin: .5rem 0 0; }
+  .msg { font-size: 1.02rem; font-weight: 600; margin-top: .6rem; }
+  .msg.ok { color: var(--good); } .msg.err { color: var(--bad); }
+  footer.build { text-align: center; color: var(--muted); font-size: .9rem; padding-bottom: 1rem; }
+
+  /* ---- Session ---- */
+  #session { position: fixed; inset: 0; background: var(--paper); overflow-y: auto; z-index: 10; }
+  #session .wrap { padding-top: .9rem; }
+  .sess-top { display: flex; align-items: center; gap: .8rem; margin-bottom: .9rem; }
+  .sess-top button {
+    background: none; border: none; font-size: 1.6rem; color: var(--muted);
+    cursor: pointer; padding: .2rem .5rem; font-family: inherit;
+  }
+  .progress { flex: 1; height: .45rem; background: var(--line); border-radius: 999px; overflow: hidden; }
+  .progress div { height: 100%; background: var(--accent); border-radius: 999px; transition: width .25s; }
+  @media (prefers-reduced-motion: reduce) { .progress div { transition: none; } }
+  .sess-count { font-size: .95rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .mode-tag {
+    display: inline-block; font-size: .9rem; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--accent); background: var(--accent-soft);
+    border-radius: 999px; padding: .2rem .8rem; margin-bottom: 1rem;
+  }
+  .qcard {
+    background: var(--card); border: 1px solid var(--line); border-radius: 1rem;
+    box-shadow: var(--shadow); padding: 1.6rem 1.2rem; text-align: center; min-height: 16rem;
+    display: flex; flex-direction: column; justify-content: center; gap: .7rem;
+  }
+  .q-hanzi { font-size: 4rem; line-height: 1.25; }
+  .q-hanzi.small { font-size: 2.6rem; }
+  .q-pinyin { font-size: 1.5rem; }
+  .q-fr { font-size: 1.25rem; }
+  .q-prompt { font-size: 1.05rem; color: var(--muted); }
+  .q-phrase { font-size: 1.35rem; line-height: 1.5; }
+  .q-phrase-fr { font-size: 1.02rem; color: var(--muted); }
+  .divider { border: none; border-top: 1px dashed var(--line); margin: .5rem 0; }
+
+  .audio-btn {
+    font-size: 1.05rem; font-weight: 600; font-family: inherit; cursor: pointer;
+    background: var(--accent-soft); color: var(--accent); border: none;
+    border-radius: 999px; padding: .55rem 1.2rem; margin: 0 .2rem;
+  }
+  .big-audio { font-size: 2.6rem; background: var(--accent-soft); color: var(--accent);
+    border: none; border-radius: 50%; width: 5.5rem; height: 5.5rem; cursor: pointer; align-self: center; }
+
+  input.answer {
+    font-size: 1.7rem; text-align: center; width: 100%; padding: .6rem;
+    border: 1px solid var(--line); border-radius: .6rem; background: var(--paper); color: var(--ink);
+    font-family: "Kaiti SC", "STKaiti", KaiTi, serif;
+  }
+  .diff span.okc { color: var(--good); }
+  .diff span.koc { color: var(--bad); text-decoration: line-through; }
+  .verdict { font-size: 1.1rem; font-weight: 700; }
+  .verdict.ok { color: var(--good); } .verdict.ko { color: var(--bad); }
+  .heard { font-size: 1.02rem; color: var(--muted); }
+
+  .grades { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .6rem; margin-top: 1rem; }
+  .grades button {
+    padding: .9rem 0; font-size: 1.05rem; font-weight: 700; font-family: inherit;
+    border: none; border-radius: .7rem; cursor: pointer;
+  }
+  .g-again { background: var(--bad-soft); color: var(--bad); }
+  .g-good { background: var(--accent); color: var(--accent-ink); }
+  .g-easy { background: var(--accent-soft); color: var(--accent); }
+  .grades button.suggest { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .end-list { text-align: left; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="app" class="wrap">
+  <header class="app">
+    <div class="seal hanzi" aria-hidden="true">练</div>
+    <div>
+      <h1>Liànxí</h1>
+      <p class="sub">Pratique quotidienne du chinois</p>
+    </div>
+    <div class="streak" id="streak" title="Jours de pratique d'affilée">🔥 0</div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-home" aria-selected="true" onclick="showTab('home')">Aujourd'hui</button>
+    <button role="tab" id="tab-words" aria-selected="false" onclick="showTab('words')">Mots</button>
+  </nav>
+
+  <!-- ============ AUJOURD'HUI ============ -->
+  <section id="view-home">
+    <div class="panel" style="text-align:center">
+      <div class="due-big" id="due-count">0</div>
+      <div class="due-label" id="due-label">cartes à réviser</div>
+      <div class="chips" id="theme-chips"></div>
+      <button class="btn" id="start-btn" onclick="startSession()">Commencer la session</button>
+      <p class="hint" id="no-due-hint" style="display:none">Tout est à jour dans ce thème. Reviens demain, ou change de thème.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Progression</h2>
+      <div class="stats">
+        <div class="stat"><div class="n" id="st-total">0</div><div class="l">mots</div></div>
+        <div class="stat"><div class="n" id="st-acquired">0</div><div class="l">acquis</div></div>
+        <div class="stat"><div class="n" id="st-reviews">0</div><div class="l">révisions</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Mots fragiles</h2>
+      <ul class="words" id="weak-list"></ul>
+      <p class="hint" id="weak-empty">Aucun mot fragile pour l'instant. Ils apparaîtront ici après quelques sessions.</p>
+      <button class="btn secondary" id="export-weak" onclick="exportWeak()">Copier pour mon tuteur Claude</button>
+    </div>
+
+    <div class="panel">
+      <h2>Couleurs des tons</h2>
+      <div class="tone-legend">
+        <span class="t1">ā 1ᵉʳ ton</span><span class="t2">á 2ᵉ ton</span>
+        <span class="t3">ǎ 3ᵉ ton</span><span class="t4">à 4ᵉ ton</span><span class="t0">a neutre</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MOTS ============ -->
+  <section id="view-words" class="hidden">
+    <div class="panel">
+      <h2>Vocabulaire embarqué</h2>
+      <p class="hint" style="margin:0">Le vocabulaire officiel vit dans <span class="mono">vocab.json</span> côté Claude Code : dis « ajoute » avec une capture, un fichier ou du texte, puis « maj app ». Recharge cette page pour récupérer les nouveaux mots.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Import manuel (dépannage)</h2>
+      <textarea id="import-box" placeholder='[{"hanzi":"你好","pinyin":"nǐ hǎo","fr":"bonjour","theme":"HSK 1"}]'></textarea>
+      <button class="btn secondary" onclick="importVocab()">Importer</button>
+      <div class="msg" id="import-msg"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Mon vocabulaire (<span id="word-count">0</span>)</h2>
+      <ul class="words" id="word-list"></ul>
+    </div>
+
+    <div class="panel">
+      <h2>Maintenance</h2>
+      <button class="btn ghost" onclick="copyBackup()">Copier une sauvegarde complète</button>
+      <button class="btn ghost" id="reset-btn" onclick="resetApp()">Tout réinitialiser</button>
+      <div class="msg" id="maint-msg"></div>
+    </div>
+  </section>
+
+  <footer class="build">Liànxí · <span id="build-stamp">43 mots · 2026-07-05</span></footer>
+</div>
+
+<!-- ============ SESSION ============ -->
+<div id="session" class="hidden">
+  <div class="wrap">
+    <div class="sess-top">
+      <button onclick="quitSession()" aria-label="Quitter la session">✕</button>
+      <div class="progress"><div id="prog-bar" style="width:0%"></div></div>
+      <span class="sess-count" id="prog-txt"></span>
+    </div>
+    <div id="card-zone"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   Liànxí v2 : répétition espacée + 4 modes de pratique.
+   Vocabulaire embarqué généré depuis vocab/vocab.json
+   (tools/update_vocab.py), progression en localStorage.
+   ============================================================ */
+
+const LS_KEY = "lianxi-v1";
+const LEVELS = [0, 1, 2, 4, 7, 15, 30, 60]; // intervalle en jours par niveau
+const SESSION_MAX = 25;
+const MODES = ["lecture", "ecoute", "ecriture", "oral"];
+const MODE_LABEL = { lecture: "Lecture", ecoute: "Écoute", ecriture: "Écriture", oral: "Oral" };
+
+/* VOCAB:BEGIN — généré par tools/update_vocab.py, ne pas éditer à la main */
+const EMBED_VOCAB = [{"hanzi":"你好","pinyin":"nǐ hǎo","fr":"bonjour","phrase":"你好，我是法国人。","phraseFr":"Bonjour, je suis française.","theme":"HSK 1"},{"hanzi":"谢谢","pinyin":"xièxie","fr":"merci","phrase":"谢谢你！","phraseFr":"Merci à toi !","theme":"HSK 1"},{"hanzi":"再见","pinyin":"zàijiàn","fr":"au revoir","phrase":"老师，再见！","phraseFr":"Au revoir, professeur !","theme":"HSK 1"},{"hanzi":"我","pinyin":"wǒ","fr":"je, moi","phrase":"我是学生。","phraseFr":"Je suis étudiante.","theme":"HSK 1"},{"hanzi":"你","pinyin":"nǐ","fr":"tu, toi","phrase":"你喝茶吗？","phraseFr":"Tu bois du thé ?","theme":"HSK 1"},{"hanzi":"是","pinyin":"shì","fr":"être","phrase":"他是我朋友。","phraseFr":"C'est mon ami.","theme":"HSK 1"},{"hanzi":"不","pinyin":"bù","fr":"ne... pas","phrase":"我不喝咖啡。","phraseFr":"Je ne bois pas de café.","theme":"HSK 1"},{"hanzi":"好","pinyin":"hǎo","fr":"bien, bon","phrase":"很好！","phraseFr":"Très bien !","theme":"HSK 1"},{"hanzi":"吃","pinyin":"chī","fr":"manger","phrase":"你吃什么？","phraseFr":"Qu'est-ce que tu manges ?","theme":"HSK 1"},{"hanzi":"喝","pinyin":"hē","fr":"boire","phrase":"我喝水。","phraseFr":"Je bois de l'eau.","theme":"HSK 1"},{"hanzi":"水","pinyin":"shuǐ","fr":"eau","phrase":"我要喝水。","phraseFr":"Je veux boire de l'eau.","theme":"HSK 1"},{"hanzi":"茶","pinyin":"chá","fr":"thé","phrase":"中国茶很好喝。","phraseFr":"Le thé chinois est très bon.","theme":"HSK 1"},{"hanzi":"人","pinyin":"rén","fr":"personne, humain","phrase":"他是中国人。","phraseFr":"Il est chinois.","theme":"HSK 1"},{"hanzi":"中国","pinyin":"Zhōngguó","fr":"Chine","phrase":"我想去中国。","phraseFr":"Je veux aller en Chine.","theme":"HSK 1"},{"hanzi":"老师","pinyin":"lǎoshī","fr":"professeur","phrase":"我的老师很好。","phraseFr":"Mon professeur est très bien.","theme":"HSK 1"},{"hanzi":"学生","pinyin":"xuésheng","fr":"étudiant(e)","phrase":"我是学生。","phraseFr":"Je suis étudiante.","theme":"HSK 1"},{"hanzi":"朋友","pinyin":"péngyou","fr":"ami(e)","phrase":"她是我的朋友。","phraseFr":"C'est mon amie.","theme":"HSK 1"},{"hanzi":"喜欢","pinyin":"xǐhuan","fr":"aimer, apprécier","phrase":"我喜欢吃中国菜。","phraseFr":"J'aime la cuisine chinoise.","theme":"HSK 1"},{"hanzi":"什么","pinyin":"shénme","fr":"quoi, quel","phrase":"这是什么？","phraseFr":"Qu'est-ce que c'est ?","theme":"HSK 1"},{"hanzi":"妈妈","pinyin":"māma","fr":"maman","phrase":"我妈妈喜欢喝茶。","phraseFr":"Ma maman aime boire du thé.","theme":"HSK 1"},{"hanzi":"电脑","pinyin":"diànnǎo","fr":"ordinateur","phrase":"我的电脑很慢。","phraseFr":"Mon ordinateur est très lent.","theme":"Informatique"},{"hanzi":"手机","pinyin":"shǒujī","fr":"téléphone portable","phrase":"我的手机没电了。","phraseFr":"Mon téléphone n'a plus de batterie.","theme":"Informatique"},{"hanzi":"软件","pinyin":"ruǎnjiàn","fr":"logiciel","phrase":"这个软件很好用。","phraseFr":"Ce logiciel est très pratique.","theme":"Informatique"},{"hanzi":"文件","pinyin":"wénjiàn","fr":"fichier, document","phrase":"请打开这个文件。","phraseFr":"Ouvre ce fichier, s'il te plaît.","theme":"Informatique"},{"hanzi":"文件夹","pinyin":"wénjiànjiā","fr":"dossier (informatique)","phrase":"文件在这个文件夹里。","phraseFr":"Le fichier est dans ce dossier.","theme":"Informatique"},{"hanzi":"下载","pinyin":"xiàzài","fr":"télécharger","phrase":"我在下载一个软件。","phraseFr":"Je suis en train de télécharger un logiciel.","theme":"Informatique"},{"hanzi":"打开","pinyin":"dǎkāi","fr":"ouvrir, allumer","phrase":"请打开电脑。","phraseFr":"Allume l'ordinateur, s'il te plaît.","theme":"Informatique"},{"hanzi":"关闭","pinyin":"guānbì","fr":"fermer, éteindre","phrase":"请关闭这个程序。","phraseFr":"Ferme ce programme, s'il te plaît.","theme":"Informatique"},{"hanzi":"保存","pinyin":"bǎocún","fr":"enregistrer, sauvegarder","phrase":"别忘了保存文件。","phraseFr":"N'oublie pas d'enregistrer le fichier.","theme":"Informatique"},{"hanzi":"删除","pinyin":"shānchú","fr":"supprimer","phrase":"我删除了这个文件。","phraseFr":"J'ai supprimé ce fichier.","theme":"Informatique"},{"hanzi":"网站","pinyin":"wǎngzhàn","fr":"site web","phrase":"这个网站很有意思。","phraseFr":"Ce site web est très intéressant.","theme":"Informatique"},{"hanzi":"网络","pinyin":"wǎngluò","fr":"réseau, internet","phrase":"网络不好。","phraseFr":"La connexion est mauvaise.","theme":"Informatique"},{"hanzi":"上网","pinyin":"shàngwǎng","fr":"aller sur internet","phrase":"我每天上网。","phraseFr":"Je vais sur internet tous les jours.","theme":"Informatique"},{"hanzi":"密码","pinyin":"mìmǎ","fr":"mot de passe","phrase":"我忘了我的密码。","phraseFr":"J'ai oublié mon mot de passe.","theme":"Informatique"},{"hanzi":"用户","pinyin":"yònghù","fr":"utilisateur","phrase":"这个软件有很多用户。","phraseFr":"Ce logiciel a beaucoup d'utilisateurs.","theme":"Informatique"},{"hanzi":"点击","pinyin":"diǎnjī","fr":"cliquer","phrase":"点击这里。","phraseFr":"Clique ici.","theme":"Informatique"},{"hanzi":"屏幕","pinyin":"píngmù","fr":"écran","phrase":"屏幕太小了。","phraseFr":"L'écran est trop petit.","theme":"Informatique"},{"hanzi":"键盘","pinyin":"jiànpán","fr":"clavier","phrase":"我用中文键盘。","phraseFr":"J'utilise un clavier chinois.","theme":"Informatique"},{"hanzi":"鼠标","pinyin":"shǔbiāo","fr":"souris (informatique)","phrase":"鼠标坏了。","phraseFr":"La souris est cassée.","theme":"Informatique"},{"hanzi":"程序","pinyin":"chéngxù","fr":"programme","phrase":"这个程序有问题。","phraseFr":"Ce programme a un problème.","theme":"Informatique"},{"hanzi":"数据","pinyin":"shùjù","fr":"données","phrase":"数据很重要。","phraseFr":"Les données sont très importantes.","theme":"Informatique"},{"hanzi":"人工智能","pinyin":"réngōng zhìnéng","fr":"intelligence artificielle","phrase":"我用人工智能学中文。","phraseFr":"J'utilise l'IA pour apprendre le chinois.","theme":"Informatique"},{"hanzi":"电子邮件","pinyin":"diànzǐ yóujiàn","fr":"e-mail","phrase":"请给我发电子邮件。","phraseFr":"Envoie-moi un e-mail, s'il te plaît.","theme":"Informatique"}];
+/* VOCAB:END */
+
+/* ---------- État ---------- */
+let state = load();
+let curTheme = "all";
+
+function load() {
+  let s = null;
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) s = JSON.parse(raw);
+  } catch (e) { /* stockage indisponible : session éphémère */ }
+  if (!s) s = { cards: [], days: {}, reviews: 0 };
+  mergeEmbed(s);
+  return s;
+}
+function mergeEmbed(s) {
+  EMBED_VOCAB.forEach(w => {
+    const ex = s.cards.find(c => c.hanzi === w.hanzi);
+    if (ex) {
+      ex.pinyin = w.pinyin; ex.fr = w.fr;
+      ex.phrase = w.phrase || ""; ex.phraseFr = w.phraseFr || "";
+      ex.theme = w.theme || ex.theme || "Général";
+    } else {
+      s.cards.push(newCard(w));
+    }
+  });
+}
+function save() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+}
+function newCard(w) {
+  return { hanzi: w.hanzi.trim(), pinyin: (w.pinyin||"").trim(), fr: (w.fr||"").trim(),
+    phrase: (w.phrase||"").trim(), phraseFr: (w.phraseFr||"").trim(),
+    theme: (w.theme||"Général").trim(),
+    level: 0, due: Date.now(), errors: 0, reviews: 0 };
+}
+
+/* ---------- Utilitaires ---------- */
+const $ = id => document.getElementById(id);
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+/* Argument JS sûr dans un attribut onclick : les guillemets deviennent des entités HTML */
+function jsattr(v) { return esc(JSON.stringify(v)); }
+function todayKey() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function toneOf(syll) {
+  if (/[āēīōūǖĀĒĪŌŪǕ]/.test(syll)) return 1;
+  if (/[áéíóúǘÁÉÍÓÚǗ]/.test(syll)) return 2;
+  if (/[ǎěǐǒǔǚǍĚǏǑǓǙ]/.test(syll)) return 3;
+  if (/[àèìòùǜÀÈÌÒÙǛ]/.test(syll)) return 4;
+  return 0;
+}
+function renderPinyin(p) {
+  return esc(p).split(/(\s+)/).map(tok =>
+    /^\s+$/.test(tok) || tok === "" ? tok : `<span class="t${toneOf(tok)}">${tok}</span>`
+  ).join("");
+}
+function normHanzi(s) {
+  return String(s).replace(/[\s，。！？、；：""''……—,.!?;:'"()（） ]/g, "");
+}
+function streak() {
+  let n = 0;
+  const d = new Date();
+  if (!state.days[todayKey()]) d.setDate(d.getDate() - 1); // la journée en cours ne casse pas la série
+  while (true) {
+    const k = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    if (state.days[k]) { n++; d.setDate(d.getDate() - 1); } else break;
+  }
+  return n;
+}
+
+/* ---------- Synthèse vocale ---------- */
+let zhVoice = null;
+function pickVoice() {
+  const vs = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  zhVoice = vs.find(v => /^zh[-_]CN/i.test(v.lang)) ||
+            vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (window.speechSynthesis) {
+  pickVoice();
+  speechSynthesis.onvoiceschanged = pickVoice;
+}
+function speak(text, rate) {
+  if (!window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "zh-CN";
+  if (zhVoice) u.voice = zhVoice;
+  u.rate = rate || 0.85;
+  speechSynthesis.speak(u);
+}
+
+/* ---------- Onglets & rendu ---------- */
+function showTab(t) {
+  $("view-home").classList.toggle("hidden", t !== "home");
+  $("view-words").classList.toggle("hidden", t !== "words");
+  $("tab-home").setAttribute("aria-selected", t === "home");
+  $("tab-words").setAttribute("aria-selected", t === "words");
+  render();
+}
+function themeMatch(c) { return curTheme === "all" || (c.theme || "Général") === curTheme; }
+function dueCards() {
+  const now = Date.now();
+  return state.cards.filter(c => c.due <= now && themeMatch(c)).sort((a, b) => a.due - b.due);
+}
+function weakCards() {
+  return state.cards
+    .filter(c => c.reviews >= 2 && c.errors >= 2)
+    .sort((a, b) => (b.errors / b.reviews) - (a.errors / a.reviews))
+    .slice(0, 10);
+}
+function setTheme(t) { curTheme = t; render(); }
+function render() {
+  const themes = [...new Set(state.cards.map(c => c.theme || "Général"))].sort();
+  if (curTheme !== "all" && !themes.includes(curTheme)) curTheme = "all";
+  $("theme-chips").innerHTML = themes.length > 1
+    ? [`<button class="chip" aria-pressed="${curTheme === "all"}" onclick="setTheme('all')">Tout</button>`,
+       ...themes.map(t => `<button class="chip" aria-pressed="${curTheme === t}" onclick="setTheme(${jsattr(t)})">${esc(t)}</button>`)
+      ].join("")
+    : "";
+
+  const due = dueCards();
+  $("due-count").textContent = Math.min(due.length, SESSION_MAX);
+  $("due-label").textContent = (due.length === 1 ? "carte à réviser" : "cartes à réviser") +
+    (curTheme === "all" ? "" : " · " + curTheme);
+  $("start-btn").disabled = due.length === 0;
+  $("no-due-hint").style.display = due.length === 0 ? "" : "none";
+  $("streak").textContent = "🔥 " + streak();
+  $("st-total").textContent = state.cards.length;
+  $("st-acquired").textContent = state.cards.filter(c => c.level >= 4).length;
+  $("st-reviews").textContent = state.reviews;
+
+  const weak = weakCards();
+  $("weak-list").innerHTML = weak.map(c =>
+    `<li><span class="w-hanzi hanzi">${esc(c.hanzi)}</span>
+     <span class="w-mid"><span class="w-pinyin">${renderPinyin(c.pinyin)}</span><br><span class="w-fr">${esc(c.fr)}</span></span>
+     <span class="w-err">${c.errors}✕</span></li>`).join("");
+  $("weak-empty").style.display = weak.length ? "none" : "";
+  $("export-weak").style.display = weak.length ? "" : "none";
+
+  $("word-count").textContent = state.cards.length;
+  const sorted = [...state.cards].sort((a, b) => a.level - b.level || b.errors - a.errors);
+  $("word-list").innerHTML = sorted.map(c =>
+    `<li><span class="w-hanzi hanzi">${esc(c.hanzi)}</span>
+     <span class="w-mid"><span class="w-pinyin">${renderPinyin(c.pinyin)}</span><span class="w-theme">${esc(c.theme || "Général")}</span><br><span class="w-fr">${esc(c.fr)}</span></span>
+     <span class="w-lvl">niv. ${c.level}</span></li>`).join("");
+}
+
+/* ---------- Import / export ---------- */
+function importVocab() {
+  const box = $("import-box"), msg = $("import-msg");
+  let txt = box.value.trim().replace(/^```(json)?/i, "").replace(/```$/, "").trim();
+  msg.className = "msg err";
+  if (!txt) { msg.textContent = "Colle d'abord le bloc JSON."; return; }
+  let arr;
+  try { arr = JSON.parse(txt); } catch (e) { msg.textContent = "JSON invalide. Recopie le bloc complet, crochets compris."; return; }
+  if (!Array.isArray(arr)) { msg.textContent = "Le JSON doit être une liste [ ... ]."; return; }
+  let added = 0, updated = 0;
+  arr.forEach(w => {
+    if (!w || !w.hanzi) return;
+    const ex = state.cards.find(c => c.hanzi === w.hanzi.trim());
+    if (ex) {
+      if (w.pinyin) ex.pinyin = w.pinyin.trim();
+      if (w.fr) ex.fr = w.fr.trim();
+      if (w.phrase) ex.phrase = w.phrase.trim();
+      if (w.phraseFr) ex.phraseFr = w.phraseFr.trim();
+      if (w.theme) ex.theme = w.theme.trim();
+      updated++;
+    } else { state.cards.push(newCard(w)); added++; }
+  });
+  save(); render();
+  msg.className = "msg ok";
+  msg.textContent = `${added} mot(s) ajouté(s), ${updated} mis à jour.`;
+  box.value = "";
+}
+
+function copyText(text, btnMsgEl, okLabel) {
+  const done = () => { btnMsgEl.className = "msg ok"; btnMsgEl.textContent = okLabel; };
+  const fail = () => { btnMsgEl.className = "msg err"; btnMsgEl.textContent = "Copie impossible, sélectionne et copie manuellement :";
+    const ta = document.createElement("textarea"); ta.value = text; ta.style.minHeight = "8rem";
+    btnMsgEl.after(ta); ta.select(); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, fail);
+  } else fail();
+}
+function exportWeak() {
+  const weak = weakCards();
+  const lines = weak.map(c => `- ${c.hanzi} (${c.pinyin}) « ${c.fr} » : ${c.errors} erreurs sur ${c.reviews} révisions`);
+  const text = `Mots faibles exportés depuis mon app Liànxí (${todayKey()}). Intègre-les en priorité à ma prochaine leçon et au carnet d'erreurs :\n${lines.join("\n")}`;
+  copyText(text, $("weak-empty"), "Copié. Colle-le dans ta session Claude Code.");
+  $("weak-empty").style.display = "";
+}
+function copyBackup() {
+  copyText(JSON.stringify(state), $("maint-msg"), "Sauvegarde copiée. Garde-la dans une note ou un fichier.");
+}
+let resetArmed = false;
+function resetApp() {
+  const msg = $("maint-msg");
+  if (!resetArmed) {
+    resetArmed = true;
+    msg.className = "msg err";
+    msg.textContent = "Appuie encore une fois pour tout effacer (progression comprise).";
+    setTimeout(() => { resetArmed = false; if (msg.textContent.startsWith("Appuie")) msg.textContent = ""; }, 5000);
+    return;
+  }
+  try { localStorage.removeItem(LS_KEY); } catch (e) {}
+  state = load(); save(); resetArmed = false;
+  msg.className = "msg ok"; msg.textContent = "Réinitialisé avec le vocabulaire embarqué.";
+  render();
+}
+
+/* ---------- Session ---------- */
+let queue = [], qIndex = 0, sessTotal = 0, sessErrors = [], sessOk = 0;
+
+function startSession() {
+  const due = dueCards().slice(0, SESSION_MAX);
+  if (!due.length) return;
+  queue = shuffle(due);
+  qIndex = 0; sessTotal = queue.length; sessErrors = []; sessOk = 0;
+  speak(" "); // amorce iOS : première utterance déclenchée par un geste utilisateur
+  $("session").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  nextCard();
+}
+function shuffle(a) {
+  const r = [...a];
+  for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; }
+  return r;
+}
+function quitSession() {
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  stopRecog();
+  $("session").classList.add("hidden");
+  document.body.style.overflow = "";
+  render();
+}
+function modeFor(card) {
+  const m = MODES[card.reviews % MODES.length];
+  if ((m === "ecoute") && !window.speechSynthesis) return "lecture";
+  return m;
+}
+function nextCard() {
+  stopRecog();
+  if (qIndex >= queue.length) { endSession(); return; }
+  const card = queue[qIndex];
+  const mode = modeFor(card);
+  $("prog-bar").style.width = Math.round(100 * qIndex / queue.length) + "%";
+  $("prog-txt").textContent = `${Math.min(qIndex + 1, sessTotal)} / ${queue.length}`;
+  const z = $("card-zone");
+  z.innerHTML = `<span class="mode-tag">${MODE_LABEL[mode]}</span>` + cardHTML(card, mode);
+  const inp = z.querySelector("input.answer");
+  if (inp) {
+    inp.focus();
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") checkWriting(); });
+  }
+  if (mode === "ecoute") speak(card.hanzi);
+}
+
+function cardHTML(c, mode) {
+  const audioBtns = `<div>
+    <button class="audio-btn" onclick="speak(${jsattr(c.hanzi)})">🔊 Écouter</button>
+    <button class="audio-btn" onclick="speak(${jsattr(c.hanzi)}, 0.55)">🐢 Lent</button>
+  </div>`;
+  const phrase = c.phrase ? `<hr class="divider"><div class="q-phrase hanzi">${esc(c.phrase)}</div>
+    ${c.phraseFr ? `<div class="q-phrase-fr">${esc(c.phraseFr)}</div>` : ""}
+    <div><button class="audio-btn" onclick="speak(${jsattr(c.phrase)})">🔊 La phrase</button></div>` : "";
+  const answer = `<div class="q-pinyin">${renderPinyin(c.pinyin)}</div><div class="q-fr">${esc(c.fr)}</div>`;
+
+  if (mode === "lecture") return `<div class="qcard">
+      <div class="q-hanzi hanzi">${esc(c.hanzi)}</div>
+      <div class="q-prompt">Pinyin, tons et sens ?</div>
+      <div id="reveal-zone"><button class="btn secondary" onclick="reveal()">Révéler</button></div>
+      <div id="answer-zone" class="hidden">${answer}${audioBtns}${phrase}</div>
+    </div>${gradesHTML()}`;
+
+  if (mode === "ecoute") return `<div class="qcard">
+      <button class="big-audio" onclick="speak(${jsattr(c.hanzi)})" aria-label="Réécouter">🔊</button>
+      <div class="q-prompt">Qu'as-tu entendu ? Dis-le, puis révèle.</div>
+      <div><button class="audio-btn" onclick="speak(${jsattr(c.hanzi)}, 0.55)">🐢 Réécouter en lent</button></div>
+      <div id="reveal-zone"><button class="btn secondary" onclick="reveal()">Révéler</button></div>
+      <div id="answer-zone" class="hidden"><div class="q-hanzi small hanzi">${esc(c.hanzi)}</div>${answer}${phrase}</div>
+    </div>${gradesHTML()}`;
+
+  if (mode === "ecriture") return `<div class="qcard">
+      <div class="q-fr">« ${esc(c.fr)} »</div>
+      <div class="q-prompt">Écris-le en caractères avec ton clavier chinois</div>
+      <input class="answer" id="write-input" autocomplete="off" lang="zh-CN">
+      <div id="reveal-zone"><button class="btn secondary" onclick="checkWriting()">Vérifier</button></div>
+      <div id="answer-zone" class="hidden"></div>
+    </div><div id="grades-slot"></div>`;
+
+  /* oral */
+  const target = c.phrase || c.hanzi;
+  const targetFr = c.phrase ? (c.phraseFr || c.fr) : c.fr;
+  const sr = hasRecog();
+  return `<div class="qcard">
+      <div class="q-fr">« ${esc(targetFr)} »</div>
+      <div class="q-prompt">${sr ? "Dis-le en chinois, je t'écoute" : "Dis-le en chinois à voix haute, puis compare"}</div>
+      ${sr ? `<button class="big-audio" id="mic-btn" onclick="startRecog(${jsattr(target)})" aria-label="Parler">🎙️</button>
+              <div class="heard" id="heard"></div>` : ""}
+      <div id="reveal-zone"><button class="btn secondary" onclick="reveal()">Révéler la réponse</button></div>
+      <div id="answer-zone" class="hidden">
+        <div class="q-hanzi small hanzi">${esc(target)}</div>
+        <div class="q-fr">${esc(c.hanzi)} <span class="q-pinyin">${renderPinyin(c.pinyin)}</span> : ${esc(c.fr)}</div>
+        <div><button class="audio-btn" onclick="speak(${jsattr(target)})">🔊 Modèle</button>
+             <button class="audio-btn" onclick="speak(${jsattr(target)}, 0.55)">🐢 Lent</button></div>
+        <div class="q-prompt">Réécoute le modèle et répète-le 2 fois (shadowing)</div>
+      </div>
+    </div>${gradesHTML()}`;
+}
+
+function gradesHTML(suggest) {
+  return `<div class="grades" id="grades" style="visibility:hidden">
+    <button class="g-again ${suggest === "again" ? "suggest" : ""}" onclick="grade(0)">Encore</button>
+    <button class="g-good ${suggest === "good" ? "suggest" : ""}" onclick="grade(1)">Bon</button>
+    <button class="g-easy ${suggest === "easy" ? "suggest" : ""}" onclick="grade(2)">Facile</button>
+  </div>`;
+}
+function reveal() {
+  $("reveal-zone").classList.add("hidden");
+  $("answer-zone").classList.remove("hidden");
+  $("grades").style.visibility = "visible";
+}
+
+/* ---- Mode écriture ---- */
+function checkWriting() {
+  const card = queue[qIndex];
+  const raw = $("write-input").value;
+  const got = normHanzi(raw), want = normHanzi(card.hanzi);
+  const ok = got === want;
+  let diff = "";
+  for (let i = 0; i < Math.max(got.length, want.length); i++) {
+    const g = got[i] || "·";
+    diff += `<span class="${g === want[i] ? "okc" : "koc"}">${esc(g)}</span>`;
+  }
+  $("write-input").disabled = true;
+  $("answer-zone").innerHTML =
+    `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "Correct !" : "Pas tout à fait"}</div>
+     ${ok ? "" : `<div class="q-hanzi small hanzi diff">${diff}</div>`}
+     <div class="q-hanzi small hanzi">${esc(card.hanzi)}</div>
+     <div class="q-pinyin">${renderPinyin(card.pinyin)}</div>
+     <div><button class="audio-btn" onclick="speak(${jsattr(card.hanzi)})">🔊 Écouter</button></div>`;
+  $("reveal-zone").classList.add("hidden");
+  $("answer-zone").classList.remove("hidden");
+  $("grades-slot").innerHTML = gradesHTML(ok ? "good" : "again");
+  $("grades").style.visibility = "visible";
+}
+
+/* ---- Mode oral : reconnaissance vocale ---- */
+let recog = null;
+function hasRecog() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
+function stopRecog() { if (recog) { try { recog.abort(); } catch (e) {} recog = null; } }
+function startRecog(target) {
+  stopRecog();
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recog = new SR();
+  recog.lang = "zh-CN";
+  recog.maxAlternatives = 3;
+  const mic = $("mic-btn"), heard = $("heard");
+  mic.textContent = "👂";
+  heard.textContent = "Je t'écoute...";
+  recog.onresult = ev => {
+    mic.textContent = "🎙️";
+    const alts = Array.from(ev.results[0]).map(r => r.transcript);
+    const want = normHanzi(target);
+    const hit = alts.some(a => normHanzi(a).includes(want));
+    heard.innerHTML = `Entendu : <span class="hanzi">${esc(alts[0])}</span>`;
+    reveal();
+    const zone = $("answer-zone");
+    zone.insertAdjacentHTML("afterbegin",
+      `<div class="verdict ${hit ? "ok" : "ko"}">${hit ? "Bien reconnu !" : "Pas reconnu, compare avec le modèle"}</div>`);
+    const btn = document.querySelector(hit ? ".g-good" : ".g-again");
+    if (btn) btn.classList.add("suggest");
+  };
+  recog.onerror = ev => {
+    mic.textContent = "🎙️";
+    heard.textContent = (ev.error === "not-allowed" || ev.error === "service-not-allowed")
+      ? "Micro refusé : autorise le micro pour ce site dans les réglages du navigateur, puis réessaie."
+      : "Micro indisponible : évalue-toi avec le modèle.";
+  };
+  recog.onend = () => { if (mic.textContent === "👂") mic.textContent = "🎙️"; };
+  try { recog.start(); } catch (e) { heard.textContent = "Micro indisponible : évalue-toi avec le modèle."; }
+}
+
+/* ---- Notation & planification ---- */
+function grade(g) {
+  const card = queue[qIndex];
+  card.reviews++; state.reviews++;
+  state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
+  if (g === 0) {
+    card.errors++;
+    card.level = Math.max(0, card.level - 2);
+    if (!sessErrors.includes(card)) sessErrors.push(card);
+    queue.push(card); // repasse en fin de session
+  } else {
+    sessOk++;
+    card.level = Math.min(LEVELS.length - 1, card.level + (g === 2 ? 2 : 1));
+  }
+  const days = LEVELS[card.level];
+  card.due = days === 0 ? Date.now() : Date.now() + days * 864e5 + Math.floor(Math.random() * 36e5);
+  save();
+  qIndex++;
+  nextCard();
+}
+
+function endSession() {
+  $("prog-bar").style.width = "100%";
+  $("prog-txt").textContent = "";
+  const errHTML = sessErrors.length
+    ? `<hr class="divider"><div class="end-list"><strong>À retravailler :</strong>
+       <ul class="words">${sessErrors.map(c =>
+         `<li><span class="w-hanzi hanzi">${esc(c.hanzi)}</span>
+          <span class="w-mid"><span class="w-pinyin">${renderPinyin(c.pinyin)}</span><br><span class="w-fr">${esc(c.fr)}</span></span></li>`).join("")}
+       </ul></div>
+       <button class="btn secondary" onclick="copySessionReport()">Copier le bilan pour mon tuteur Claude</button>
+       <div class="msg" id="sess-msg"></div>`
+    : `<p class="q-fr">Sans faute. 太好了 tài hǎo le !</p>`;
+  $("card-zone").innerHTML = `<div class="qcard">
+      <div class="q-hanzi hanzi">加油</div>
+      <div class="q-pinyin">${renderPinyin("jiā yóu")}</div>
+      <div class="q-fr">Session terminée : ${sessOk} réussite(s), ${sessErrors.length} mot(s) à retravailler.</div>
+      ${errHTML}
+      <button class="btn" onclick="quitSession()">Terminer</button>
+    </div>`;
+}
+function copySessionReport() {
+  const lines = sessErrors.map(c => `- ${c.hanzi} (${c.pinyin}) « ${c.fr} »`);
+  const text = `Bilan de ma session Liànxí du ${todayKey()} : ${sessOk} réussites. Mots ratés à intégrer au carnet d'erreurs et à la prochaine leçon :\n${lines.join("\n")}`;
+  copyText(text, $("sess-msg"), "Copié. Colle-le dans ta session Claude Code.");
+}
+
+save();
+render();
+</script>
+</body>
+</html>

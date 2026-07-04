@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="20" fill="#2F6D66"/>
+  <rect x="8" y="8" width="84" height="84" rx="14" fill="none" stroke="#F6F4EF" stroke-width="3"/>
+  <text x="50" y="70" font-size="52" text-anchor="middle" fill="#F6F4EF" font-family="Kaiti SC, STKaiti, KaiTi, serif">练</text>
+</svg>
