@@ -177,8 +177,21 @@
   .q-pinyin { font-size: 1.5rem; }
   .q-fr { font-size: 1.25rem; }
   .q-prompt { font-size: 1.05rem; color: var(--muted); }
-  .q-phrase { font-size: 1.35rem; line-height: 1.5; }
+  .q-phrase { font-size: 1.35rem; line-height: 1.6; }
   .q-phrase-fr { font-size: 1.02rem; color: var(--muted); }
+  .q-phrase .pword {
+    background: none; border: none; padding: 0 .06em; margin: 0;
+    font-size: inherit; font-family: inherit; color: inherit; cursor: pointer;
+    border-radius: .25em; border-bottom: 2px dotted var(--line);
+  }
+  .q-phrase .pword.active { background: var(--accent-soft); color: var(--accent); border-bottom: 2px solid var(--accent); }
+  .gloss { font-size: 1.05rem; min-height: 1.3em; }
+  .gloss-hint { font-size: .92rem; margin: 0; }
+  select {
+    width: 100%; padding: .6rem; font-size: 1.02rem; font-family: inherit;
+    border: 1px solid var(--line); border-radius: .6rem;
+    background: var(--paper); color: var(--ink);
+  }
   .divider { border: none; border-top: 1px dashed var(--line); margin: .5rem 0; }
 
   .audio-btn {
@@ -270,7 +283,14 @@
   <section id="view-words" class="hidden">
     <div class="panel">
       <h2>Ajouter des mots</h2>
-      <p class="hint" style="margin:0">Donne à ton tuteur Claude une capture d'écran, un PDF, un docx ou du texte en chinois (dans la session Claude Code, ou en le déposant dans le dossier Drive « Chinois » depuis ton téléphone), puis dis « ajoute ». Les nouveaux mots arrivent ici au prochain rechargement de la page.</p>
+      <p class="hint" style="margin:0">Dépose une capture d'écran, un PDF ou un document dans le dossier Drive « Chinois » depuis ton téléphone (Partager, puis Google Drive) : le vocabulaire en est extrait automatiquement chaque matin à 7h30 et arrive ici au rechargement de la page. Pour un ajout immédiat : donne le contenu à ton tuteur Claude en session et dis « ajoute ».</p>
+    </div>
+
+    <div class="panel">
+      <h2>Voix chinoise</h2>
+      <select id="voice-select" onchange="setVoice(this.value)" aria-label="Choix de la voix chinoise"></select>
+      <button class="btn secondary" onclick="testVoice()">Écouter un exemple</button>
+      <p class="hint">Pour une voix plus naturelle sur iPhone : Réglages, Accessibilité, Contenu énoncé, Voix, Chinois, puis télécharge une version « Améliorée » ou « Premium » (Ting-Ting par exemple). Elle apparaîtra ensuite dans cette liste et sera choisie automatiquement.</p>
     </div>
 
     <div class="panel">
@@ -318,7 +338,7 @@ const MODES = ["lecture", "ecoute", "ecriture", "oral"];
 const MODE_LABEL = { lecture: "Lecture", ecoute: "Écoute", ecriture: "Écriture", oral: "Oral" };
 
 /* VOCAB:BEGIN — généré par tools/update_vocab.py, ne pas éditer à la main */
-const EMBED_VOCAB = [{"hanzi":"你好","pinyin":"nǐ hǎo","fr":"bonjour","phrase":"你好，我是法国人。","phraseFr":"Bonjour, je suis française.","theme":"HSK 1"},{"hanzi":"谢谢","pinyin":"xièxie","fr":"merci","phrase":"谢谢你！","phraseFr":"Merci à toi !","theme":"HSK 1"},{"hanzi":"再见","pinyin":"zàijiàn","fr":"au revoir","phrase":"老师，再见！","phraseFr":"Au revoir, professeur !","theme":"HSK 1"},{"hanzi":"我","pinyin":"wǒ","fr":"je, moi","phrase":"我是学生。","phraseFr":"Je suis étudiante.","theme":"HSK 1"},{"hanzi":"你","pinyin":"nǐ","fr":"tu, toi","phrase":"你喝茶吗？","phraseFr":"Tu bois du thé ?","theme":"HSK 1"},{"hanzi":"是","pinyin":"shì","fr":"être","phrase":"他是我朋友。","phraseFr":"C'est mon ami.","theme":"HSK 1"},{"hanzi":"不","pinyin":"bù","fr":"ne... pas","phrase":"我不喝咖啡。","phraseFr":"Je ne bois pas de café.","theme":"HSK 1"},{"hanzi":"好","pinyin":"hǎo","fr":"bien, bon","phrase":"很好！","phraseFr":"Très bien !","theme":"HSK 1"},{"hanzi":"吃","pinyin":"chī","fr":"manger","phrase":"你吃什么？","phraseFr":"Qu'est-ce que tu manges ?","theme":"HSK 1"},{"hanzi":"喝","pinyin":"hē","fr":"boire","phrase":"我喝水。","phraseFr":"Je bois de l'eau.","theme":"HSK 1"},{"hanzi":"水","pinyin":"shuǐ","fr":"eau","phrase":"我要喝水。","phraseFr":"Je veux boire de l'eau.","theme":"HSK 1"},{"hanzi":"茶","pinyin":"chá","fr":"thé","phrase":"中国茶很好喝。","phraseFr":"Le thé chinois est très bon.","theme":"HSK 1"},{"hanzi":"人","pinyin":"rén","fr":"personne, humain","phrase":"他是中国人。","phraseFr":"Il est chinois.","theme":"HSK 1"},{"hanzi":"中国","pinyin":"Zhōngguó","fr":"Chine","phrase":"我想去中国。","phraseFr":"Je veux aller en Chine.","theme":"HSK 1"},{"hanzi":"老师","pinyin":"lǎoshī","fr":"professeur","phrase":"我的老师很好。","phraseFr":"Mon professeur est très bien.","theme":"HSK 1"},{"hanzi":"学生","pinyin":"xuésheng","fr":"étudiant(e)","phrase":"我是学生。","phraseFr":"Je suis étudiante.","theme":"HSK 1"},{"hanzi":"朋友","pinyin":"péngyou","fr":"ami(e)","phrase":"她是我的朋友。","phraseFr":"C'est mon amie.","theme":"HSK 1"},{"hanzi":"喜欢","pinyin":"xǐhuan","fr":"aimer, apprécier","phrase":"我喜欢吃中国菜。","phraseFr":"J'aime la cuisine chinoise.","theme":"HSK 1"},{"hanzi":"什么","pinyin":"shénme","fr":"quoi, quel","phrase":"这是什么？","phraseFr":"Qu'est-ce que c'est ?","theme":"HSK 1"},{"hanzi":"妈妈","pinyin":"māma","fr":"maman","phrase":"我妈妈喜欢喝茶。","phraseFr":"Ma maman aime boire du thé.","theme":"HSK 1"},{"hanzi":"电脑","pinyin":"diànnǎo","fr":"ordinateur","phrase":"我的电脑很慢。","phraseFr":"Mon ordinateur est très lent.","theme":"Informatique"},{"hanzi":"手机","pinyin":"shǒujī","fr":"téléphone portable","phrase":"我的手机没电了。","phraseFr":"Mon téléphone n'a plus de batterie.","theme":"Informatique"},{"hanzi":"软件","pinyin":"ruǎnjiàn","fr":"logiciel","phrase":"这个软件很好用。","phraseFr":"Ce logiciel est très pratique.","theme":"Informatique"},{"hanzi":"文件","pinyin":"wénjiàn","fr":"fichier, document","phrase":"请打开这个文件。","phraseFr":"Ouvre ce fichier, s'il te plaît.","theme":"Informatique"},{"hanzi":"文件夹","pinyin":"wénjiànjiā","fr":"dossier (informatique)","phrase":"文件在这个文件夹里。","phraseFr":"Le fichier est dans ce dossier.","theme":"Informatique"},{"hanzi":"下载","pinyin":"xiàzài","fr":"télécharger","phrase":"我在下载一个软件。","phraseFr":"Je suis en train de télécharger un logiciel.","theme":"Informatique"},{"hanzi":"打开","pinyin":"dǎkāi","fr":"ouvrir, allumer","phrase":"请打开电脑。","phraseFr":"Allume l'ordinateur, s'il te plaît.","theme":"Informatique"},{"hanzi":"关闭","pinyin":"guānbì","fr":"fermer, éteindre","phrase":"请关闭这个程序。","phraseFr":"Ferme ce programme, s'il te plaît.","theme":"Informatique"},{"hanzi":"保存","pinyin":"bǎocún","fr":"enregistrer, sauvegarder","phrase":"别忘了保存文件。","phraseFr":"N'oublie pas d'enregistrer le fichier.","theme":"Informatique"},{"hanzi":"删除","pinyin":"shānchú","fr":"supprimer","phrase":"我删除了这个文件。","phraseFr":"J'ai supprimé ce fichier.","theme":"Informatique"},{"hanzi":"网站","pinyin":"wǎngzhàn","fr":"site web","phrase":"这个网站很有意思。","phraseFr":"Ce site web est très intéressant.","theme":"Informatique"},{"hanzi":"网络","pinyin":"wǎngluò","fr":"réseau, internet","phrase":"网络不好。","phraseFr":"La connexion est mauvaise.","theme":"Informatique"},{"hanzi":"上网","pinyin":"shàngwǎng","fr":"aller sur internet","phrase":"我每天上网。","phraseFr":"Je vais sur internet tous les jours.","theme":"Informatique"},{"hanzi":"密码","pinyin":"mìmǎ","fr":"mot de passe","phrase":"我忘了我的密码。","phraseFr":"J'ai oublié mon mot de passe.","theme":"Informatique"},{"hanzi":"用户","pinyin":"yònghù","fr":"utilisateur","phrase":"这个软件有很多用户。","phraseFr":"Ce logiciel a beaucoup d'utilisateurs.","theme":"Informatique"},{"hanzi":"点击","pinyin":"diǎnjī","fr":"cliquer","phrase":"点击这里。","phraseFr":"Clique ici.","theme":"Informatique"},{"hanzi":"屏幕","pinyin":"píngmù","fr":"écran","phrase":"屏幕太小了。","phraseFr":"L'écran est trop petit.","theme":"Informatique"},{"hanzi":"键盘","pinyin":"jiànpán","fr":"clavier","phrase":"我用中文键盘。","phraseFr":"J'utilise un clavier chinois.","theme":"Informatique"},{"hanzi":"鼠标","pinyin":"shǔbiāo","fr":"souris (informatique)","phrase":"鼠标坏了。","phraseFr":"La souris est cassée.","theme":"Informatique"},{"hanzi":"程序","pinyin":"chéngxù","fr":"programme","phrase":"这个程序有问题。","phraseFr":"Ce programme a un problème.","theme":"Informatique"},{"hanzi":"数据","pinyin":"shùjù","fr":"données","phrase":"数据很重要。","phraseFr":"Les données sont très importantes.","theme":"Informatique"},{"hanzi":"人工智能","pinyin":"réngōng zhìnéng","fr":"intelligence artificielle","phrase":"我用人工智能学中文。","phraseFr":"J'utilise l'IA pour apprendre le chinois.","theme":"Informatique"},{"hanzi":"电子邮件","pinyin":"diànzǐ yóujiàn","fr":"e-mail","phrase":"请给我发电子邮件。","phraseFr":"Envoie-moi un e-mail, s'il te plaît.","theme":"Informatique"},{"hanzi":"今天","pinyin":"jīntiān","fr":"aujourd'hui","phrase":"今天我学中文。","phraseFr":"Aujourd'hui j'étudie le chinois.","theme":"HSK 1"},{"hanzi":"明天","pinyin":"míngtiān","fr":"demain","phrase":"明天见！","phraseFr":"À demain !","theme":"HSK 1"},{"hanzi":"昨天","pinyin":"zuótiān","fr":"hier","phrase":"昨天我很忙。","phraseFr":"Hier j'étais très occupée.","theme":"HSK 1"},{"hanzi":"星期","pinyin":"xīngqī","fr":"semaine","phrase":"一个星期有七天。","phraseFr":"Une semaine a sept jours.","theme":"HSK 1"},{"hanzi":"现在","pinyin":"xiànzài","fr":"maintenant","phrase":"现在几点？","phraseFr":"Quelle heure est-il maintenant ?","theme":"HSK 1"}];
+const EMBED_VOCAB = [{"hanzi":"你好","pinyin":"nǐ hǎo","fr":"bonjour","phrase":"你好，我是法国人。","phraseFr":"Bonjour, je suis française.","mots":[["你好","nǐ hǎo","bonjour"],["我","wǒ","je"],["是","shì","être"],["法国人","Fǎguórén","Français(e)"]],"theme":"HSK 1"},{"hanzi":"谢谢","pinyin":"xièxie","fr":"merci","phrase":"谢谢你！","phraseFr":"Merci à toi !","mots":[["谢谢","xièxie","merci"],["你","nǐ","toi"]],"theme":"HSK 1"},{"hanzi":"再见","pinyin":"zàijiàn","fr":"au revoir","phrase":"老师，再见！","phraseFr":"Au revoir, professeur !","mots":[["老师","lǎoshī","professeur"],["再见","zàijiàn","au revoir"]],"theme":"HSK 1"},{"hanzi":"我","pinyin":"wǒ","fr":"je, moi","phrase":"我是学生。","phraseFr":"Je suis étudiante.","mots":[["我","wǒ","je"],["是","shì","être"],["学生","xuésheng","étudiant(e)"]],"theme":"HSK 1"},{"hanzi":"你","pinyin":"nǐ","fr":"tu, toi","phrase":"你喝茶吗？","phraseFr":"Tu bois du thé ?","mots":[["你","nǐ","tu"],["喝","hē","boire"],["茶","chá","thé"],["吗","ma","particule interrogative"]],"theme":"HSK 1"},{"hanzi":"是","pinyin":"shì","fr":"être","phrase":"他是我朋友。","phraseFr":"C'est mon ami.","mots":[["他","tā","il"],["是","shì","être"],["我","wǒ","je, mon"],["朋友","péngyou","ami(e)"]],"theme":"HSK 1"},{"hanzi":"不","pinyin":"bù","fr":"ne... pas","phrase":"我不喝咖啡。","phraseFr":"Je ne bois pas de café.","mots":[["我","wǒ","je"],["不","bù","ne... pas"],["喝","hē","boire"],["咖啡","kāfēi","café"]],"theme":"HSK 1"},{"hanzi":"好","pinyin":"hǎo","fr":"bien, bon","phrase":"很好！","phraseFr":"Très bien !","mots":[["很","hěn","très"],["好","hǎo","bien"]],"theme":"HSK 1"},{"hanzi":"吃","pinyin":"chī","fr":"manger","phrase":"你吃什么？","phraseFr":"Qu'est-ce que tu manges ?","mots":[["你","nǐ","tu"],["吃","chī","manger"],["什么","shénme","quoi"]],"theme":"HSK 1"},{"hanzi":"喝","pinyin":"hē","fr":"boire","phrase":"我喝水。","phraseFr":"Je bois de l'eau.","mots":[["我","wǒ","je"],["喝","hē","boire"],["水","shuǐ","eau"]],"theme":"HSK 1"},{"hanzi":"水","pinyin":"shuǐ","fr":"eau","phrase":"我要喝水。","phraseFr":"Je veux boire de l'eau.","mots":[["我","wǒ","je"],["要","yào","vouloir"],["喝","hē","boire"],["水","shuǐ","eau"]],"theme":"HSK 1"},{"hanzi":"茶","pinyin":"chá","fr":"thé","phrase":"中国茶很好喝。","phraseFr":"Le thé chinois est très bon.","mots":[["中国","Zhōngguó","Chine"],["茶","chá","thé"],["很","hěn","très"],["好喝","hǎohē","bon (à boire)"]],"theme":"HSK 1"},{"hanzi":"人","pinyin":"rén","fr":"personne, humain","phrase":"他是中国人。","phraseFr":"Il est chinois.","mots":[["他","tā","il"],["是","shì","être"],["中国人","Zhōngguórén","Chinois(e)"]],"theme":"HSK 1"},{"hanzi":"中国","pinyin":"Zhōngguó","fr":"Chine","phrase":"我想去中国。","phraseFr":"Je veux aller en Chine.","mots":[["我","wǒ","je"],["想","xiǎng","vouloir, avoir envie"],["去","qù","aller"],["中国","Zhōngguó","Chine"]],"theme":"HSK 1"},{"hanzi":"老师","pinyin":"lǎoshī","fr":"professeur","phrase":"我的老师很好。","phraseFr":"Mon professeur est très bien.","mots":[["我","wǒ","je"],["的","de","particule possessive"],["老师","lǎoshī","professeur"],["很","hěn","très"],["好","hǎo","bien"]],"theme":"HSK 1"},{"hanzi":"学生","pinyin":"xuésheng","fr":"étudiant(e)","phrase":"我是学生。","phraseFr":"Je suis étudiante.","mots":[["我","wǒ","je"],["是","shì","être"],["学生","xuésheng","étudiant(e)"]],"theme":"HSK 1"},{"hanzi":"朋友","pinyin":"péngyou","fr":"ami(e)","phrase":"她是我的朋友。","phraseFr":"C'est mon amie.","mots":[["她","tā","elle"],["是","shì","être"],["我","wǒ","je"],["的","de","particule possessive"],["朋友","péngyou","ami(e)"]],"theme":"HSK 1"},{"hanzi":"喜欢","pinyin":"xǐhuan","fr":"aimer, apprécier","phrase":"我喜欢吃中国菜。","phraseFr":"J'aime la cuisine chinoise.","mots":[["我","wǒ","je"],["喜欢","xǐhuan","aimer"],["吃","chī","manger"],["中国菜","Zhōngguó cài","cuisine chinoise"]],"theme":"HSK 1"},{"hanzi":"什么","pinyin":"shénme","fr":"quoi, quel","phrase":"这是什么？","phraseFr":"Qu'est-ce que c'est ?","mots":[["这","zhè","ceci"],["是","shì","être"],["什么","shénme","quoi"]],"theme":"HSK 1"},{"hanzi":"妈妈","pinyin":"māma","fr":"maman","phrase":"我妈妈喜欢喝茶。","phraseFr":"Ma maman aime boire du thé.","mots":[["我","wǒ","je, ma"],["妈妈","māma","maman"],["喜欢","xǐhuan","aimer"],["喝","hē","boire"],["茶","chá","thé"]],"theme":"HSK 1"},{"hanzi":"今天","pinyin":"jīntiān","fr":"aujourd'hui","phrase":"今天我学中文。","phraseFr":"Aujourd'hui j'étudie le chinois.","mots":[["今天","jīntiān","aujourd'hui"],["我","wǒ","je"],["学","xué","étudier, apprendre"],["中文","Zhōngwén","chinois (langue)"]],"theme":"HSK 1"},{"hanzi":"明天","pinyin":"míngtiān","fr":"demain","phrase":"明天见！","phraseFr":"À demain !","mots":[["明天","míngtiān","demain"],["见","jiàn","se voir"]],"theme":"HSK 1"},{"hanzi":"昨天","pinyin":"zuótiān","fr":"hier","phrase":"昨天我很忙。","phraseFr":"Hier j'étais très occupée.","mots":[["昨天","zuótiān","hier"],["我","wǒ","je"],["很","hěn","très"],["忙","máng","occupé(e)"]],"theme":"HSK 1"},{"hanzi":"星期","pinyin":"xīngqī","fr":"semaine","phrase":"一个星期有七天。","phraseFr":"Une semaine a sept jours.","mots":[["一个","yí ge","un"],["星期","xīngqī","semaine"],["有","yǒu","avoir"],["七","qī","sept"],["天","tiān","jour(s)"]],"theme":"HSK 1"},{"hanzi":"现在","pinyin":"xiànzài","fr":"maintenant","phrase":"现在几点？","phraseFr":"Quelle heure est-il maintenant ?","mots":[["现在","xiànzài","maintenant"],["几","jǐ","combien"],["点","diǎn","heure"]],"theme":"HSK 1"},{"hanzi":"电脑","pinyin":"diànnǎo","fr":"ordinateur","phrase":"我的电脑很慢。","phraseFr":"Mon ordinateur est très lent.","mots":[["我","wǒ","je"],["的","de","particule possessive"],["电脑","diànnǎo","ordinateur"],["很","hěn","très"],["慢","màn","lent"]],"theme":"Informatique"},{"hanzi":"手机","pinyin":"shǒujī","fr":"téléphone portable","phrase":"我的手机没电了。","phraseFr":"Mon téléphone n'a plus de batterie.","mots":[["我","wǒ","je"],["的","de","particule possessive"],["手机","shǒujī","téléphone"],["没电","méi diàn","plus de batterie"],["了","le","particule (changement d'état)"]],"theme":"Informatique"},{"hanzi":"软件","pinyin":"ruǎnjiàn","fr":"logiciel","phrase":"这个软件很好用。","phraseFr":"Ce logiciel est très pratique.","mots":[["这个","zhège","ce, celui-ci"],["软件","ruǎnjiàn","logiciel"],["很","hěn","très"],["好用","hǎoyòng","pratique, facile à utiliser"]],"theme":"Informatique"},{"hanzi":"文件","pinyin":"wénjiàn","fr":"fichier, document","phrase":"请打开这个文件。","phraseFr":"Ouvre ce fichier, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["打开","dǎkāi","ouvrir"],["这个","zhège","ce"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"文件夹","pinyin":"wénjiànjiā","fr":"dossier (informatique)","phrase":"文件在这个文件夹里。","phraseFr":"Le fichier est dans ce dossier.","mots":[["文件","wénjiàn","fichier"],["在","zài","se trouver à"],["这个","zhège","ce"],["文件夹","wénjiànjiā","dossier"],["里","lǐ","dans, dedans"]],"theme":"Informatique"},{"hanzi":"下载","pinyin":"xiàzài","fr":"télécharger","phrase":"我在下载一个软件。","phraseFr":"Je suis en train de télécharger un logiciel.","mots":[["我","wǒ","je"],["在","zài","en train de"],["下载","xiàzài","télécharger"],["一个","yí ge","un"],["软件","ruǎnjiàn","logiciel"]],"theme":"Informatique"},{"hanzi":"打开","pinyin":"dǎkāi","fr":"ouvrir, allumer","phrase":"请打开电脑。","phraseFr":"Allume l'ordinateur, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["打开","dǎkāi","ouvrir, allumer"],["电脑","diànnǎo","ordinateur"]],"theme":"Informatique"},{"hanzi":"关闭","pinyin":"guānbì","fr":"fermer, éteindre","phrase":"请关闭这个程序。","phraseFr":"Ferme ce programme, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["关闭","guānbì","fermer"],["这个","zhège","ce"],["程序","chéngxù","programme"]],"theme":"Informatique"},{"hanzi":"保存","pinyin":"bǎocún","fr":"enregistrer, sauvegarder","phrase":"别忘了保存文件。","phraseFr":"N'oublie pas d'enregistrer le fichier.","mots":[["别","bié","ne... pas (interdiction)"],["忘了","wàng le","oublier"],["保存","bǎocún","enregistrer"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"删除","pinyin":"shānchú","fr":"supprimer","phrase":"我删除了这个文件。","phraseFr":"J'ai supprimé ce fichier.","mots":[["我","wǒ","je"],["删除","shānchú","supprimer"],["了","le","particule (action accomplie)"],["这个","zhège","ce"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"网站","pinyin":"wǎngzhàn","fr":"site web","phrase":"这个网站很有意思。","phraseFr":"Ce site web est très intéressant.","mots":[["这个","zhège","ce"],["网站","wǎngzhàn","site web"],["很","hěn","très"],["有意思","yǒu yìsi","intéressant"]],"theme":"Informatique"},{"hanzi":"网络","pinyin":"wǎngluò","fr":"réseau, internet","phrase":"网络不好。","phraseFr":"La connexion est mauvaise.","mots":[["网络","wǎngluò","réseau"],["不","bù","ne... pas"],["好","hǎo","bon"]],"theme":"Informatique"},{"hanzi":"上网","pinyin":"shàngwǎng","fr":"aller sur internet","phrase":"我每天上网。","phraseFr":"Je vais sur internet tous les jours.","mots":[["我","wǒ","je"],["每天","měitiān","chaque jour"],["上网","shàngwǎng","aller sur internet"]],"theme":"Informatique"},{"hanzi":"密码","pinyin":"mìmǎ","fr":"mot de passe","phrase":"我忘了我的密码。","phraseFr":"J'ai oublié mon mot de passe.","mots":[["我","wǒ","je"],["忘了","wàng le","a oublié"],["我","wǒ","je, mon"],["的","de","particule possessive"],["密码","mìmǎ","mot de passe"]],"theme":"Informatique"},{"hanzi":"用户","pinyin":"yònghù","fr":"utilisateur","phrase":"这个软件有很多用户。","phraseFr":"Ce logiciel a beaucoup d'utilisateurs.","mots":[["这个","zhège","ce"],["软件","ruǎnjiàn","logiciel"],["有","yǒu","avoir"],["很多","hěn duō","beaucoup de"],["用户","yònghù","utilisateurs"]],"theme":"Informatique"},{"hanzi":"点击","pinyin":"diǎnjī","fr":"cliquer","phrase":"点击这里。","phraseFr":"Clique ici.","mots":[["点击","diǎnjī","cliquer"],["这里","zhèlǐ","ici"]],"theme":"Informatique"},{"hanzi":"屏幕","pinyin":"píngmù","fr":"écran","phrase":"屏幕太小了。","phraseFr":"L'écran est trop petit.","mots":[["屏幕","píngmù","écran"],["太","tài","trop"],["小","xiǎo","petit"],["了","le","particule (exclamation)"]],"theme":"Informatique"},{"hanzi":"键盘","pinyin":"jiànpán","fr":"clavier","phrase":"我用中文键盘。","phraseFr":"J'utilise un clavier chinois.","mots":[["我","wǒ","je"],["用","yòng","utiliser"],["中文","Zhōngwén","chinois (langue)"],["键盘","jiànpán","clavier"]],"theme":"Informatique"},{"hanzi":"鼠标","pinyin":"shǔbiāo","fr":"souris (informatique)","phrase":"鼠标坏了。","phraseFr":"La souris est cassée.","mots":[["鼠标","shǔbiāo","souris"],["坏","huài","cassé"],["了","le","particule (changement d'état)"]],"theme":"Informatique"},{"hanzi":"程序","pinyin":"chéngxù","fr":"programme","phrase":"这个程序有问题。","phraseFr":"Ce programme a un problème.","mots":[["这个","zhège","ce"],["程序","chéngxù","programme"],["有","yǒu","avoir"],["问题","wèntí","problème"]],"theme":"Informatique"},{"hanzi":"数据","pinyin":"shùjù","fr":"données","phrase":"数据很重要。","phraseFr":"Les données sont très importantes.","mots":[["数据","shùjù","données"],["很","hěn","très"],["重要","zhòngyào","important"]],"theme":"Informatique"},{"hanzi":"人工智能","pinyin":"réngōng zhìnéng","fr":"intelligence artificielle","phrase":"我用人工智能学中文。","phraseFr":"J'utilise l'IA pour apprendre le chinois.","mots":[["我","wǒ","je"],["用","yòng","utiliser"],["人工智能","réngōng zhìnéng","intelligence artificielle"],["学","xué","apprendre"],["中文","Zhōngwén","chinois (langue)"]],"theme":"Informatique"},{"hanzi":"电子邮件","pinyin":"diànzǐ yóujiàn","fr":"e-mail","phrase":"请给我发电子邮件。","phraseFr":"Envoie-moi un e-mail, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["给","gěi","à, pour"],["我","wǒ","moi"],["发","fā","envoyer"],["电子邮件","diànzǐ yóujiàn","e-mail"]],"theme":"Informatique"}];
 /* VOCAB:END */
 
 /* ---------- État ---------- */
@@ -341,6 +361,7 @@ function mergeEmbed(s) {
     if (ex) {
       ex.pinyin = w.pinyin; ex.fr = w.fr;
       ex.phrase = w.phrase || ""; ex.phraseFr = w.phraseFr || "";
+      ex.mots = w.mots || [];
       ex.theme = w.theme || ex.theme || "Général";
     } else {
       s.cards.push(newCard(w));
@@ -353,6 +374,7 @@ function save() {
 function newCard(w) {
   return { hanzi: w.hanzi.trim(), pinyin: (w.pinyin||"").trim(), fr: (w.fr||"").trim(),
     phrase: (w.phrase||"").trim(), phraseFr: (w.phraseFr||"").trim(),
+    mots: w.mots || [],
     theme: (w.theme||"Général").trim(),
     level: 0, due: Date.now(), errors: 0, reviews: 0 };
 }
@@ -395,14 +417,41 @@ function streak() {
 }
 
 /* ---------- Synthèse vocale ---------- */
-let zhVoice = null;
+let zhVoices = [], zhVoice = null;
+function voiceScore(v) {
+  const t = (v.name + " " + (v.voiceURI || "")).toLowerCase();
+  let s = 0;
+  if (/premium/.test(t)) s += 4;
+  if (/enhanced|amélior|ameliore/.test(t)) s += 3;
+  if (/google|tingting|ting-ting|婷婷|meijia|siri/.test(t)) s += 2;
+  if (/compact|eloquence/.test(t)) s -= 3;
+  /* voix fantaisie d'Apple, très robotiques */
+  if (/eddy|flo\b|flo |grandma|grandpa|reed|rocko|sandy|shelley|albert|bahh|bells|boing|bubbles|cellos|jester|organ|superstar|trinoids|whisper|wobble|zarvox|junior|kathy|fred|ralph/.test(t)) s -= 5;
+  if (/^zh[-_]CN/i.test(v.lang)) s += 1;
+  return s;
+}
 function pickVoice() {
   const vs = window.speechSynthesis ? speechSynthesis.getVoices() : [];
-  zhVoice = vs.find(v => /^zh[-_]CN/i.test(v.lang)) ||
-            vs.find(v => /^zh/i.test(v.lang)) || null;
+  zhVoices = vs.filter(v => /^zh/i.test(v.lang)).sort((a, b) => voiceScore(b) - voiceScore(a));
+  const saved = state.voiceURI ? zhVoices.find(v => v.voiceURI === state.voiceURI) : null;
+  zhVoice = saved || zhVoices[0] || null;
+  renderVoices();
 }
-if (window.speechSynthesis) {
+function renderVoices() {
+  const sel = $("voice-select");
+  if (!sel) return;
+  sel.innerHTML = zhVoices.length
+    ? zhVoices.map(v =>
+        `<option value="${esc(v.voiceURI)}"${v === zhVoice ? " selected" : ""}>${esc(v.name)} (${esc(v.lang)})</option>`).join("")
+    : `<option value="">Voix système par défaut</option>`;
+}
+function setVoice(uri) {
+  state.voiceURI = uri;
+  save();
   pickVoice();
+}
+function testVoice() { speak("你好！我们一起学中文吧。"); }
+if (window.speechSynthesis) {
   speechSynthesis.onvoiceschanged = pickVoice;
 }
 function speak(text, rate) {
@@ -570,14 +619,41 @@ function nextCard() {
   if (mode === "ecoute") speak(card.hanzi);
 }
 
+function phraseHTML(c) {
+  if (!c.mots || !c.mots.length) return `<div class="q-phrase hanzi">${esc(c.phrase)}</div>`;
+  let html = "", i = 0, wi = 0;
+  while (i < c.phrase.length) {
+    const m = c.mots[wi];
+    if (m && c.phrase.startsWith(m[0], i)) {
+      html += `<button class="pword hanzi" onclick="showGloss(this, ${wi})">${esc(m[0])}</button>`;
+      i += m[0].length; wi++;
+    } else {
+      html += esc(c.phrase[i]); i++;
+    }
+  }
+  return `<div class="q-phrase hanzi">${html}</div>
+    <p class="q-prompt gloss-hint">Touche un mot de la phrase pour voir son sens</p>
+    <div class="gloss" id="gloss-zone"></div>`;
+}
+function showGloss(el, wi) {
+  const m = queue[qIndex].mots[wi];
+  if (!m) return;
+  document.querySelectorAll(".pword.active").forEach(b => b.classList.remove("active"));
+  el.classList.add("active");
+  $("gloss-zone").innerHTML =
+    `<span class="hanzi">${esc(m[0])}</span> <span class="q-pinyin" style="font-size:1.05rem">${renderPinyin(m[1])}</span> : ${esc(m[2])}
+     <button class="audio-btn" style="font-size:.92rem;padding:.25rem .7rem" onclick="speak(${jsattr(m[0])})">🔊</button>`;
+}
+
 function cardHTML(c, mode) {
   const audioBtns = `<div>
     <button class="audio-btn" onclick="speak(${jsattr(c.hanzi)})">🔊 Écouter</button>
     <button class="audio-btn" onclick="speak(${jsattr(c.hanzi)}, 0.55)">🐢 Lent</button>
   </div>`;
-  const phrase = c.phrase ? `<hr class="divider"><div class="q-phrase hanzi">${esc(c.phrase)}</div>
+  const phrase = c.phrase ? `<hr class="divider">${phraseHTML(c)}
     ${c.phraseFr ? `<div class="q-phrase-fr">${esc(c.phraseFr)}</div>` : ""}
-    <div><button class="audio-btn" onclick="speak(${jsattr(c.phrase)})">🔊 La phrase</button></div>` : "";
+    <div><button class="audio-btn" onclick="speak(${jsattr(c.phrase)})">🔊 La phrase</button>
+         <button class="audio-btn" onclick="speak(${jsattr(c.phrase)}, 0.55)">🐢 Lente</button></div>` : "";
   const answer = `<div class="q-pinyin">${renderPinyin(c.pinyin)}</div><div class="q-fr">${esc(c.fr)}</div>`;
 
   if (mode === "lecture") return `<div class="qcard">
@@ -614,7 +690,7 @@ function cardHTML(c, mode) {
               <div class="heard" id="heard"></div>` : ""}
       <div id="reveal-zone"><button class="btn secondary" onclick="reveal()">Révéler la réponse</button></div>
       <div id="answer-zone" class="hidden">
-        <div class="q-hanzi small hanzi">${esc(target)}</div>
+        ${c.phrase ? phraseHTML(c) : `<div class="q-hanzi small hanzi">${esc(target)}</div>`}
         <div class="q-fr">${esc(c.hanzi)} <span class="q-pinyin">${renderPinyin(c.pinyin)}</span> : ${esc(c.fr)}</div>
         <div><button class="audio-btn" onclick="speak(${jsattr(target)})">🔊 Modèle</button>
              <button class="audio-btn" onclick="speak(${jsattr(target)}, 0.55)">🐢 Lent</button></div>
@@ -745,6 +821,7 @@ function copySessionReport() {
 
 save();
 render();
+if (window.speechSynthesis) pickVoice();
 </script>
 </body>
 </html>
