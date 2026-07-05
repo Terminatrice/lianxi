@@ -269,15 +269,8 @@
   <!-- ============ MOTS ============ -->
   <section id="view-words" class="hidden">
     <div class="panel">
-      <h2>Vocabulaire embarqué</h2>
-      <p class="hint" style="margin:0">Le vocabulaire officiel vit dans <span class="mono">vocab.json</span> côté Claude Code : dis « ajoute » avec une capture, un fichier ou du texte, puis « maj app ». Recharge cette page pour récupérer les nouveaux mots.</p>
-    </div>
-
-    <div class="panel">
-      <h2>Import manuel (dépannage)</h2>
-      <textarea id="import-box" placeholder='[{"hanzi":"你好","pinyin":"nǐ hǎo","fr":"bonjour","theme":"HSK 1"}]'></textarea>
-      <button class="btn secondary" onclick="importVocab()">Importer</button>
-      <div class="msg" id="import-msg"></div>
+      <h2>Ajouter des mots</h2>
+      <p class="hint" style="margin:0">Donne à ton tuteur Claude une capture d'écran, un PDF, un docx ou du texte en chinois (dans la session Claude Code, ou en le déposant dans le dossier Drive « Chinois » depuis ton téléphone), puis dis « ajoute ». Les nouveaux mots arrivent ici au prochain rechargement de la page.</p>
     </div>
 
     <div class="panel">
@@ -288,6 +281,8 @@
     <div class="panel">
       <h2>Maintenance</h2>
       <button class="btn ghost" onclick="copyBackup()">Copier une sauvegarde complète</button>
+      <textarea id="restore-box" placeholder="Coller ici une sauvegarde à restaurer"></textarea>
+      <button class="btn ghost" onclick="restoreData()">Restaurer la sauvegarde</button>
       <button class="btn ghost" id="reset-btn" onclick="resetApp()">Tout réinitialiser</button>
       <div class="msg" id="maint-msg"></div>
     </div>
@@ -476,31 +471,20 @@ function render() {
      <span class="w-lvl">niv. ${c.level}</span></li>`).join("");
 }
 
-/* ---------- Import / export ---------- */
-function importVocab() {
-  const box = $("import-box"), msg = $("import-msg");
+/* ---------- Restauration / export ---------- */
+function restoreData() {
+  const box = $("restore-box"), msg = $("maint-msg");
   let txt = box.value.trim().replace(/^```(json)?/i, "").replace(/```$/, "").trim();
   msg.className = "msg err";
-  if (!txt) { msg.textContent = "Colle d'abord le bloc JSON."; return; }
-  let arr;
-  try { arr = JSON.parse(txt); } catch (e) { msg.textContent = "JSON invalide. Recopie le bloc complet, crochets compris."; return; }
-  if (!Array.isArray(arr)) { msg.textContent = "Le JSON doit être une liste [ ... ]."; return; }
-  let added = 0, updated = 0;
-  arr.forEach(w => {
-    if (!w || !w.hanzi) return;
-    const ex = state.cards.find(c => c.hanzi === w.hanzi.trim());
-    if (ex) {
-      if (w.pinyin) ex.pinyin = w.pinyin.trim();
-      if (w.fr) ex.fr = w.fr.trim();
-      if (w.phrase) ex.phrase = w.phrase.trim();
-      if (w.phraseFr) ex.phraseFr = w.phraseFr.trim();
-      if (w.theme) ex.theme = w.theme.trim();
-      updated++;
-    } else { state.cards.push(newCard(w)); added++; }
-  });
+  if (!txt) { msg.textContent = "Colle d'abord la sauvegarde (bouton « Copier une sauvegarde complète »)."; return; }
+  let data;
+  try { data = JSON.parse(txt); } catch (e) { msg.textContent = "Sauvegarde illisible. Recopie le texte complet."; return; }
+  if (!data || !Array.isArray(data.cards)) { msg.textContent = "Ce n'est pas une sauvegarde Liànxí."; return; }
+  state = data;
+  mergeEmbed(state);
   save(); render();
   msg.className = "msg ok";
-  msg.textContent = `${added} mot(s) ajouté(s), ${updated} mis à jour.`;
+  msg.textContent = `Sauvegarde restaurée : ${state.cards.length} mots, progression comprise.`;
   box.value = "";
 }
 
