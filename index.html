@@ -161,6 +161,7 @@
   .progress div { height: 100%; background: var(--accent); border-radius: 999px; transition: width .25s; }
   @media (prefers-reduced-motion: reduce) { .progress div { transition: none; } }
   .sess-count { font-size: .95rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .skip-btn { flex: none; background: none; border: none; color: var(--accent); font-family: inherit; font-size: 1rem; font-weight: 600; cursor: pointer; padding: .2rem .5rem; }
 
   .mode-tag {
     display: inline-block; font-size: .9rem; font-weight: 600; letter-spacing: .08em;
@@ -224,6 +225,31 @@
   .grades button.suggest { outline: 3px solid var(--accent); outline-offset: 2px; }
 
   .end-list { text-align: left; }
+  /* ---- Dictionnaire ---- */
+  .dico-input {
+    width: 100%; padding: .75rem .9rem; font-size: 1.15rem; font-family: inherit;
+    border: 1px solid var(--line); border-radius: .6rem; background: var(--paper); color: var(--ink);
+  }
+  .dico-card { background: var(--card); border: 1px solid var(--line); border-radius: .9rem;
+    padding: 1rem 1.1rem; margin-bottom: .8rem; box-shadow: var(--shadow); }
+  .dico-head { display: flex; align-items: baseline; gap: .7rem; flex-wrap: wrap; }
+  .dico-hanzi { font-size: 2.2rem; }
+  .dico-fr { color: var(--muted); font-size: 1.05rem; }
+  .dico-decomp { display: flex; flex-wrap: wrap; gap: .4rem; margin: .7rem 0 .2rem; }
+  .dico-mot { font-size: .98rem; border: 1px solid var(--line); border-radius: 999px; padding: .15rem .7rem; }
+  .dico-ex { font-size: 1.2rem; margin-top: .6rem; line-height: 1.5; }
+  .dico-ex-fr { font-size: .98rem; color: var(--muted); }
+
+  /* ---- Quiz tons ---- */
+  .tone-opts { display: grid; grid-template-columns: repeat(5, 1fr); gap: .5rem; margin-top: 1rem; }
+  .tone-opts button {
+    padding: .9rem .2rem; font-size: 1.15rem; font-weight: 700; font-family: inherit;
+    border: 1px solid var(--line); border-radius: .7rem; background: var(--card); cursor: pointer;
+  }
+  .tone-opts button:disabled { cursor: default; }
+  .tone-opts button.good { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+  .tone-opts button.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+
   .hidden { display: none !important; }
 </style>
 </head>
@@ -240,7 +266,8 @@
   </header>
 
   <nav class="tabs" role="tablist">
-    <button role="tab" id="tab-home" aria-selected="true" onclick="showTab('home')">Aujourd'hui</button>
+    <button role="tab" id="tab-home" aria-selected="true" onclick="showTab('home')">Réviser</button>
+    <button role="tab" id="tab-dico" aria-selected="false" onclick="showTab('dico')">Dico</button>
     <button role="tab" id="tab-words" aria-selected="false" onclick="showTab('words')">Mots</button>
   </nav>
 
@@ -251,6 +278,7 @@
       <div class="due-label" id="due-label">cartes à réviser</div>
       <div class="chips" id="theme-chips"></div>
       <button class="btn" id="start-btn" onclick="startSession()">Commencer la session</button>
+      <button class="btn secondary" onclick="startToneQuiz()">Quiz tons</button>
       <p class="hint" id="no-due-hint" style="display:none">Tout est à jour dans ce thème. Reviens demain, ou change de thème.</p>
     </div>
 
@@ -277,6 +305,16 @@
         <span class="t3">ǎ 3ᵉ ton</span><span class="t4">à 4ᵉ ton</span><span class="t0">a neutre</span>
       </div>
     </div>
+  </section>
+
+  <!-- ============ DICTIONNAIRE ============ -->
+  <section id="view-dico" class="hidden">
+    <div class="panel">
+      <h2>Dictionnaire de tes mots</h2>
+      <input id="dico-search" class="dico-input" placeholder="学 · xué · apprendre..." oninput="renderDico()" autocomplete="off">
+      <p class="hint">Cherche en caractères, en pinyin (sans les accents) ou en français, parmi les mots de tes fiches. Chaque résultat donne la prononciation, la décomposition et un exemple, avec l'audio.</p>
+    </div>
+    <div id="dico-results"></div>
   </section>
 
   <!-- ============ MOTS ============ -->
@@ -308,7 +346,7 @@
     </div>
   </section>
 
-  <footer class="build">Liànxí · <span id="build-stamp">48 mots · 2026-07-05</span></footer>
+  <footer class="build">Liànxí · <span id="build-stamp">48 mots · 2026-07-10</span></footer>
 </div>
 
 <!-- ============ SESSION ============ -->
@@ -318,6 +356,7 @@
       <button onclick="quitSession()" aria-label="Quitter la session">✕</button>
       <div class="progress"><div id="prog-bar" style="width:0%"></div></div>
       <span class="sess-count" id="prog-txt"></span>
+      <button class="skip-btn" onclick="skipCard()">Passer ›</button>
     </div>
     <div id="card-zone"></div>
   </div>
@@ -405,6 +444,10 @@ function renderPinyin(p) {
 function normHanzi(s) {
   return String(s).replace(/[\s，。！？、；：""''……—,.!?;:'"()（） ]/g, "");
 }
+/* pinyin sans accents ni majuscules, pour la recherche : "nǐ hǎo" -> "ni hao" */
+function pinyinPlain(s) {
+  return String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
 function streak() {
   let n = 0;
   const d = new Date();
@@ -467,10 +510,13 @@ function speak(text, rate) {
 /* ---------- Onglets & rendu ---------- */
 function showTab(t) {
   $("view-home").classList.toggle("hidden", t !== "home");
+  $("view-dico").classList.toggle("hidden", t !== "dico");
   $("view-words").classList.toggle("hidden", t !== "words");
   $("tab-home").setAttribute("aria-selected", t === "home");
+  $("tab-dico").setAttribute("aria-selected", t === "dico");
   $("tab-words").setAttribute("aria-selected", t === "words");
-  render();
+  if (t === "dico") renderDico();
+  else render();
 }
 function themeMatch(c) { return curTheme === "all" || (c.theme || "Général") === curTheme; }
 function dueCards() {
@@ -518,6 +564,47 @@ function render() {
     `<li><span class="w-hanzi hanzi">${esc(c.hanzi)}</span>
      <span class="w-mid"><span class="w-pinyin">${renderPinyin(c.pinyin)}</span><span class="w-theme">${esc(c.theme || "Général")}</span><br><span class="w-fr">${esc(c.fr)}</span></span>
      <span class="w-lvl">niv. ${c.level}</span></li>`).join("");
+}
+
+/* ---------- Dictionnaire ---------- */
+function renderDico() {
+  const zone = $("dico-results");
+  if (!zone) return;
+  const q = ($("dico-search").value || "").trim().toLowerCase();
+  const qPlain = pinyinPlain(q).replace(/\s+/g, "");
+  let list = state.cards;
+  if (q) list = state.cards.filter(c =>
+    c.hanzi.includes(q) ||
+    pinyinPlain(c.pinyin).replace(/\s+/g, "").includes(qPlain) ||
+    (c.fr || "").toLowerCase().includes(q));
+  list = list.slice().sort((a, b) => a.hanzi.localeCompare(b.hanzi));
+  if (!list.length) {
+    zone.innerHTML = `<p class="hint" style="padding:0 .2rem">Aucun mot ne correspond. Essaie un caractère, un pinyin sans accent, ou un mot français.</p>`;
+    return;
+  }
+  zone.innerHTML = list.slice(0, 60).map(dicoCardHTML).join("");
+}
+function dicoCardHTML(c) {
+  const decomp = (c.mots && c.mots.length)
+    ? `<div class="dico-decomp">${c.mots.map(m =>
+        `<button class="dico-mot" onclick="speak(${jsattr(m[0])})"><span class="hanzi">${esc(m[0])}</span> ${renderPinyin(m[1])} · ${esc(m[2])}</button>`).join("")}</div>`
+    : "";
+  const ex = c.phrase
+    ? `<div class="dico-ex hanzi">${esc(c.phrase)}</div>${c.phraseFr ? `<div class="dico-ex-fr">${esc(c.phraseFr)}</div>` : ""}
+       <div><button class="audio-btn" onclick="speak(${jsattr(c.phrase)})">🔊 La phrase</button>
+            <button class="audio-btn" onclick="speak(${jsattr(c.phrase)}, 0.55)">🐢 Lente</button></div>`
+    : "";
+  return `<div class="dico-card">
+    <div class="dico-head">
+      <span class="dico-hanzi hanzi">${esc(c.hanzi)}</span>
+      <span class="q-pinyin" style="font-size:1.2rem">${renderPinyin(c.pinyin)}</span>
+      <span class="w-theme">${esc(c.theme || "Général")}</span>
+    </div>
+    <div class="dico-fr">${esc(c.fr)}</div>
+    <div><button class="audio-btn" onclick="speak(${jsattr(c.hanzi)})">🔊 Écouter</button>
+         <button class="audio-btn" onclick="speak(${jsattr(c.hanzi)}, 0.55)">🐢 Lent</button></div>
+    ${decomp}${ex}
+  </div>`;
 }
 
 /* ---------- Restauration / export ---------- */
@@ -573,11 +660,13 @@ function resetApp() {
 }
 
 /* ---------- Session ---------- */
+let sessMode = "srs"; // "srs" (révision) ou "tones" (quiz tons)
 let queue = [], qIndex = 0, sessTotal = 0, sessErrors = [], sessOk = 0;
 
 function startSession() {
   const due = dueCards().slice(0, SESSION_MAX);
   if (!due.length) return;
+  sessMode = "srs";
   queue = shuffle(due);
   qIndex = 0; sessTotal = queue.length; sessErrors = []; sessOk = 0;
   speak(" "); // amorce iOS : première utterance déclenchée par un geste utilisateur
@@ -591,6 +680,7 @@ function shuffle(a) {
   return r;
 }
 function quitSession() {
+  if (toneTimer) { clearTimeout(toneTimer); toneTimer = null; }
   if (window.speechSynthesis) speechSynthesis.cancel();
   stopRecog();
   $("session").classList.add("hidden");
@@ -679,16 +769,18 @@ function cardHTML(c, mode) {
       <div id="answer-zone" class="hidden"></div>
     </div><div id="grades-slot"></div>`;
 
-  /* oral */
+  /* oral : le micro est optionnel et ne bloque jamais ; « Révéler » est toujours dispo */
   const target = c.phrase || c.hanzi;
   const targetFr = c.phrase ? (c.phraseFr || c.fr) : c.fr;
   const sr = hasRecog();
   return `<div class="qcard">
       <div class="q-fr">« ${esc(targetFr)} »</div>
-      <div class="q-prompt">${sr ? "Dis-le en chinois, je t'écoute" : "Dis-le en chinois à voix haute, puis compare"}</div>
-      ${sr ? `<button class="big-audio" id="mic-btn" onclick="startRecog(${jsattr(target)})" aria-label="Parler">🎙️</button>
-              <div class="heard" id="heard"></div>` : ""}
-      <div id="reveal-zone"><button class="btn secondary" onclick="reveal()">Révéler la réponse</button></div>
+      <div class="q-prompt">Dis-le à voix haute en chinois, puis révèle pour comparer.</div>
+      <div id="reveal-zone">
+        <button class="btn" onclick="reveal()">Révéler la réponse</button>
+        ${sr ? `<button class="audio-btn" id="mic-btn" onclick="toggleRecog(${jsattr(target)})">🎙️ M'enregistrer (optionnel)</button>
+                <div class="heard" id="heard"></div>` : ""}
+      </div>
       <div id="answer-zone" class="hidden">
         ${c.phrase ? phraseHTML(c) : `<div class="q-hanzi small hanzi">${esc(target)}</div>`}
         <div class="q-fr">${esc(c.hanzi)} <span class="q-pinyin">${renderPinyin(c.pinyin)}</span> : ${esc(c.fr)}</div>
@@ -736,40 +828,157 @@ function checkWriting() {
   $("grades").style.visibility = "visible";
 }
 
-/* ---- Mode oral : reconnaissance vocale ---- */
-let recog = null;
+/* ---- Mode oral : micro optionnel, jamais bloquant ---- */
+const MIC_LABEL = "🎙️ M'enregistrer (optionnel)";
+let recog = null, recogTimer = null;
 function hasRecog() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
-function stopRecog() { if (recog) { try { recog.abort(); } catch (e) {} recog = null; } }
-function startRecog(target) {
-  stopRecog();
+function stopRecog() {
+  if (recogTimer) { clearTimeout(recogTimer); recogTimer = null; }
+  if (recog) { try { recog.abort(); } catch (e) {} recog = null; }
+  const mic = $("mic-btn");
+  if (mic) mic.textContent = MIC_LABEL;
+}
+function toggleRecog(target) {
+  if (recog) { stopRecog(); return; } // deuxième appui : on arrête
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recog = new SR();
+  const mic = $("mic-btn"), heard = $("heard");
+  try { recog = new SR(); }
+  catch (e) { if (heard) heard.textContent = "Micro indisponible ici. Révèle la réponse et évalue-toi."; return; }
   recog.lang = "zh-CN";
   recog.maxAlternatives = 3;
-  const mic = $("mic-btn"), heard = $("heard");
-  mic.textContent = "👂";
-  heard.textContent = "Je t'écoute...";
+  if (mic) mic.textContent = "⏹ Arrêter";
+  if (heard) heard.textContent = "Je t'écoute... (touche Arrêter quand tu as fini)";
+  recogTimer = setTimeout(stopRecog, 8000); // filet de sécurité si iOS ne rend jamais la main
   recog.onresult = ev => {
-    mic.textContent = "🎙️";
     const alts = Array.from(ev.results[0]).map(r => r.transcript);
-    const want = normHanzi(target);
-    const hit = alts.some(a => normHanzi(a).includes(want));
-    heard.innerHTML = `Entendu : <span class="hanzi">${esc(alts[0])}</span>`;
+    const hit = alts.some(a => normHanzi(a).includes(normHanzi(target)));
+    stopRecog();
+    if (heard) heard.innerHTML = `Entendu : <span class="hanzi">${esc(alts[0])}</span>`;
     reveal();
     const zone = $("answer-zone");
-    zone.insertAdjacentHTML("afterbegin",
+    if (zone) zone.insertAdjacentHTML("afterbegin",
       `<div class="verdict ${hit ? "ok" : "ko"}">${hit ? "Bien reconnu !" : "Pas reconnu, compare avec le modèle"}</div>`);
     const btn = document.querySelector(hit ? ".g-good" : ".g-again");
     if (btn) btn.classList.add("suggest");
   };
   recog.onerror = ev => {
-    mic.textContent = "🎙️";
-    heard.textContent = (ev.error === "not-allowed" || ev.error === "service-not-allowed")
-      ? "Micro refusé : autorise le micro pour ce site dans les réglages du navigateur, puis réessaie."
-      : "Micro indisponible : évalue-toi avec le modèle.";
+    stopRecog();
+    if (heard) heard.textContent = (ev.error === "not-allowed" || ev.error === "service-not-allowed")
+      ? "Micro refusé. Révèle la réponse et évalue-toi toi-même."
+      : "Micro indisponible ici. Révèle la réponse et évalue-toi.";
   };
-  recog.onend = () => { if (mic.textContent === "👂") mic.textContent = "🎙️"; };
-  try { recog.start(); } catch (e) { heard.textContent = "Micro indisponible : évalue-toi avec le modèle."; }
+  recog.onend = () => { if (recog) stopRecog(); };
+  try { recog.start(); }
+  catch (e) { stopRecog(); if (heard) heard.textContent = "Micro indisponible ici. Révèle la réponse et évalue-toi."; }
+}
+
+/* Passer sans noter : la carte reste due et reviendra à une prochaine session */
+function skipCard() {
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  if (sessMode === "tones") {
+    if (toneTimer) { clearTimeout(toneTimer); toneTimer = null; }
+    toneIndex++;
+    nextTone();
+    return;
+  }
+  stopRecog();
+  qIndex++;
+  nextCard();
+}
+
+/* ---------- Quiz tons ---------- */
+let toneQueue = [], toneIndex = 0, toneScore = 0, toneMissed = [], toneTimer = null;
+
+/* Pool de caractères d'une seule syllabe, avec leur ton connu, dans le thème courant */
+function tonesPool() {
+  const seen = new Set(), pool = [];
+  const add = (hanzi, pinyin, fr) => {
+    if (!hanzi || [...hanzi].length !== 1 || seen.has(hanzi)) return;
+    if (!/[a-zA-ZüÜ]/.test(pinyin || "")) return;
+    seen.add(hanzi);
+    pool.push({ hanzi, pinyin, fr, tone: toneOf(pinyin) });
+  };
+  state.cards.filter(themeMatch).forEach(c => {
+    if ([...c.hanzi].length === 1) add(c.hanzi, c.pinyin, c.fr);
+    (c.mots || []).forEach(m => { if ([...m[0]].length === 1) add(m[0], m[1], m[2]); });
+  });
+  return pool;
+}
+function startToneQuiz() {
+  sessMode = "tones";
+  const pool = tonesPool();
+  toneQueue = shuffle(pool).slice(0, 10);
+  toneIndex = 0; toneScore = 0; toneMissed = [];
+  speak(" ");
+  $("session").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  if (pool.length < 4) {
+    $("prog-bar").style.width = "0%"; $("prog-txt").textContent = "";
+    $("card-zone").innerHTML = `<div class="qcard">
+      <div class="q-fr">Il faut quelques mots d'un seul caractère pour le quiz de tons. Ajoute du vocabulaire, puis reviens.</div>
+      <button class="btn" onclick="quitSession()">Fermer</button></div>`;
+    return;
+  }
+  nextTone();
+}
+function nextTone() {
+  if ($("session").classList.contains("hidden")) return;
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  if (toneIndex >= toneQueue.length) { endToneQuiz(); return; }
+  const it = toneQueue[toneIndex];
+  $("prog-bar").style.width = Math.round(100 * toneIndex / toneQueue.length) + "%";
+  $("prog-txt").textContent = `${toneIndex + 1} / ${toneQueue.length}`;
+  $("card-zone").innerHTML = `<span class="mode-tag">Quiz tons</span>
+    <div class="qcard">
+      <div class="q-hanzi hanzi">${esc(it.hanzi)}</div>
+      <div class="q-pinyin">${esc(pinyinPlain(it.pinyin))}</div>
+      <div class="q-prompt">Quel est le ton ?</div>
+      <div><button class="audio-btn" onclick="speak(${jsattr(it.hanzi)})">🔊 Réécouter</button></div>
+      <div class="tone-opts" id="tone-opts">
+        <button class="t1" onclick="answerTone(1,this)">1ᵉʳ<br>ā</button>
+        <button class="t2" onclick="answerTone(2,this)">2ᵉ<br>á</button>
+        <button class="t3" onclick="answerTone(3,this)">3ᵉ<br>ǎ</button>
+        <button class="t4" onclick="answerTone(4,this)">4ᵉ<br>à</button>
+        <button class="t0" onclick="answerTone(0,this)">neutre<br>a</button>
+      </div>
+    </div>`;
+  speak(it.hanzi);
+}
+function answerTone(t, btn) {
+  const it = toneQueue[toneIndex];
+  const opts = $("tone-opts");
+  [...opts.children].forEach(b => b.disabled = true);
+  state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
+  if (t === it.tone) {
+    toneScore++;
+    btn.classList.add("good");
+  } else {
+    btn.classList.add("bad");
+    const idxOf = { 1: 0, 2: 1, 3: 2, 4: 3, 0: 4 };
+    const good = opts.children[idxOf[it.tone]];
+    if (good) good.classList.add("good");
+    toneMissed.push(it);
+  }
+  save();
+  toneTimer = setTimeout(() => { toneTimer = null; toneIndex++; nextTone(); }, 1300);
+}
+function endToneQuiz() {
+  $("prog-bar").style.width = "100%";
+  $("prog-txt").textContent = "";
+  const missed = toneMissed.length
+    ? `<hr class="divider"><div class="end-list"><strong>Tons à revoir :</strong>
+       <ul class="words">${toneMissed.map(it =>
+         `<li><span class="w-hanzi hanzi">${esc(it.hanzi)}</span>
+          <span class="w-mid"><span class="w-pinyin">${renderPinyin(it.pinyin)}</span><br><span class="w-fr">${esc(it.fr)}</span></span></li>`).join("")}
+       </ul></div>`
+    : `<p class="q-fr">Sans faute sur les tons. 太棒了 tài bàng le !</p>`;
+  $("card-zone").innerHTML = `<div class="qcard">
+      <div class="q-hanzi hanzi">声调</div>
+      <div class="q-pinyin">${renderPinyin("shēngdiào")}</div>
+      <div class="q-fr">Quiz tons terminé : ${toneScore} / ${toneQueue.length}.</div>
+      ${missed}
+      <button class="btn" onclick="quitSession()">Terminer</button>
+    </div>`;
 }
 
 /* ---- Notation & planification ---- */
