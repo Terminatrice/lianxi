@@ -110,7 +110,7 @@
     outline: 3px solid var(--accent); outline-offset: 2px;
   }
 
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: .6rem; }
   .stat { text-align: center; padding: .5rem .2rem; }
   .stat .n { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
   .stat .l { font-size: .95rem; color: var(--muted); }
@@ -225,6 +225,25 @@
   .grades button.suggest { outline: 3px solid var(--accent); outline-offset: 2px; }
 
   .end-list { text-align: left; }
+  .score { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin: .4rem 0; }
+  .sc { padding: .5rem .2rem; border-radius: .6rem; background: var(--paper); }
+  .sc .n { font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .sc .l { font-size: .95rem; color: var(--muted); }
+  .sc.ok { background: var(--good-soft); } .sc.ok .n { color: var(--good); }
+  .sc.ko { background: var(--bad-soft); } .sc.ko .n { color: var(--bad); }
+
+  /* Caractère au-dessus, pinyin coloré en dessous */
+  .ruby { display: flex; flex-wrap: wrap; justify-content: center; gap: .1rem .35rem; }
+  .pyseg { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.25; }
+  .pyseg .hanzi { font-size: 1.9rem; }
+  .pysub { font-size: 1.05rem; }
+  .aside-zi { font-size: 1.05rem; color: var(--muted); }
+  .aside-zi .hanzi { font-size: 1.5rem; color: var(--ink); }
+  .cmp { display: flex; flex-direction: column; gap: .5rem; margin: .6rem 0; }
+  .cmp-row { display: flex; align-items: center; gap: .6rem; justify-content: center; flex-wrap: wrap; }
+  .cmp-lab { font-size: .88rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--muted); flex: none; }
+  .cmp-hint { text-align: left; font-size: 1rem; }
   /* ---- Dictionnaire ---- */
   .dico-input {
     width: 100%; padding: .75rem .9rem; font-size: 1.15rem; font-family: inherit;
@@ -276,6 +295,7 @@
     <div class="panel" style="text-align:center">
       <div class="due-big" id="due-count">0</div>
       <div class="due-label" id="due-label">cartes à réviser</div>
+      <div class="chips" id="track-chips"></div>
       <div class="chips" id="theme-chips"></div>
       <button class="btn" id="start-btn" onclick="startSession()">Commencer la session</button>
       <button class="btn secondary" onclick="startToneQuiz()">Quiz tons</button>
@@ -286,9 +306,11 @@
       <h2>Progression</h2>
       <div class="stats">
         <div class="stat"><div class="n" id="st-total">0</div><div class="l">mots</div></div>
-        <div class="stat"><div class="n" id="st-acquired">0</div><div class="l">acquis</div></div>
         <div class="stat"><div class="n" id="st-reviews">0</div><div class="l">révisions</div></div>
+        <div class="stat"><div class="n" id="st-son">0</div><div class="l">🔊 son acquis</div></div>
+        <div class="stat"><div class="n" id="st-zi">0</div><div class="l">汉 caractères acquis</div></div>
       </div>
+      <p class="hint">Le son et les caractères progressent séparément : tu peux très bien connaître le pinyin d'un mot sans savoir l'écrire.</p>
     </div>
 
     <div class="panel">
@@ -346,7 +368,7 @@
     </div>
   </section>
 
-  <footer class="build">Liànxí · <span id="build-stamp">70 mots · 2026-08-07</span></footer>
+  <footer class="build">Liànxí · <span id="build-stamp">70 mots · 2026-08-10</span></footer>
 </div>
 
 <!-- ============ SESSION ============ -->
@@ -373,16 +395,29 @@
 const LS_KEY = "lianxi-v1";
 const LEVELS = [0, 1, 2, 4, 7, 15, 30, 60]; // intervalle en jours par niveau
 const SESSION_MAX = 25;
-const MODES = ["lecture", "ecoute", "ecriture", "oral"];
-const MODE_LABEL = { lecture: "Lecture", ecoute: "Écoute", ecriture: "Écriture", oral: "Oral" };
+
+/* Deux pistes indépendantes par mot, avec chacune son niveau et son échéance :
+   « son » = pinyin, tons, sens, oral (sans exiger les caractères)
+   « zi »  = reconnaître et écrire les caractères (le pinyin est donné en indice) */
+const TRACKS = ["son", "zi"];
+const TRACK_LABEL = { son: "Son", zi: "Caractères" };
+const TRACK_ICON = { son: "🔊", zi: "汉" };
+const MODES_SON = ["pinyin", "ecoute", "oral"];
+const MODES_ZI = ["lecture", "ecriture"];
+const MODE_LABEL = {
+  pinyin: "Son → sens", ecoute: "Écoute", oral: "Oral",
+  lecture: "Caractères → sens", ecriture: "Écriture"
+};
 
 /* VOCAB:BEGIN — généré par tools/update_vocab.py, ne pas éditer à la main */
 const EMBED_VOCAB = [{"hanzi":"你好","pinyin":"nǐ hǎo","fr":"bonjour","phrase":"你好，我是法国人。","phraseFr":"Bonjour, je suis française.","mots":[["你好","nǐ hǎo","bonjour"],["我","wǒ","je"],["是","shì","être"],["法国人","Fǎguórén","Français(e)"]],"theme":"HSK 1"},{"hanzi":"谢谢","pinyin":"xièxie","fr":"merci","phrase":"谢谢你！","phraseFr":"Merci à toi !","mots":[["谢谢","xièxie","merci"],["你","nǐ","toi"]],"theme":"HSK 1"},{"hanzi":"再见","pinyin":"zàijiàn","fr":"au revoir","phrase":"老师，再见！","phraseFr":"Au revoir, professeur !","mots":[["老师","lǎoshī","professeur"],["再见","zàijiàn","au revoir"]],"theme":"HSK 1"},{"hanzi":"我","pinyin":"wǒ","fr":"je, moi","phrase":"我是学生。","phraseFr":"Je suis étudiante.","mots":[["我","wǒ","je"],["是","shì","être"],["学生","xuésheng","étudiant(e)"]],"theme":"HSK 1"},{"hanzi":"你","pinyin":"nǐ","fr":"tu, toi","phrase":"你喝茶吗？","phraseFr":"Tu bois du thé ?","mots":[["你","nǐ","tu"],["喝","hē","boire"],["茶","chá","thé"],["吗","ma","particule interrogative"]],"theme":"HSK 1"},{"hanzi":"是","pinyin":"shì","fr":"être","phrase":"他是我朋友。","phraseFr":"C'est mon ami.","mots":[["他","tā","il"],["是","shì","être"],["我","wǒ","je, mon"],["朋友","péngyou","ami(e)"]],"theme":"HSK 1"},{"hanzi":"不","pinyin":"bù","fr":"ne... pas","phrase":"我不喝咖啡。","phraseFr":"Je ne bois pas de café.","mots":[["我","wǒ","je"],["不","bù","ne... pas"],["喝","hē","boire"],["咖啡","kāfēi","café"]],"theme":"HSK 1"},{"hanzi":"好","pinyin":"hǎo","fr":"bien, bon","phrase":"很好！","phraseFr":"Très bien !","mots":[["很","hěn","très"],["好","hǎo","bien"]],"theme":"HSK 1"},{"hanzi":"吃","pinyin":"chī","fr":"manger","phrase":"你吃什么？","phraseFr":"Qu'est-ce que tu manges ?","mots":[["你","nǐ","tu"],["吃","chī","manger"],["什么","shénme","quoi"]],"theme":"HSK 1"},{"hanzi":"喝","pinyin":"hē","fr":"boire","phrase":"我喝水。","phraseFr":"Je bois de l'eau.","mots":[["我","wǒ","je"],["喝","hē","boire"],["水","shuǐ","eau"]],"theme":"HSK 1"},{"hanzi":"水","pinyin":"shuǐ","fr":"eau","phrase":"我要喝水。","phraseFr":"Je veux boire de l'eau.","mots":[["我","wǒ","je"],["要","yào","vouloir"],["喝","hē","boire"],["水","shuǐ","eau"]],"theme":"HSK 1"},{"hanzi":"茶","pinyin":"chá","fr":"thé","phrase":"中国茶很好喝。","phraseFr":"Le thé chinois est très bon.","mots":[["中国","Zhōngguó","Chine"],["茶","chá","thé"],["很","hěn","très"],["好喝","hǎohē","bon (à boire)"]],"theme":"HSK 1"},{"hanzi":"人","pinyin":"rén","fr":"personne, humain","phrase":"他是中国人。","phraseFr":"Il est chinois.","mots":[["他","tā","il"],["是","shì","être"],["中国人","Zhōngguórén","Chinois(e)"]],"theme":"HSK 1"},{"hanzi":"中国","pinyin":"Zhōngguó","fr":"Chine","phrase":"我想去中国。","phraseFr":"Je veux aller en Chine.","mots":[["我","wǒ","je"],["想","xiǎng","vouloir, avoir envie"],["去","qù","aller"],["中国","Zhōngguó","Chine"]],"theme":"HSK 1"},{"hanzi":"老师","pinyin":"lǎoshī","fr":"professeur","phrase":"我的老师很好。","phraseFr":"Mon professeur est très bien.","mots":[["我","wǒ","je"],["的","de","particule possessive"],["老师","lǎoshī","professeur"],["很","hěn","très"],["好","hǎo","bien"]],"theme":"HSK 1"},{"hanzi":"学生","pinyin":"xuésheng","fr":"étudiant(e)","phrase":"我是学生。","phraseFr":"Je suis étudiante.","mots":[["我","wǒ","je"],["是","shì","être"],["学生","xuésheng","étudiant(e)"]],"theme":"HSK 1"},{"hanzi":"朋友","pinyin":"péngyou","fr":"ami(e)","phrase":"她是我的朋友。","phraseFr":"C'est mon amie.","mots":[["她","tā","elle"],["是","shì","être"],["我","wǒ","je"],["的","de","particule possessive"],["朋友","péngyou","ami(e)"]],"theme":"HSK 1"},{"hanzi":"喜欢","pinyin":"xǐhuan","fr":"aimer, apprécier","phrase":"我喜欢吃中国菜。","phraseFr":"J'aime la cuisine chinoise.","mots":[["我","wǒ","je"],["喜欢","xǐhuan","aimer"],["吃","chī","manger"],["中国菜","Zhōngguó cài","cuisine chinoise"]],"theme":"HSK 1"},{"hanzi":"什么","pinyin":"shénme","fr":"quoi, quel","phrase":"这是什么？","phraseFr":"Qu'est-ce que c'est ?","mots":[["这","zhè","ceci"],["是","shì","être"],["什么","shénme","quoi"]],"theme":"HSK 1"},{"hanzi":"妈妈","pinyin":"māma","fr":"maman","phrase":"我妈妈喜欢喝茶。","phraseFr":"Ma maman aime boire du thé.","mots":[["我","wǒ","je, ma"],["妈妈","māma","maman"],["喜欢","xǐhuan","aimer"],["喝","hē","boire"],["茶","chá","thé"]],"theme":"HSK 1"},{"hanzi":"今天","pinyin":"jīntiān","fr":"aujourd'hui","phrase":"今天我学中文。","phraseFr":"Aujourd'hui j'étudie le chinois.","mots":[["今天","jīntiān","aujourd'hui"],["我","wǒ","je"],["学","xué","étudier, apprendre"],["中文","Zhōngwén","chinois (langue)"]],"theme":"HSK 1"},{"hanzi":"明天","pinyin":"míngtiān","fr":"demain","phrase":"明天见！","phraseFr":"À demain !","mots":[["明天","míngtiān","demain"],["见","jiàn","se voir"]],"theme":"HSK 1"},{"hanzi":"昨天","pinyin":"zuótiān","fr":"hier","phrase":"昨天我很忙。","phraseFr":"Hier j'étais très occupée.","mots":[["昨天","zuótiān","hier"],["我","wǒ","je"],["很","hěn","très"],["忙","máng","occupé(e)"]],"theme":"HSK 1"},{"hanzi":"星期","pinyin":"xīngqī","fr":"semaine","phrase":"一个星期有七天。","phraseFr":"Une semaine a sept jours.","mots":[["一个","yí ge","un"],["星期","xīngqī","semaine"],["有","yǒu","avoir"],["七","qī","sept"],["天","tiān","jour(s)"]],"theme":"HSK 1"},{"hanzi":"现在","pinyin":"xiànzài","fr":"maintenant","phrase":"现在几点？","phraseFr":"Quelle heure est-il maintenant ?","mots":[["现在","xiànzài","maintenant"],["几","jǐ","combien"],["点","diǎn","heure"]],"theme":"HSK 1"},{"hanzi":"电脑","pinyin":"diànnǎo","fr":"ordinateur","phrase":"我的电脑很慢。","phraseFr":"Mon ordinateur est très lent.","mots":[["我","wǒ","je"],["的","de","particule possessive"],["电脑","diànnǎo","ordinateur"],["很","hěn","très"],["慢","màn","lent"]],"theme":"Informatique"},{"hanzi":"手机","pinyin":"shǒujī","fr":"téléphone portable","phrase":"我的手机没电了。","phraseFr":"Mon téléphone n'a plus de batterie.","mots":[["我","wǒ","je"],["的","de","particule possessive"],["手机","shǒujī","téléphone"],["没电","méi diàn","plus de batterie"],["了","le","particule (changement d'état)"]],"theme":"Informatique"},{"hanzi":"软件","pinyin":"ruǎnjiàn","fr":"logiciel","phrase":"这个软件很好用。","phraseFr":"Ce logiciel est très pratique.","mots":[["这个","zhège","ce, celui-ci"],["软件","ruǎnjiàn","logiciel"],["很","hěn","très"],["好用","hǎoyòng","pratique, facile à utiliser"]],"theme":"Informatique"},{"hanzi":"文件","pinyin":"wénjiàn","fr":"fichier, document","phrase":"请打开这个文件。","phraseFr":"Ouvre ce fichier, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["打开","dǎkāi","ouvrir"],["这个","zhège","ce"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"文件夹","pinyin":"wénjiànjiā","fr":"dossier (informatique)","phrase":"文件在这个文件夹里。","phraseFr":"Le fichier est dans ce dossier.","mots":[["文件","wénjiàn","fichier"],["在","zài","se trouver à"],["这个","zhège","ce"],["文件夹","wénjiànjiā","dossier"],["里","lǐ","dans, dedans"]],"theme":"Informatique"},{"hanzi":"下载","pinyin":"xiàzài","fr":"télécharger","phrase":"我在下载一个软件。","phraseFr":"Je suis en train de télécharger un logiciel.","mots":[["我","wǒ","je"],["在","zài","en train de"],["下载","xiàzài","télécharger"],["一个","yí ge","un"],["软件","ruǎnjiàn","logiciel"]],"theme":"Informatique"},{"hanzi":"打开","pinyin":"dǎkāi","fr":"ouvrir, allumer","phrase":"请打开电脑。","phraseFr":"Allume l'ordinateur, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["打开","dǎkāi","ouvrir, allumer"],["电脑","diànnǎo","ordinateur"]],"theme":"Informatique"},{"hanzi":"关闭","pinyin":"guānbì","fr":"fermer, éteindre","phrase":"请关闭这个程序。","phraseFr":"Ferme ce programme, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["关闭","guānbì","fermer"],["这个","zhège","ce"],["程序","chéngxù","programme"]],"theme":"Informatique"},{"hanzi":"保存","pinyin":"bǎocún","fr":"enregistrer, sauvegarder","phrase":"别忘了保存文件。","phraseFr":"N'oublie pas d'enregistrer le fichier.","mots":[["别","bié","ne... pas (interdiction)"],["忘了","wàng le","oublier"],["保存","bǎocún","enregistrer"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"删除","pinyin":"shānchú","fr":"supprimer","phrase":"我删除了这个文件。","phraseFr":"J'ai supprimé ce fichier.","mots":[["我","wǒ","je"],["删除","shānchú","supprimer"],["了","le","particule (action accomplie)"],["这个","zhège","ce"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"网站","pinyin":"wǎngzhàn","fr":"site web","phrase":"这个网站很有意思。","phraseFr":"Ce site web est très intéressant.","mots":[["这个","zhège","ce"],["网站","wǎngzhàn","site web"],["很","hěn","très"],["有意思","yǒu yìsi","intéressant"]],"theme":"Informatique"},{"hanzi":"网络","pinyin":"wǎngluò","fr":"réseau, internet","phrase":"网络不好。","phraseFr":"La connexion est mauvaise.","mots":[["网络","wǎngluò","réseau"],["不","bù","ne... pas"],["好","hǎo","bon"]],"theme":"Informatique"},{"hanzi":"上网","pinyin":"shàngwǎng","fr":"aller sur internet","phrase":"我每天上网。","phraseFr":"Je vais sur internet tous les jours.","mots":[["我","wǒ","je"],["每天","měitiān","chaque jour"],["上网","shàngwǎng","aller sur internet"]],"theme":"Informatique"},{"hanzi":"密码","pinyin":"mìmǎ","fr":"mot de passe","phrase":"我忘了我的密码。","phraseFr":"J'ai oublié mon mot de passe.","mots":[["我","wǒ","je"],["忘了","wàng le","a oublié"],["我","wǒ","je, mon"],["的","de","particule possessive"],["密码","mìmǎ","mot de passe"]],"theme":"Informatique"},{"hanzi":"用户","pinyin":"yònghù","fr":"utilisateur","phrase":"这个软件有很多用户。","phraseFr":"Ce logiciel a beaucoup d'utilisateurs.","mots":[["这个","zhège","ce"],["软件","ruǎnjiàn","logiciel"],["有","yǒu","avoir"],["很多","hěn duō","beaucoup de"],["用户","yònghù","utilisateurs"]],"theme":"Informatique"},{"hanzi":"点击","pinyin":"diǎnjī","fr":"cliquer","phrase":"点击这里。","phraseFr":"Clique ici.","mots":[["点击","diǎnjī","cliquer"],["这里","zhèlǐ","ici"]],"theme":"Informatique"},{"hanzi":"屏幕","pinyin":"píngmù","fr":"écran","phrase":"屏幕太小了。","phraseFr":"L'écran est trop petit.","mots":[["屏幕","píngmù","écran"],["太","tài","trop"],["小","xiǎo","petit"],["了","le","particule (exclamation)"]],"theme":"Informatique"},{"hanzi":"键盘","pinyin":"jiànpán","fr":"clavier","phrase":"我用中文键盘。","phraseFr":"J'utilise un clavier chinois.","mots":[["我","wǒ","je"],["用","yòng","utiliser"],["中文","Zhōngwén","chinois (langue)"],["键盘","jiànpán","clavier"]],"theme":"Informatique"},{"hanzi":"鼠标","pinyin":"shǔbiāo","fr":"souris (informatique)","phrase":"鼠标坏了。","phraseFr":"La souris est cassée.","mots":[["鼠标","shǔbiāo","souris"],["坏","huài","cassé"],["了","le","particule (changement d'état)"]],"theme":"Informatique"},{"hanzi":"程序","pinyin":"chéngxù","fr":"programme","phrase":"这个程序有问题。","phraseFr":"Ce programme a un problème.","mots":[["这个","zhège","ce"],["程序","chéngxù","programme"],["有","yǒu","avoir"],["问题","wèntí","problème"]],"theme":"Informatique"},{"hanzi":"数据","pinyin":"shùjù","fr":"données","phrase":"数据很重要。","phraseFr":"Les données sont très importantes.","mots":[["数据","shùjù","données"],["很","hěn","très"],["重要","zhòngyào","important"]],"theme":"Informatique"},{"hanzi":"人工智能","pinyin":"réngōng zhìnéng","fr":"intelligence artificielle","phrase":"我用人工智能学中文。","phraseFr":"J'utilise l'IA pour apprendre le chinois.","mots":[["我","wǒ","je"],["用","yòng","utiliser"],["人工智能","réngōng zhìnéng","intelligence artificielle"],["学","xué","apprendre"],["中文","Zhōngwén","chinois (langue)"]],"theme":"Informatique"},{"hanzi":"电子邮件","pinyin":"diànzǐ yóujiàn","fr":"e-mail","phrase":"请给我发电子邮件。","phraseFr":"Envoie-moi un e-mail, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["给","gěi","à, pour"],["我","wǒ","moi"],["发","fā","envoyer"],["电子邮件","diànzǐ yóujiàn","e-mail"]],"theme":"Informatique"},{"hanzi":"您","pinyin":"nín","fr":"vous (poli)","phrase":"您好，老师！","phraseFr":"Bonjour, professeur !","mots":[["您","nín","vous (poli)"],["好","hǎo","bien, bonjour"],["老师","lǎoshī","professeur"]],"theme":"HSK 1"},{"hanzi":"你们","pinyin":"nǐmen","fr":"vous (pluriel)","phrase":"你们好！","phraseFr":"Bonjour à vous tous !","mots":[["你们","nǐmen","vous (pluriel)"],["好","hǎo","bien, bonjour"]],"theme":"HSK 1"},{"hanzi":"对不起","pinyin":"duìbuqǐ","fr":"désolé, pardon","phrase":"对不起，我不知道。","phraseFr":"Désolé, je ne sais pas.","mots":[["对不起","duìbuqǐ","désolé"],["我","wǒ","je"],["不","bù","ne... pas"],["知道","zhīdào","savoir"]],"theme":"HSK 1"},{"hanzi":"没关系","pinyin":"méiguānxi","fr":"ce n'est rien, pas grave","phrase":"没关系，没问题。","phraseFr":"Ce n'est rien, pas de problème.","mots":[["没关系","méiguānxi","ce n'est rien"],["没问题","méi wèntí","pas de problème"]],"theme":"HSK 1"},{"hanzi":"不客气","pinyin":"bú kèqi","fr":"de rien, je t'en prie","phrase":"谢谢你！不客气！","phraseFr":"Merci ! De rien !","mots":[["谢谢","xièxie","merci"],["你","nǐ","toi"],["不客气","bú kèqi","de rien"]],"theme":"HSK 1"},{"hanzi":"叫","pinyin":"jiào","fr":"s'appeler","phrase":"你叫什么名字？","phraseFr":"Comment tu t'appelles ?","mots":[["你","nǐ","tu"],["叫","jiào","s'appeler"],["什么","shénme","quoi"],["名字","míngzi","nom"]],"theme":"HSK 1"},{"hanzi":"名字","pinyin":"míngzi","fr":"nom, prénom","phrase":"我的名字是玛丽。","phraseFr":"Mon nom est Marie.","mots":[["我","wǒ","je, mon"],["的","de","particule possessive"],["名字","míngzi","nom"],["是","shì","être"],["玛丽","Mǎlì","Marie"]],"theme":"HSK 1"},{"hanzi":"美国","pinyin":"Měiguó","fr":"États-Unis","phrase":"我想去美国。","phraseFr":"Je veux aller aux États-Unis.","mots":[["我","wǒ","je"],["想","xiǎng","vouloir"],["去","qù","aller"],["美国","Měiguó","États-Unis"]],"theme":"HSK 1"},{"hanzi":"美国人","pinyin":"Měiguórén","fr":"Américain(e)","phrase":"大卫是美国人。","phraseFr":"David est américain.","mots":[["大卫","Dàwèi","David"],["是","shì","être"],["美国人","Měiguórén","Américain(e)"]],"theme":"HSK 1"},{"hanzi":"吗","pinyin":"ma","fr":"particule interrogative","phrase":"你是老师吗？","phraseFr":"Es-tu professeur ?","mots":[["你","nǐ","tu"],["是","shì","être"],["老师","lǎoshī","professeur"],["吗","ma","particule interrogative"]],"theme":"HSK 1"},{"hanzi":"模型","pinyin":"móxíng","fr":"modèle","phrase":"这个模型很大。","phraseFr":"Ce modèle est très grand.","mots":[["这个","zhège","ce, cet"],["模型","móxíng","modèle"],["很","hěn","très"],["大","dà","grand"]],"theme":"Informatique"},{"hanzi":"大模型","pinyin":"dà móxíng","fr":"grand modèle (LLM)","phrase":"大模型需要很多数据。","phraseFr":"Un grand modèle a besoin de beaucoup de données.","mots":[["大模型","dà móxíng","grand modèle"],["需要","xūyào","avoir besoin de"],["很多","hěn duō","beaucoup de"],["数据","shùjù","données"]],"theme":"Informatique"},{"hanzi":"监管","pinyin":"jiānguǎn","fr":"régulation, supervision","phrase":"人工智能需要监管。","phraseFr":"L'intelligence artificielle a besoin de régulation.","mots":[["人工智能","réngōng zhìnéng","intelligence artificielle"],["需要","xūyào","avoir besoin de"],["监管","jiānguǎn","régulation"]],"theme":"Informatique"},{"hanzi":"安全","pinyin":"ānquán","fr":"sécurité, sûr","phrase":"数据安全很重要。","phraseFr":"La sécurité des données est très importante.","mots":[["数据","shùjù","données"],["安全","ānquán","sécurité"],["很","hěn","très"],["重要","zhòngyào","important"]],"theme":"Informatique"},{"hanzi":"诉讼","pinyin":"sùsòng","fr":"procès, contentieux","phrase":"这个诉讼很重要。","phraseFr":"Ce procès est très important.","mots":[["这个","zhège","ce, cet"],["诉讼","sùsòng","procès"],["很","hěn","très"],["重要","zhòngyào","important"]],"theme":"Informatique"},{"hanzi":"平台","pinyin":"píngtái","fr":"plateforme","phrase":"这个平台有很多用户。","phraseFr":"Cette plateforme a beaucoup d'utilisateurs.","mots":[["这个","zhège","cette"],["平台","píngtái","plateforme"],["有","yǒu","avoir"],["很多","hěn duō","beaucoup de"],["用户","yònghù","utilisateur"]],"theme":"Informatique"},{"hanzi":"智能体","pinyin":"zhìnéngtǐ","fr":"agent (IA)","phrase":"智能体可以打开文件。","phraseFr":"L'agent peut ouvrir le fichier.","mots":[["智能体","zhìnéngtǐ","agent (IA)"],["可以","kěyǐ","pouvoir"],["打开","dǎkāi","ouvrir"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"隐私","pinyin":"yǐnsī","fr":"vie privée","phrase":"我们要保护隐私。","phraseFr":"Nous devons protéger la vie privée.","mots":[["我们","wǒmen","nous"],["要","yào","devoir"],["保护","bǎohù","protéger"],["隐私","yǐnsī","vie privée"]],"theme":"Informatique"},{"hanzi":"芯片","pinyin":"xīnpiàn","fr":"puce (électronique)","phrase":"电脑里有芯片。","phraseFr":"Il y a une puce dans l'ordinateur.","mots":[["电脑","diànnǎo","ordinateur"],["里","lǐ","dans"],["有","yǒu","il y a"],["芯片","xīnpiàn","puce"]],"theme":"Informatique"},{"hanzi":"开源","pinyin":"kāiyuán","fr":"open source","phrase":"这个软件是开源的。","phraseFr":"Ce logiciel est open source.","mots":[["这个","zhège","ce"],["软件","ruǎnjiàn","logiciel"],["是","shì","être"],["开源","kāiyuán","open source"],["的","de","particule"]],"theme":"Informatique"},{"hanzi":"机器人","pinyin":"jīqìrén","fr":"robot","phrase":"机器人会说中文。","phraseFr":"Le robot sait parler chinois.","mots":[["机器人","jīqìrén","robot"],["会","huì","savoir (faire)"],["说","shuō","parler"],["中文","Zhōngwén","chinois (langue)"]],"theme":"Informatique"},{"hanzi":"数据中心","pinyin":"shùjù zhōngxīn","fr":"centre de données","phrase":"数据中心用很多电。","phraseFr":"Un centre de données consomme beaucoup d'électricité.","mots":[["数据中心","shùjù zhōngxīn","centre de données"],["用","yòng","utiliser"],["很多","hěn duō","beaucoup de"],["电","diàn","électricité"]],"theme":"Informatique"}];
 /* VOCAB:END */
 
 /* ---------- État ---------- */
+let PY = null; // index hanzi -> pinyin, (re)construit à la demande (voir pyIndex)
 let state = load();
 let curTheme = "all";
+let curTrack = "all"; // "all" | "son" | "zi"
 
 function load() {
   let s = null;
@@ -406,16 +441,28 @@ function mergeEmbed(s) {
       s.cards.push(newCard(w));
     }
   });
+  s.cards.forEach(migrate);
+  PY = null;
+}
+/* Ancienne progression (un seul niveau par mot) : on la duplique sur les deux pistes,
+   qui divergeront ensuite au fil des révisions. */
+function migrate(c) {
+  if (c.son && c.zi) return;
+  const base = { level: c.level || 0, due: c.due || Date.now(), errors: c.errors || 0, reviews: c.reviews || 0 };
+  if (!c.son) c.son = Object.assign({}, base);
+  if (!c.zi) c.zi = Object.assign({}, base);
+  delete c.level; delete c.due; delete c.errors; delete c.reviews;
 }
 function save() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
 }
+function newTrack() { return { level: 0, due: Date.now(), errors: 0, reviews: 0 }; }
 function newCard(w) {
   return { hanzi: w.hanzi.trim(), pinyin: (w.pinyin||"").trim(), fr: (w.fr||"").trim(),
     phrase: (w.phrase||"").trim(), phraseFr: (w.phraseFr||"").trim(),
     mots: w.mots || [],
     theme: (w.theme||"Général").trim(),
-    level: 0, due: Date.now(), errors: 0, reviews: 0 };
+    son: newTrack(), zi: newTrack() };
 }
 
 /* ---------- Utilitaires ---------- */
@@ -447,6 +494,42 @@ function normHanzi(s) {
 /* pinyin sans accents ni majuscules, pour la recherche : "nǐ hǎo" -> "ni hao" */
 function pinyinPlain(s) {
   return String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+/* Index hanzi -> pinyin, construit depuis les mots et leurs décompositions.
+   Sert à réafficher en pinyin ce que la reconnaissance vocale a entendu.
+   (PY est déclaré plus haut : mergeEmbed l'invalide avant que ce bloc ne s'exécute.) */
+function pyIndex() {
+  if (PY) return PY;
+  PY = new Map();
+  const add = (h, p) => { if (h && p && !PY.has(h)) PY.set(h, p); };
+  state.cards.forEach(c => {
+    add(c.hanzi, c.pinyin);
+    (c.mots || []).forEach(m => add(m[0], m[1]));
+  });
+  return PY;
+}
+/* Découpe un texte chinois en segments connus (correspondance la plus longue d'abord) */
+const PUNCT = /[\s，。！？、；：""''……—,.!?;:'"()（）]/;
+function segment(text) {
+  const idx = pyIndex(), chars = [...String(text)], out = [];
+  let i = 0;
+  while (i < chars.length) {
+    if (PUNCT.test(chars[i])) { out.push([chars[i], null, true]); i++; continue; }
+    let hit = null;
+    for (let L = Math.min(4, chars.length - i); L >= 1; L--) {
+      const seg = chars.slice(i, i + L).join("");
+      if (idx.has(seg)) { hit = [seg, idx.get(seg), false]; i += L; break; }
+    }
+    if (hit) out.push(hit);
+    else { out.push([chars[i], null, false]); i++; } // caractère inconnu : pinyin « ? »
+  }
+  return out;
+}
+/* Rendu « caractère au-dessus, pinyin coloré en dessous » */
+function rubyHTML(text) {
+  return segment(text).map(([seg, p, punct]) =>
+    `<span class="pyseg"><span class="hanzi">${esc(seg)}</span>${punct ? "" : `<span class="pysub">${p ? renderPinyin(p) : "?"}</span>`}</span>`
+  ).join("");
 }
 function streak() {
   let n = 0;
@@ -519,17 +602,28 @@ function showTab(t) {
   else render();
 }
 function themeMatch(c) { return curTheme === "all" || (c.theme || "Général") === curTheme; }
-function dueCards() {
-  const now = Date.now();
-  return state.cards.filter(c => c.due <= now && themeMatch(c)).sort((a, b) => a.due - b.due);
+function trackMatch(t) { return curTrack === "all" || curTrack === t; }
+/* Une « carte due » est désormais un couple (mot, piste) : un mot peut être dû
+   en Son sans l'être en Caractères, et inversement. */
+function dueItems() {
+  const now = Date.now(), out = [];
+  state.cards.filter(themeMatch).forEach(c => {
+    TRACKS.forEach(t => { if (trackMatch(t) && c[t] && c[t].due <= now) out.push({ card: c, track: t }); });
+  });
+  return out.sort((a, b) => a.card[a.track].due - b.card[b.track].due);
 }
-function weakCards() {
-  return state.cards
-    .filter(c => c.reviews >= 2 && c.errors >= 2)
-    .sort((a, b) => (b.errors / b.reviews) - (a.errors / a.reviews))
-    .slice(0, 10);
+function weakItems() {
+  const out = [];
+  state.cards.forEach(c => {
+    TRACKS.forEach(t => {
+      const tr = c[t];
+      if (tr && tr.reviews >= 2 && tr.errors >= 2) out.push({ card: c, track: t, rate: tr.errors / tr.reviews });
+    });
+  });
+  return out.sort((a, b) => b.rate - a.rate).slice(0, 10);
 }
 function setTheme(t) { curTheme = t; render(); }
+function setTrack(t) { curTrack = t; render(); }
 function render() {
   const themes = [...new Set(state.cards.map(c => c.theme || "Général"))].sort();
   if (curTheme !== "all" && !themes.includes(curTheme)) curTheme = "all";
@@ -538,32 +632,40 @@ function render() {
        ...themes.map(t => `<button class="chip" aria-pressed="${curTheme === t}" onclick="setTheme(${jsattr(t)})">${esc(t)}</button>`)
       ].join("")
     : "";
+  $("track-chips").innerHTML =
+    [`<button class="chip" aria-pressed="${curTrack === "all"}" onclick="setTrack('all')">Les deux</button>`,
+     ...TRACKS.map(t => `<button class="chip" aria-pressed="${curTrack === t}" onclick="setTrack(${jsattr(t)})">${TRACK_ICON[t]} ${esc(TRACK_LABEL[t])}</button>`)
+    ].join("");
 
-  const due = dueCards();
+  const due = dueItems();
   $("due-count").textContent = Math.min(due.length, SESSION_MAX);
   $("due-label").textContent = (due.length === 1 ? "carte à réviser" : "cartes à réviser") +
+    (curTrack === "all" ? "" : " · " + TRACK_LABEL[curTrack]) +
     (curTheme === "all" ? "" : " · " + curTheme);
   $("start-btn").disabled = due.length === 0;
   $("no-due-hint").style.display = due.length === 0 ? "" : "none";
   $("streak").textContent = "🔥 " + streak();
   $("st-total").textContent = state.cards.length;
-  $("st-acquired").textContent = state.cards.filter(c => c.level >= 4).length;
+  $("st-son").textContent = state.cards.filter(c => c.son.level >= 4).length;
+  $("st-zi").textContent = state.cards.filter(c => c.zi.level >= 4).length;
   $("st-reviews").textContent = state.reviews;
 
-  const weak = weakCards();
-  $("weak-list").innerHTML = weak.map(c =>
-    `<li><span class="w-hanzi hanzi">${esc(c.hanzi)}</span>
-     <span class="w-mid"><span class="w-pinyin">${renderPinyin(c.pinyin)}</span><br><span class="w-fr">${esc(c.fr)}</span></span>
-     <span class="w-err">${c.errors}✕</span></li>`).join("");
+  const weak = weakItems();
+  $("weak-list").innerHTML = weak.map(it =>
+    `<li><span class="w-hanzi hanzi">${esc(it.card.hanzi)}</span>
+     <span class="w-mid"><span class="w-pinyin">${renderPinyin(it.card.pinyin)}</span><span class="w-theme">${TRACK_ICON[it.track]} ${esc(TRACK_LABEL[it.track])}</span><br><span class="w-fr">${esc(it.card.fr)}</span></span>
+     <span class="w-err">${it.card[it.track].errors}✕</span></li>`).join("");
   $("weak-empty").style.display = weak.length ? "none" : "";
   $("export-weak").style.display = weak.length ? "" : "none";
 
   $("word-count").textContent = state.cards.length;
-  const sorted = [...state.cards].sort((a, b) => a.level - b.level || b.errors - a.errors);
+  const sorted = [...state.cards].sort((a, b) =>
+    (a.son.level + a.zi.level) - (b.son.level + b.zi.level) ||
+    (b.son.errors + b.zi.errors) - (a.son.errors + a.zi.errors));
   $("word-list").innerHTML = sorted.map(c =>
     `<li><span class="w-hanzi hanzi">${esc(c.hanzi)}</span>
      <span class="w-mid"><span class="w-pinyin">${renderPinyin(c.pinyin)}</span><span class="w-theme">${esc(c.theme || "Général")}</span><br><span class="w-fr">${esc(c.fr)}</span></span>
-     <span class="w-lvl">niv. ${c.level}</span></li>`).join("");
+     <span class="w-lvl">🔊 ${c.son.level}<br>汉 ${c.zi.level}</span></li>`).join("");
 }
 
 /* ---------- Dictionnaire ---------- */
@@ -634,9 +736,12 @@ function copyText(text, btnMsgEl, okLabel) {
   } else fail();
 }
 function exportWeak() {
-  const weak = weakCards();
-  const lines = weak.map(c => `- ${c.hanzi} (${c.pinyin}) « ${c.fr} » : ${c.errors} erreurs sur ${c.reviews} révisions`);
-  const text = `Mots faibles exportés depuis mon app Liànxí (${todayKey()}). Intègre-les en priorité à ma prochaine leçon et au carnet d'erreurs :\n${lines.join("\n")}`;
+  const weak = weakItems();
+  const lines = weak.map(it => {
+    const tr = it.card[it.track];
+    return `- ${it.card.hanzi} (${it.card.pinyin}) « ${it.card.fr} » : piste ${TRACK_LABEL[it.track]}, ${tr.errors} erreurs sur ${tr.reviews} révisions`;
+  });
+  const text = `Mots faibles exportés depuis mon app Liànxí (${todayKey()}). La piste indique ce qui coince : « Son » = pinyin, tons, sens ; « Caractères » = lecture et écriture des hanzi. Intègre-les en priorité à ma prochaine leçon et au carnet d'erreurs :\n${lines.join("\n")}`;
   copyText(text, $("weak-empty"), "Copié. Colle-le dans ta session Claude Code.");
   $("weak-empty").style.display = "";
 }
@@ -661,17 +766,30 @@ function resetApp() {
 
 /* ---------- Session ---------- */
 let sessMode = "srs"; // "srs" (révision) ou "tones" (quiz tons)
-let queue = [], qIndex = 0, sessTotal = 0, sessErrors = [], sessOk = 0;
+let queue = [], qIndex = 0, sessTotal = 0, sessErrors = [], sessSkipped = [], sessOk = 0;
 
+/* Session à longueur fixe : la file est constituée une fois pour toutes et
+   ne s'allonge jamais en cours de route. Les mots ratés ou passés reviennent
+   dans une session suivante, pas dans celle-ci. */
 function startSession() {
-  const due = dueCards().slice(0, SESSION_MAX);
+  const due = dueItems().slice(0, SESSION_MAX);
   if (!due.length) return;
   sessMode = "srs";
-  queue = shuffle(due);
-  qIndex = 0; sessTotal = queue.length; sessErrors = []; sessOk = 0;
+  runQueue(shuffle(due));
   speak(" "); // amorce iOS : première utterance déclenchée par un geste utilisateur
   $("session").classList.remove("hidden");
   document.body.style.overflow = "hidden";
+  nextCard();
+}
+function runQueue(items) {
+  queue = items;
+  qIndex = 0; sessTotal = queue.length; sessErrors = []; sessSkipped = []; sessOk = 0;
+}
+/* Rejouer, à la fin d'une session, uniquement ce qui a coincé */
+function replayMissed() {
+  const again = sessErrors.concat(sessSkipped);
+  if (!again.length) { quitSession(); return; }
+  runQueue(shuffle(again));
   nextCard();
 }
 function shuffle(a) {
@@ -687,20 +805,21 @@ function quitSession() {
   document.body.style.overflow = "";
   render();
 }
-function modeFor(card) {
-  const m = MODES[card.reviews % MODES.length];
-  if ((m === "ecoute") && !window.speechSynthesis) return "lecture";
+function modeFor(it) {
+  const list = it.track === "son" ? MODES_SON : MODES_ZI;
+  const m = list[it.card[it.track].reviews % list.length];
+  if (m === "ecoute" && !window.speechSynthesis) return "pinyin";
   return m;
 }
 function nextCard() {
   stopRecog();
   if (qIndex >= queue.length) { endSession(); return; }
-  const card = queue[qIndex];
-  const mode = modeFor(card);
-  $("prog-bar").style.width = Math.round(100 * qIndex / queue.length) + "%";
-  $("prog-txt").textContent = `${Math.min(qIndex + 1, sessTotal)} / ${queue.length}`;
+  const it = queue[qIndex];
+  const card = it.card, mode = modeFor(it);
+  $("prog-bar").style.width = Math.round(100 * qIndex / sessTotal) + "%";
+  $("prog-txt").textContent = `${qIndex + 1} / ${sessTotal}`;
   const z = $("card-zone");
-  z.innerHTML = `<span class="mode-tag">${MODE_LABEL[mode]}</span>` + cardHTML(card, mode);
+  z.innerHTML = `<span class="mode-tag">${TRACK_ICON[it.track]} ${MODE_LABEL[mode]}</span>` + cardHTML(card, mode);
   const inp = z.querySelector("input.answer");
   if (inp) {
     inp.focus();
@@ -726,7 +845,7 @@ function phraseHTML(c) {
     <div class="gloss" id="gloss-zone"></div>`;
 }
 function showGloss(el, wi) {
-  const m = queue[qIndex].mots[wi];
+  const m = queue[qIndex].card.mots[wi];
   if (!m) return;
   document.querySelectorAll(".pword.active").forEach(b => b.classList.remove("active"));
   el.classList.add("active");
@@ -745,7 +864,27 @@ function cardHTML(c, mode) {
     <div><button class="audio-btn" onclick="speak(${jsattr(c.phrase)})">🔊 La phrase</button>
          <button class="audio-btn" onclick="speak(${jsattr(c.phrase)}, 0.55)">🐢 Lente</button></div>` : "";
   const answer = `<div class="q-pinyin">${renderPinyin(c.pinyin)}</div><div class="q-fr">${esc(c.fr)}</div>`;
+  /* Sur la piste Son, les caractères ne sont qu'une information de contexte, jamais la question */
+  const ziAside = `<div class="aside-zi">à l'écrit : <span class="hanzi">${esc(c.hanzi)}</span></div>`;
 
+  /* --- Piste Son --- */
+  if (mode === "pinyin") return `<div class="qcard">
+      <div class="q-pinyin" style="font-size:2.4rem">${renderPinyin(c.pinyin)}</div>
+      <div class="q-prompt">Quel est le sens ? Prononce-le à voix haute d'abord.</div>
+      ${audioBtns}
+      <div id="reveal-zone"><button class="btn secondary" onclick="reveal()">Révéler</button></div>
+      <div id="answer-zone" class="hidden"><div class="q-fr">${esc(c.fr)}</div>${ziAside}${phrase}</div>
+    </div>${gradesHTML()}`;
+
+  if (mode === "ecoute") return `<div class="qcard">
+      <button class="big-audio" onclick="speak(${jsattr(c.hanzi)})" aria-label="Réécouter">🔊</button>
+      <div class="q-prompt">Qu'as-tu entendu ? Dis le pinyin, les tons et le sens, puis révèle.</div>
+      <div><button class="audio-btn" onclick="speak(${jsattr(c.hanzi)}, 0.55)">🐢 Réécouter en lent</button></div>
+      <div id="reveal-zone"><button class="btn secondary" onclick="reveal()">Révéler</button></div>
+      <div id="answer-zone" class="hidden">${answer}${ziAside}${phrase}</div>
+    </div>${gradesHTML()}`;
+
+  /* --- Piste Caractères --- */
   if (mode === "lecture") return `<div class="qcard">
       <div class="q-hanzi hanzi">${esc(c.hanzi)}</div>
       <div class="q-prompt">Pinyin, tons et sens ?</div>
@@ -753,15 +892,9 @@ function cardHTML(c, mode) {
       <div id="answer-zone" class="hidden">${answer}${audioBtns}${phrase}</div>
     </div>${gradesHTML()}`;
 
-  if (mode === "ecoute") return `<div class="qcard">
-      <button class="big-audio" onclick="speak(${jsattr(c.hanzi)})" aria-label="Réécouter">🔊</button>
-      <div class="q-prompt">Qu'as-tu entendu ? Dis-le, puis révèle.</div>
-      <div><button class="audio-btn" onclick="speak(${jsattr(c.hanzi)}, 0.55)">🐢 Réécouter en lent</button></div>
-      <div id="reveal-zone"><button class="btn secondary" onclick="reveal()">Révéler</button></div>
-      <div id="answer-zone" class="hidden"><div class="q-hanzi small hanzi">${esc(c.hanzi)}</div>${answer}${phrase}</div>
-    </div>${gradesHTML()}`;
-
+  /* Le pinyin est donné : on teste les caractères seuls, pas le rappel du son */
   if (mode === "ecriture") return `<div class="qcard">
+      <div class="q-pinyin">${renderPinyin(c.pinyin)}</div>
       <div class="q-fr">« ${esc(c.fr)} »</div>
       <div class="q-prompt">Écris-le en caractères avec ton clavier chinois</div>
       <input class="answer" id="write-input" autocomplete="off" lang="zh-CN">
@@ -782,7 +915,7 @@ function cardHTML(c, mode) {
                 <div class="heard" id="heard"></div>` : ""}
       </div>
       <div id="answer-zone" class="hidden">
-        ${c.phrase ? phraseHTML(c) : `<div class="q-hanzi small hanzi">${esc(target)}</div>`}
+        <div class="cmp-row"><span class="cmp-lab">Modèle</span><span class="ruby">${rubyHTML(target)}</span></div>
         <div class="q-fr">${esc(c.hanzi)} <span class="q-pinyin">${renderPinyin(c.pinyin)}</span> : ${esc(c.fr)}</div>
         <div><button class="audio-btn" onclick="speak(${jsattr(target)})">🔊 Modèle</button>
              <button class="audio-btn" onclick="speak(${jsattr(target)}, 0.55)">🐢 Lent</button></div>
@@ -806,7 +939,7 @@ function reveal() {
 
 /* ---- Mode écriture ---- */
 function checkWriting() {
-  const card = queue[qIndex];
+  const card = queue[qIndex].card;
   const raw = $("write-input").value;
   const got = normHanzi(raw), want = normHanzi(card.hanzi);
   const ok = got === want;
@@ -851,13 +984,19 @@ function toggleRecog(target) {
   recogTimer = setTimeout(stopRecog, 8000); // filet de sécurité si iOS ne rend jamais la main
   recog.onresult = ev => {
     const alts = Array.from(ev.results[0]).map(r => r.transcript);
-    const hit = alts.some(a => normHanzi(a).includes(normHanzi(target)));
+    /* On garde l'alternative la plus proche de la cible : le moteur en propose plusieurs
+       et la première n'est pas toujours la meilleure. */
+    const exact = alts.find(a => normHanzi(a).includes(normHanzi(target)));
+    const best = exact || alts[0] || "";
+    const hit = !!exact;
     stopRecog();
-    if (heard) heard.innerHTML = `Entendu : <span class="hanzi">${esc(alts[0])}</span>`;
+    if (heard) heard.textContent = "";
     reveal();
     const zone = $("answer-zone");
     if (zone) zone.insertAdjacentHTML("afterbegin",
-      `<div class="verdict ${hit ? "ok" : "ko"}">${hit ? "Bien reconnu !" : "Pas reconnu, compare avec le modèle"}</div>`);
+      `<div class="verdict ${hit ? "ok" : "ko"}">${hit ? "Bien reconnu !" : "Ce n'est pas ce que j'ai entendu"}</div>
+       <div class="cmp-row"><span class="cmp-lab">Entendu</span><span class="ruby">${rubyHTML(best)}</span></div>
+       ${hit ? "" : `<p class="q-prompt cmp-hint">Compare avec la ligne « Modèle » : le son que tu as produit est celui-ci. Attention, le moteur corrige souvent les tons tout seul, un ton faux peut passer inaperçu. Le quiz tons reste le meilleur juge.</p>`}`);
     const btn = document.querySelector(hit ? ".g-good" : ".g-again");
     if (btn) btn.classList.add("suggest");
   };
@@ -872,7 +1011,8 @@ function toggleRecog(target) {
   catch (e) { stopRecog(); if (heard) heard.textContent = "Micro indisponible ici. Révèle la réponse et évalue-toi."; }
 }
 
-/* Passer sans noter : la carte reste due et reviendra à une prochaine session */
+/* Passer sans noter : la carte reste due telle quelle et revient à une prochaine
+   session. Elle n'allonge pas celle-ci, elle est juste comptée dans le bilan. */
 function skipCard() {
   if (window.speechSynthesis) speechSynthesis.cancel();
   if (sessMode === "tones") {
@@ -882,6 +1022,8 @@ function skipCard() {
     return;
   }
   stopRecog();
+  const it = queue[qIndex];
+  if (it && !sessSkipped.includes(it)) sessSkipped.push(it);
   qIndex++;
   nextCard();
 }
@@ -983,48 +1125,60 @@ function endToneQuiz() {
 
 /* ---- Notation & planification ---- */
 function grade(g) {
-  const card = queue[qIndex];
-  card.reviews++; state.reviews++;
+  const it = queue[qIndex], tr = it.card[it.track];
+  tr.reviews++; state.reviews++;
   state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
   if (g === 0) {
-    card.errors++;
-    card.level = Math.max(0, card.level - 2);
-    if (!sessErrors.includes(card)) sessErrors.push(card);
-    queue.push(card); // repasse en fin de session
+    tr.errors++;
+    tr.level = Math.max(0, tr.level - 2);
+    if (!sessErrors.includes(it)) sessErrors.push(it);
   } else {
     sessOk++;
-    card.level = Math.min(LEVELS.length - 1, card.level + (g === 2 ? 2 : 1));
+    tr.level = Math.min(LEVELS.length - 1, tr.level + (g === 2 ? 2 : 1));
   }
-  const days = LEVELS[card.level];
-  card.due = days === 0 ? Date.now() : Date.now() + days * 864e5 + Math.floor(Math.random() * 36e5);
+  const days = LEVELS[tr.level];
+  tr.due = days === 0 ? Date.now() : Date.now() + days * 864e5 + Math.floor(Math.random() * 36e5);
   save();
   qIndex++;
   nextCard();
 }
 
+function itemLI(it) {
+  return `<li><span class="w-hanzi hanzi">${esc(it.card.hanzi)}</span>
+    <span class="w-mid"><span class="w-pinyin">${renderPinyin(it.card.pinyin)}</span><span class="w-theme">${TRACK_ICON[it.track]} ${esc(TRACK_LABEL[it.track])}</span><br><span class="w-fr">${esc(it.card.fr)}</span></span></li>`;
+}
 function endSession() {
   $("prog-bar").style.width = "100%";
   $("prog-txt").textContent = "";
-  const errHTML = sessErrors.length
-    ? `<hr class="divider"><div class="end-list"><strong>À retravailler :</strong>
-       <ul class="words">${sessErrors.map(c =>
-         `<li><span class="w-hanzi hanzi">${esc(c.hanzi)}</span>
-          <span class="w-mid"><span class="w-pinyin">${renderPinyin(c.pinyin)}</span><br><span class="w-fr">${esc(c.fr)}</span></span></li>`).join("")}
-       </ul></div>
-       <button class="btn secondary" onclick="copySessionReport()">Copier le bilan pour mon tuteur Claude</button>
+  const missed = sessErrors.concat(sessSkipped.filter(it => !sessErrors.includes(it)));
+  const listHTML = block => block.items.length
+    ? `<hr class="divider"><div class="end-list"><strong>${block.title}</strong>
+       <ul class="words">${block.items.map(itemLI).join("")}</ul></div>` : "";
+  const body = missed.length
+    ? listHTML({ title: "À retravailler :", items: sessErrors }) +
+      listHTML({ title: "Passés, pas encore vus :", items: sessSkipped.filter(it => !sessErrors.includes(it)) }) +
+      `<button class="btn secondary" onclick="replayMissed()">Rejouer ces ${missed.length} carte(s) maintenant</button>
+       <button class="btn ghost" onclick="copySessionReport()">Copier le bilan pour mon tuteur Claude</button>
        <div class="msg" id="sess-msg"></div>`
     : `<p class="q-fr">Sans faute. 太好了 tài hǎo le !</p>`;
   $("card-zone").innerHTML = `<div class="qcard">
       <div class="q-hanzi hanzi">加油</div>
       <div class="q-pinyin">${renderPinyin("jiā yóu")}</div>
-      <div class="q-fr">Session terminée : ${sessOk} réussite(s), ${sessErrors.length} mot(s) à retravailler.</div>
-      ${errHTML}
+      <div class="q-fr">Session terminée sur ${sessTotal} carte(s).</div>
+      <div class="score">
+        <div class="sc ok"><div class="n">${sessOk}</div><div class="l">maîtrisées</div></div>
+        <div class="sc ko"><div class="n">${sessErrors.length}</div><div class="l">à revoir</div></div>
+        <div class="sc"><div class="n">${sessSkipped.filter(it => !sessErrors.includes(it)).length}</div><div class="l">passées</div></div>
+      </div>
+      ${body}
       <button class="btn" onclick="quitSession()">Terminer</button>
     </div>`;
 }
 function copySessionReport() {
-  const lines = sessErrors.map(c => `- ${c.hanzi} (${c.pinyin}) « ${c.fr} »`);
-  const text = `Bilan de ma session Liànxí du ${todayKey()} : ${sessOk} réussites. Mots ratés à intégrer au carnet d'erreurs et à la prochaine leçon :\n${lines.join("\n")}`;
+  const missed = sessErrors.concat(sessSkipped.filter(it => !sessErrors.includes(it)));
+  const lines = missed.map(it =>
+    `- ${it.card.hanzi} (${it.card.pinyin}) « ${it.card.fr} » : piste ${TRACK_LABEL[it.track]}${sessErrors.includes(it) ? " (raté)" : " (passé)"}`);
+  const text = `Bilan de ma session Liànxí du ${todayKey()} : ${sessOk} réussites sur ${sessTotal}. Mots à intégrer au carnet d'erreurs et à la prochaine leçon (la piste indique si c'est le son ou les caractères qui coincent) :\n${lines.join("\n")}`;
   copyText(text, $("sess-msg"), "Copié. Colle-le dans ta session Claude Code.");
 }
 
