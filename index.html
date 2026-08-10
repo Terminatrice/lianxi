@@ -67,9 +67,9 @@
     box-shadow: var(--shadow);
   }
 
-  nav.tabs { display: flex; gap: .5rem; margin-bottom: 1.1rem; }
+  nav.tabs { display: flex; gap: .4rem; margin-bottom: 1.1rem; }
   nav.tabs button {
-    flex: 1; padding: .6rem 0; font-size: 1.05rem; font-weight: 600;
+    flex: 1; padding: .6rem .1rem; font-size: 1rem; font-weight: 600;
     font-family: inherit; border: 1px solid var(--line); border-radius: .6rem;
     background: var(--card); color: var(--muted); cursor: pointer;
   }
@@ -259,6 +259,66 @@
   .dico-ex { font-size: 1.2rem; margin-top: .6rem; line-height: 1.5; }
   .dico-ex-fr { font-size: .98rem; color: var(--muted); }
 
+  /* ---- Grammaire ---- */
+  .gram-item {
+    border: 1px solid var(--line); border-radius: .7rem; margin-bottom: .6rem;
+    background: var(--paper); overflow: hidden;
+  }
+  .gram-head {
+    width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+    font-family: inherit; color: inherit; padding: .8rem .9rem; display: flex;
+    align-items: baseline; gap: .5rem; flex-wrap: wrap;
+  }
+  .gram-head .t { font-size: 1.12rem; font-weight: 600; }
+  .gram-head .r { font-size: 1rem; color: var(--muted); width: 100%; }
+  .gram-struct {
+    display: inline-block; font-size: 1.02rem; color: var(--accent);
+    background: var(--accent-soft); border-radius: .4rem; padding: .1rem .6rem;
+  }
+  .gram-body { padding: 0 .9rem 1rem; font-size: 1.06rem; }
+  .gram-body h4 { font-size: .95rem; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--muted); margin: 1rem 0 .35rem; }
+  .gram-body ul { margin: .2rem 0; padding-left: 1.1rem; }
+  .gram-body li { margin-bottom: .3rem; }
+  .gram-ex { margin: .5rem 0; }
+  .gram-ex .zh { font-size: 1.3rem; }
+  .gram-ex .py { font-size: 1rem; }
+  .gram-ex .fr { font-size: 1rem; color: var(--muted); }
+  .gram-score {
+    margin-left: auto; flex: none; font-size: .95rem; font-weight: 600;
+    border-radius: 999px; padding: .1rem .6rem; white-space: nowrap;
+    background: var(--paper); color: var(--muted); border: 1px solid var(--line);
+  }
+  .gram-score.ko { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+  .gram-score.ok { background: var(--good-soft); color: var(--good); border-color: transparent; }
+  .gram-q { font-size: 1.5rem; line-height: 1.6; }
+  .gram-q .blank { color: var(--accent); border-bottom: 2px solid var(--accent); padding: 0 .5em; }
+  .opts { display: flex; flex-direction: column; gap: .55rem; margin-top: 1rem; }
+  .opts button {
+    padding: .8rem .7rem; font-size: 1.25rem; font-family: inherit; font-weight: 600;
+    border: 1px solid var(--line); border-radius: .7rem; background: var(--card);
+    color: var(--ink); cursor: pointer;
+  }
+  .opts button:disabled { cursor: default; }
+  .opts button.good { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+  .opts button.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+  .segs { display: flex; flex-wrap: wrap; gap: .45rem; justify-content: center; }
+  .segs button {
+    padding: .5rem .8rem; font-size: 1.35rem; font-family: inherit;
+    border: 1px solid var(--line); border-radius: .55rem; background: var(--card);
+    color: var(--ink); cursor: pointer;
+  }
+  .segs button:disabled { opacity: .3; }
+  .drop {
+    min-height: 3.6rem; border: 2px dashed var(--line); border-radius: .7rem;
+    padding: .5rem; display: flex; flex-wrap: wrap; gap: .45rem; justify-content: center;
+    align-items: center; margin-bottom: .7rem;
+  }
+  .drop .ph { color: var(--muted); font-size: 1rem; }
+  .drop button { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .expl { font-size: 1.05rem; text-align: left; background: var(--paper);
+    border-left: 3px solid var(--accent); padding: .6rem .8rem; border-radius: .3rem; }
+
   /* ---- Quiz tons ---- */
   .tone-opts { display: grid; grid-template-columns: repeat(5, 1fr); gap: .5rem; margin-top: 1rem; }
   .tone-opts button {
@@ -286,6 +346,7 @@
 
   <nav class="tabs" role="tablist">
     <button role="tab" id="tab-home" aria-selected="true" onclick="showTab('home')">Réviser</button>
+    <button role="tab" id="tab-gram" aria-selected="false" onclick="showTab('gram')">Grammaire</button>
     <button role="tab" id="tab-dico" aria-selected="false" onclick="showTab('dico')">Dico</button>
     <button role="tab" id="tab-words" aria-selected="false" onclick="showTab('words')">Mots</button>
   </nav>
@@ -329,6 +390,30 @@
     </div>
   </section>
 
+  <!-- ============ GRAMMAIRE ============ -->
+  <section id="view-gram" class="hidden">
+    <div class="panel" style="text-align:center">
+      <div class="due-big" id="gram-due-count">0</div>
+      <div class="due-label" id="gram-due-label">points à travailler</div>
+      <div class="chips" id="gram-theme-chips"></div>
+      <button class="btn" id="gram-start-btn" onclick="startGramSession()">Entraînement grammaire</button>
+      <p class="hint" id="gram-no-due" style="display:none">Tous les points sont à jour. Reviens plus tard, ou relis les fiches ci-dessous.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Ce qui coince</h2>
+      <ul class="words" id="gram-weak"></ul>
+      <p class="hint" id="gram-weak-empty">Les points les plus fragiles apparaîtront ici après quelques entraînements, du plus raté au moins raté.</p>
+      <button class="btn secondary" id="gram-export" onclick="exportGram()">Copier pour mon tuteur Claude</button>
+      <div class="msg" id="gram-msg"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Fiches (<span id="gram-count">0</span>)</h2>
+      <div id="gram-list"></div>
+    </div>
+  </section>
+
   <!-- ============ DICTIONNAIRE ============ -->
   <section id="view-dico" class="hidden">
     <div class="panel">
@@ -368,7 +453,7 @@
     </div>
   </section>
 
-  <footer class="build">Liànxí · <span id="build-stamp">70 mots · 2026-08-10</span></footer>
+  <footer class="build">Liànxí · <span id="build-stamp">89 mots · 17 points de grammaire · 2026-08-10</span></footer>
 </div>
 
 <!-- ============ SESSION ============ -->
@@ -410,8 +495,12 @@ const MODE_LABEL = {
 };
 
 /* VOCAB:BEGIN — généré par tools/update_vocab.py, ne pas éditer à la main */
-const EMBED_VOCAB = [{"hanzi":"你好","pinyin":"nǐ hǎo","fr":"bonjour","phrase":"你好，我是法国人。","phraseFr":"Bonjour, je suis française.","mots":[["你好","nǐ hǎo","bonjour"],["我","wǒ","je"],["是","shì","être"],["法国人","Fǎguórén","Français(e)"]],"theme":"HSK 1"},{"hanzi":"谢谢","pinyin":"xièxie","fr":"merci","phrase":"谢谢你！","phraseFr":"Merci à toi !","mots":[["谢谢","xièxie","merci"],["你","nǐ","toi"]],"theme":"HSK 1"},{"hanzi":"再见","pinyin":"zàijiàn","fr":"au revoir","phrase":"老师，再见！","phraseFr":"Au revoir, professeur !","mots":[["老师","lǎoshī","professeur"],["再见","zàijiàn","au revoir"]],"theme":"HSK 1"},{"hanzi":"我","pinyin":"wǒ","fr":"je, moi","phrase":"我是学生。","phraseFr":"Je suis étudiante.","mots":[["我","wǒ","je"],["是","shì","être"],["学生","xuésheng","étudiant(e)"]],"theme":"HSK 1"},{"hanzi":"你","pinyin":"nǐ","fr":"tu, toi","phrase":"你喝茶吗？","phraseFr":"Tu bois du thé ?","mots":[["你","nǐ","tu"],["喝","hē","boire"],["茶","chá","thé"],["吗","ma","particule interrogative"]],"theme":"HSK 1"},{"hanzi":"是","pinyin":"shì","fr":"être","phrase":"他是我朋友。","phraseFr":"C'est mon ami.","mots":[["他","tā","il"],["是","shì","être"],["我","wǒ","je, mon"],["朋友","péngyou","ami(e)"]],"theme":"HSK 1"},{"hanzi":"不","pinyin":"bù","fr":"ne... pas","phrase":"我不喝咖啡。","phraseFr":"Je ne bois pas de café.","mots":[["我","wǒ","je"],["不","bù","ne... pas"],["喝","hē","boire"],["咖啡","kāfēi","café"]],"theme":"HSK 1"},{"hanzi":"好","pinyin":"hǎo","fr":"bien, bon","phrase":"很好！","phraseFr":"Très bien !","mots":[["很","hěn","très"],["好","hǎo","bien"]],"theme":"HSK 1"},{"hanzi":"吃","pinyin":"chī","fr":"manger","phrase":"你吃什么？","phraseFr":"Qu'est-ce que tu manges ?","mots":[["你","nǐ","tu"],["吃","chī","manger"],["什么","shénme","quoi"]],"theme":"HSK 1"},{"hanzi":"喝","pinyin":"hē","fr":"boire","phrase":"我喝水。","phraseFr":"Je bois de l'eau.","mots":[["我","wǒ","je"],["喝","hē","boire"],["水","shuǐ","eau"]],"theme":"HSK 1"},{"hanzi":"水","pinyin":"shuǐ","fr":"eau","phrase":"我要喝水。","phraseFr":"Je veux boire de l'eau.","mots":[["我","wǒ","je"],["要","yào","vouloir"],["喝","hē","boire"],["水","shuǐ","eau"]],"theme":"HSK 1"},{"hanzi":"茶","pinyin":"chá","fr":"thé","phrase":"中国茶很好喝。","phraseFr":"Le thé chinois est très bon.","mots":[["中国","Zhōngguó","Chine"],["茶","chá","thé"],["很","hěn","très"],["好喝","hǎohē","bon (à boire)"]],"theme":"HSK 1"},{"hanzi":"人","pinyin":"rén","fr":"personne, humain","phrase":"他是中国人。","phraseFr":"Il est chinois.","mots":[["他","tā","il"],["是","shì","être"],["中国人","Zhōngguórén","Chinois(e)"]],"theme":"HSK 1"},{"hanzi":"中国","pinyin":"Zhōngguó","fr":"Chine","phrase":"我想去中国。","phraseFr":"Je veux aller en Chine.","mots":[["我","wǒ","je"],["想","xiǎng","vouloir, avoir envie"],["去","qù","aller"],["中国","Zhōngguó","Chine"]],"theme":"HSK 1"},{"hanzi":"老师","pinyin":"lǎoshī","fr":"professeur","phrase":"我的老师很好。","phraseFr":"Mon professeur est très bien.","mots":[["我","wǒ","je"],["的","de","particule possessive"],["老师","lǎoshī","professeur"],["很","hěn","très"],["好","hǎo","bien"]],"theme":"HSK 1"},{"hanzi":"学生","pinyin":"xuésheng","fr":"étudiant(e)","phrase":"我是学生。","phraseFr":"Je suis étudiante.","mots":[["我","wǒ","je"],["是","shì","être"],["学生","xuésheng","étudiant(e)"]],"theme":"HSK 1"},{"hanzi":"朋友","pinyin":"péngyou","fr":"ami(e)","phrase":"她是我的朋友。","phraseFr":"C'est mon amie.","mots":[["她","tā","elle"],["是","shì","être"],["我","wǒ","je"],["的","de","particule possessive"],["朋友","péngyou","ami(e)"]],"theme":"HSK 1"},{"hanzi":"喜欢","pinyin":"xǐhuan","fr":"aimer, apprécier","phrase":"我喜欢吃中国菜。","phraseFr":"J'aime la cuisine chinoise.","mots":[["我","wǒ","je"],["喜欢","xǐhuan","aimer"],["吃","chī","manger"],["中国菜","Zhōngguó cài","cuisine chinoise"]],"theme":"HSK 1"},{"hanzi":"什么","pinyin":"shénme","fr":"quoi, quel","phrase":"这是什么？","phraseFr":"Qu'est-ce que c'est ?","mots":[["这","zhè","ceci"],["是","shì","être"],["什么","shénme","quoi"]],"theme":"HSK 1"},{"hanzi":"妈妈","pinyin":"māma","fr":"maman","phrase":"我妈妈喜欢喝茶。","phraseFr":"Ma maman aime boire du thé.","mots":[["我","wǒ","je, ma"],["妈妈","māma","maman"],["喜欢","xǐhuan","aimer"],["喝","hē","boire"],["茶","chá","thé"]],"theme":"HSK 1"},{"hanzi":"今天","pinyin":"jīntiān","fr":"aujourd'hui","phrase":"今天我学中文。","phraseFr":"Aujourd'hui j'étudie le chinois.","mots":[["今天","jīntiān","aujourd'hui"],["我","wǒ","je"],["学","xué","étudier, apprendre"],["中文","Zhōngwén","chinois (langue)"]],"theme":"HSK 1"},{"hanzi":"明天","pinyin":"míngtiān","fr":"demain","phrase":"明天见！","phraseFr":"À demain !","mots":[["明天","míngtiān","demain"],["见","jiàn","se voir"]],"theme":"HSK 1"},{"hanzi":"昨天","pinyin":"zuótiān","fr":"hier","phrase":"昨天我很忙。","phraseFr":"Hier j'étais très occupée.","mots":[["昨天","zuótiān","hier"],["我","wǒ","je"],["很","hěn","très"],["忙","máng","occupé(e)"]],"theme":"HSK 1"},{"hanzi":"星期","pinyin":"xīngqī","fr":"semaine","phrase":"一个星期有七天。","phraseFr":"Une semaine a sept jours.","mots":[["一个","yí ge","un"],["星期","xīngqī","semaine"],["有","yǒu","avoir"],["七","qī","sept"],["天","tiān","jour(s)"]],"theme":"HSK 1"},{"hanzi":"现在","pinyin":"xiànzài","fr":"maintenant","phrase":"现在几点？","phraseFr":"Quelle heure est-il maintenant ?","mots":[["现在","xiànzài","maintenant"],["几","jǐ","combien"],["点","diǎn","heure"]],"theme":"HSK 1"},{"hanzi":"电脑","pinyin":"diànnǎo","fr":"ordinateur","phrase":"我的电脑很慢。","phraseFr":"Mon ordinateur est très lent.","mots":[["我","wǒ","je"],["的","de","particule possessive"],["电脑","diànnǎo","ordinateur"],["很","hěn","très"],["慢","màn","lent"]],"theme":"Informatique"},{"hanzi":"手机","pinyin":"shǒujī","fr":"téléphone portable","phrase":"我的手机没电了。","phraseFr":"Mon téléphone n'a plus de batterie.","mots":[["我","wǒ","je"],["的","de","particule possessive"],["手机","shǒujī","téléphone"],["没电","méi diàn","plus de batterie"],["了","le","particule (changement d'état)"]],"theme":"Informatique"},{"hanzi":"软件","pinyin":"ruǎnjiàn","fr":"logiciel","phrase":"这个软件很好用。","phraseFr":"Ce logiciel est très pratique.","mots":[["这个","zhège","ce, celui-ci"],["软件","ruǎnjiàn","logiciel"],["很","hěn","très"],["好用","hǎoyòng","pratique, facile à utiliser"]],"theme":"Informatique"},{"hanzi":"文件","pinyin":"wénjiàn","fr":"fichier, document","phrase":"请打开这个文件。","phraseFr":"Ouvre ce fichier, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["打开","dǎkāi","ouvrir"],["这个","zhège","ce"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"文件夹","pinyin":"wénjiànjiā","fr":"dossier (informatique)","phrase":"文件在这个文件夹里。","phraseFr":"Le fichier est dans ce dossier.","mots":[["文件","wénjiàn","fichier"],["在","zài","se trouver à"],["这个","zhège","ce"],["文件夹","wénjiànjiā","dossier"],["里","lǐ","dans, dedans"]],"theme":"Informatique"},{"hanzi":"下载","pinyin":"xiàzài","fr":"télécharger","phrase":"我在下载一个软件。","phraseFr":"Je suis en train de télécharger un logiciel.","mots":[["我","wǒ","je"],["在","zài","en train de"],["下载","xiàzài","télécharger"],["一个","yí ge","un"],["软件","ruǎnjiàn","logiciel"]],"theme":"Informatique"},{"hanzi":"打开","pinyin":"dǎkāi","fr":"ouvrir, allumer","phrase":"请打开电脑。","phraseFr":"Allume l'ordinateur, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["打开","dǎkāi","ouvrir, allumer"],["电脑","diànnǎo","ordinateur"]],"theme":"Informatique"},{"hanzi":"关闭","pinyin":"guānbì","fr":"fermer, éteindre","phrase":"请关闭这个程序。","phraseFr":"Ferme ce programme, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["关闭","guānbì","fermer"],["这个","zhège","ce"],["程序","chéngxù","programme"]],"theme":"Informatique"},{"hanzi":"保存","pinyin":"bǎocún","fr":"enregistrer, sauvegarder","phrase":"别忘了保存文件。","phraseFr":"N'oublie pas d'enregistrer le fichier.","mots":[["别","bié","ne... pas (interdiction)"],["忘了","wàng le","oublier"],["保存","bǎocún","enregistrer"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"删除","pinyin":"shānchú","fr":"supprimer","phrase":"我删除了这个文件。","phraseFr":"J'ai supprimé ce fichier.","mots":[["我","wǒ","je"],["删除","shānchú","supprimer"],["了","le","particule (action accomplie)"],["这个","zhège","ce"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"网站","pinyin":"wǎngzhàn","fr":"site web","phrase":"这个网站很有意思。","phraseFr":"Ce site web est très intéressant.","mots":[["这个","zhège","ce"],["网站","wǎngzhàn","site web"],["很","hěn","très"],["有意思","yǒu yìsi","intéressant"]],"theme":"Informatique"},{"hanzi":"网络","pinyin":"wǎngluò","fr":"réseau, internet","phrase":"网络不好。","phraseFr":"La connexion est mauvaise.","mots":[["网络","wǎngluò","réseau"],["不","bù","ne... pas"],["好","hǎo","bon"]],"theme":"Informatique"},{"hanzi":"上网","pinyin":"shàngwǎng","fr":"aller sur internet","phrase":"我每天上网。","phraseFr":"Je vais sur internet tous les jours.","mots":[["我","wǒ","je"],["每天","měitiān","chaque jour"],["上网","shàngwǎng","aller sur internet"]],"theme":"Informatique"},{"hanzi":"密码","pinyin":"mìmǎ","fr":"mot de passe","phrase":"我忘了我的密码。","phraseFr":"J'ai oublié mon mot de passe.","mots":[["我","wǒ","je"],["忘了","wàng le","a oublié"],["我","wǒ","je, mon"],["的","de","particule possessive"],["密码","mìmǎ","mot de passe"]],"theme":"Informatique"},{"hanzi":"用户","pinyin":"yònghù","fr":"utilisateur","phrase":"这个软件有很多用户。","phraseFr":"Ce logiciel a beaucoup d'utilisateurs.","mots":[["这个","zhège","ce"],["软件","ruǎnjiàn","logiciel"],["有","yǒu","avoir"],["很多","hěn duō","beaucoup de"],["用户","yònghù","utilisateurs"]],"theme":"Informatique"},{"hanzi":"点击","pinyin":"diǎnjī","fr":"cliquer","phrase":"点击这里。","phraseFr":"Clique ici.","mots":[["点击","diǎnjī","cliquer"],["这里","zhèlǐ","ici"]],"theme":"Informatique"},{"hanzi":"屏幕","pinyin":"píngmù","fr":"écran","phrase":"屏幕太小了。","phraseFr":"L'écran est trop petit.","mots":[["屏幕","píngmù","écran"],["太","tài","trop"],["小","xiǎo","petit"],["了","le","particule (exclamation)"]],"theme":"Informatique"},{"hanzi":"键盘","pinyin":"jiànpán","fr":"clavier","phrase":"我用中文键盘。","phraseFr":"J'utilise un clavier chinois.","mots":[["我","wǒ","je"],["用","yòng","utiliser"],["中文","Zhōngwén","chinois (langue)"],["键盘","jiànpán","clavier"]],"theme":"Informatique"},{"hanzi":"鼠标","pinyin":"shǔbiāo","fr":"souris (informatique)","phrase":"鼠标坏了。","phraseFr":"La souris est cassée.","mots":[["鼠标","shǔbiāo","souris"],["坏","huài","cassé"],["了","le","particule (changement d'état)"]],"theme":"Informatique"},{"hanzi":"程序","pinyin":"chéngxù","fr":"programme","phrase":"这个程序有问题。","phraseFr":"Ce programme a un problème.","mots":[["这个","zhège","ce"],["程序","chéngxù","programme"],["有","yǒu","avoir"],["问题","wèntí","problème"]],"theme":"Informatique"},{"hanzi":"数据","pinyin":"shùjù","fr":"données","phrase":"数据很重要。","phraseFr":"Les données sont très importantes.","mots":[["数据","shùjù","données"],["很","hěn","très"],["重要","zhòngyào","important"]],"theme":"Informatique"},{"hanzi":"人工智能","pinyin":"réngōng zhìnéng","fr":"intelligence artificielle","phrase":"我用人工智能学中文。","phraseFr":"J'utilise l'IA pour apprendre le chinois.","mots":[["我","wǒ","je"],["用","yòng","utiliser"],["人工智能","réngōng zhìnéng","intelligence artificielle"],["学","xué","apprendre"],["中文","Zhōngwén","chinois (langue)"]],"theme":"Informatique"},{"hanzi":"电子邮件","pinyin":"diànzǐ yóujiàn","fr":"e-mail","phrase":"请给我发电子邮件。","phraseFr":"Envoie-moi un e-mail, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["给","gěi","à, pour"],["我","wǒ","moi"],["发","fā","envoyer"],["电子邮件","diànzǐ yóujiàn","e-mail"]],"theme":"Informatique"},{"hanzi":"您","pinyin":"nín","fr":"vous (poli)","phrase":"您好，老师！","phraseFr":"Bonjour, professeur !","mots":[["您","nín","vous (poli)"],["好","hǎo","bien, bonjour"],["老师","lǎoshī","professeur"]],"theme":"HSK 1"},{"hanzi":"你们","pinyin":"nǐmen","fr":"vous (pluriel)","phrase":"你们好！","phraseFr":"Bonjour à vous tous !","mots":[["你们","nǐmen","vous (pluriel)"],["好","hǎo","bien, bonjour"]],"theme":"HSK 1"},{"hanzi":"对不起","pinyin":"duìbuqǐ","fr":"désolé, pardon","phrase":"对不起，我不知道。","phraseFr":"Désolé, je ne sais pas.","mots":[["对不起","duìbuqǐ","désolé"],["我","wǒ","je"],["不","bù","ne... pas"],["知道","zhīdào","savoir"]],"theme":"HSK 1"},{"hanzi":"没关系","pinyin":"méiguānxi","fr":"ce n'est rien, pas grave","phrase":"没关系，没问题。","phraseFr":"Ce n'est rien, pas de problème.","mots":[["没关系","méiguānxi","ce n'est rien"],["没问题","méi wèntí","pas de problème"]],"theme":"HSK 1"},{"hanzi":"不客气","pinyin":"bú kèqi","fr":"de rien, je t'en prie","phrase":"谢谢你！不客气！","phraseFr":"Merci ! De rien !","mots":[["谢谢","xièxie","merci"],["你","nǐ","toi"],["不客气","bú kèqi","de rien"]],"theme":"HSK 1"},{"hanzi":"叫","pinyin":"jiào","fr":"s'appeler","phrase":"你叫什么名字？","phraseFr":"Comment tu t'appelles ?","mots":[["你","nǐ","tu"],["叫","jiào","s'appeler"],["什么","shénme","quoi"],["名字","míngzi","nom"]],"theme":"HSK 1"},{"hanzi":"名字","pinyin":"míngzi","fr":"nom, prénom","phrase":"我的名字是玛丽。","phraseFr":"Mon nom est Marie.","mots":[["我","wǒ","je, mon"],["的","de","particule possessive"],["名字","míngzi","nom"],["是","shì","être"],["玛丽","Mǎlì","Marie"]],"theme":"HSK 1"},{"hanzi":"美国","pinyin":"Měiguó","fr":"États-Unis","phrase":"我想去美国。","phraseFr":"Je veux aller aux États-Unis.","mots":[["我","wǒ","je"],["想","xiǎng","vouloir"],["去","qù","aller"],["美国","Měiguó","États-Unis"]],"theme":"HSK 1"},{"hanzi":"美国人","pinyin":"Měiguórén","fr":"Américain(e)","phrase":"大卫是美国人。","phraseFr":"David est américain.","mots":[["大卫","Dàwèi","David"],["是","shì","être"],["美国人","Měiguórén","Américain(e)"]],"theme":"HSK 1"},{"hanzi":"吗","pinyin":"ma","fr":"particule interrogative","phrase":"你是老师吗？","phraseFr":"Es-tu professeur ?","mots":[["你","nǐ","tu"],["是","shì","être"],["老师","lǎoshī","professeur"],["吗","ma","particule interrogative"]],"theme":"HSK 1"},{"hanzi":"模型","pinyin":"móxíng","fr":"modèle","phrase":"这个模型很大。","phraseFr":"Ce modèle est très grand.","mots":[["这个","zhège","ce, cet"],["模型","móxíng","modèle"],["很","hěn","très"],["大","dà","grand"]],"theme":"Informatique"},{"hanzi":"大模型","pinyin":"dà móxíng","fr":"grand modèle (LLM)","phrase":"大模型需要很多数据。","phraseFr":"Un grand modèle a besoin de beaucoup de données.","mots":[["大模型","dà móxíng","grand modèle"],["需要","xūyào","avoir besoin de"],["很多","hěn duō","beaucoup de"],["数据","shùjù","données"]],"theme":"Informatique"},{"hanzi":"监管","pinyin":"jiānguǎn","fr":"régulation, supervision","phrase":"人工智能需要监管。","phraseFr":"L'intelligence artificielle a besoin de régulation.","mots":[["人工智能","réngōng zhìnéng","intelligence artificielle"],["需要","xūyào","avoir besoin de"],["监管","jiānguǎn","régulation"]],"theme":"Informatique"},{"hanzi":"安全","pinyin":"ānquán","fr":"sécurité, sûr","phrase":"数据安全很重要。","phraseFr":"La sécurité des données est très importante.","mots":[["数据","shùjù","données"],["安全","ānquán","sécurité"],["很","hěn","très"],["重要","zhòngyào","important"]],"theme":"Informatique"},{"hanzi":"诉讼","pinyin":"sùsòng","fr":"procès, contentieux","phrase":"这个诉讼很重要。","phraseFr":"Ce procès est très important.","mots":[["这个","zhège","ce, cet"],["诉讼","sùsòng","procès"],["很","hěn","très"],["重要","zhòngyào","important"]],"theme":"Informatique"},{"hanzi":"平台","pinyin":"píngtái","fr":"plateforme","phrase":"这个平台有很多用户。","phraseFr":"Cette plateforme a beaucoup d'utilisateurs.","mots":[["这个","zhège","cette"],["平台","píngtái","plateforme"],["有","yǒu","avoir"],["很多","hěn duō","beaucoup de"],["用户","yònghù","utilisateur"]],"theme":"Informatique"},{"hanzi":"智能体","pinyin":"zhìnéngtǐ","fr":"agent (IA)","phrase":"智能体可以打开文件。","phraseFr":"L'agent peut ouvrir le fichier.","mots":[["智能体","zhìnéngtǐ","agent (IA)"],["可以","kěyǐ","pouvoir"],["打开","dǎkāi","ouvrir"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"隐私","pinyin":"yǐnsī","fr":"vie privée","phrase":"我们要保护隐私。","phraseFr":"Nous devons protéger la vie privée.","mots":[["我们","wǒmen","nous"],["要","yào","devoir"],["保护","bǎohù","protéger"],["隐私","yǐnsī","vie privée"]],"theme":"Informatique"},{"hanzi":"芯片","pinyin":"xīnpiàn","fr":"puce (électronique)","phrase":"电脑里有芯片。","phraseFr":"Il y a une puce dans l'ordinateur.","mots":[["电脑","diànnǎo","ordinateur"],["里","lǐ","dans"],["有","yǒu","il y a"],["芯片","xīnpiàn","puce"]],"theme":"Informatique"},{"hanzi":"开源","pinyin":"kāiyuán","fr":"open source","phrase":"这个软件是开源的。","phraseFr":"Ce logiciel est open source.","mots":[["这个","zhège","ce"],["软件","ruǎnjiàn","logiciel"],["是","shì","être"],["开源","kāiyuán","open source"],["的","de","particule"]],"theme":"Informatique"},{"hanzi":"机器人","pinyin":"jīqìrén","fr":"robot","phrase":"机器人会说中文。","phraseFr":"Le robot sait parler chinois.","mots":[["机器人","jīqìrén","robot"],["会","huì","savoir (faire)"],["说","shuō","parler"],["中文","Zhōngwén","chinois (langue)"]],"theme":"Informatique"},{"hanzi":"数据中心","pinyin":"shùjù zhōngxīn","fr":"centre de données","phrase":"数据中心用很多电。","phraseFr":"Un centre de données consomme beaucoup d'électricité.","mots":[["数据中心","shùjù zhōngxīn","centre de données"],["用","yòng","utiliser"],["很多","hěn duō","beaucoup de"],["电","diàn","électricité"]],"theme":"Informatique"}];
+const EMBED_VOCAB = [{"hanzi":"你好","pinyin":"nǐ hǎo","fr":"bonjour","phrase":"你好，我是法国人。","phraseFr":"Bonjour, je suis française.","mots":[["你好","nǐ hǎo","bonjour"],["我","wǒ","je"],["是","shì","être"],["法国人","Fǎguórén","Français(e)"]],"theme":"HSK 1"},{"hanzi":"谢谢","pinyin":"xièxie","fr":"merci","phrase":"谢谢你！","phraseFr":"Merci à toi !","mots":[["谢谢","xièxie","merci"],["你","nǐ","toi"]],"theme":"HSK 1"},{"hanzi":"再见","pinyin":"zàijiàn","fr":"au revoir","phrase":"老师，再见！","phraseFr":"Au revoir, professeur !","mots":[["老师","lǎoshī","professeur"],["再见","zàijiàn","au revoir"]],"theme":"HSK 1"},{"hanzi":"我","pinyin":"wǒ","fr":"je, moi","phrase":"我是学生。","phraseFr":"Je suis étudiante.","mots":[["我","wǒ","je"],["是","shì","être"],["学生","xuésheng","étudiant(e)"]],"theme":"HSK 1"},{"hanzi":"你","pinyin":"nǐ","fr":"tu, toi","phrase":"你喝茶吗？","phraseFr":"Tu bois du thé ?","mots":[["你","nǐ","tu"],["喝","hē","boire"],["茶","chá","thé"],["吗","ma","particule interrogative"]],"theme":"HSK 1"},{"hanzi":"是","pinyin":"shì","fr":"être","phrase":"他是我朋友。","phraseFr":"C'est mon ami.","mots":[["他","tā","il"],["是","shì","être"],["我","wǒ","je, mon"],["朋友","péngyou","ami(e)"]],"theme":"HSK 1"},{"hanzi":"不","pinyin":"bù","fr":"ne... pas","phrase":"我不喝咖啡。","phraseFr":"Je ne bois pas de café.","mots":[["我","wǒ","je"],["不","bù","ne... pas"],["喝","hē","boire"],["咖啡","kāfēi","café"]],"theme":"HSK 1"},{"hanzi":"好","pinyin":"hǎo","fr":"bien, bon","phrase":"很好！","phraseFr":"Très bien !","mots":[["很","hěn","très"],["好","hǎo","bien"]],"theme":"HSK 1"},{"hanzi":"吃","pinyin":"chī","fr":"manger","phrase":"你吃什么？","phraseFr":"Qu'est-ce que tu manges ?","mots":[["你","nǐ","tu"],["吃","chī","manger"],["什么","shénme","quoi"]],"theme":"HSK 1"},{"hanzi":"喝","pinyin":"hē","fr":"boire","phrase":"我喝水。","phraseFr":"Je bois de l'eau.","mots":[["我","wǒ","je"],["喝","hē","boire"],["水","shuǐ","eau"]],"theme":"HSK 1"},{"hanzi":"水","pinyin":"shuǐ","fr":"eau","phrase":"我要喝水。","phraseFr":"Je veux boire de l'eau.","mots":[["我","wǒ","je"],["要","yào","vouloir"],["喝","hē","boire"],["水","shuǐ","eau"]],"theme":"HSK 1"},{"hanzi":"茶","pinyin":"chá","fr":"thé","phrase":"中国茶很好喝。","phraseFr":"Le thé chinois est très bon.","mots":[["中国","Zhōngguó","Chine"],["茶","chá","thé"],["很","hěn","très"],["好喝","hǎohē","bon (à boire)"]],"theme":"HSK 1"},{"hanzi":"人","pinyin":"rén","fr":"personne, humain","phrase":"他是中国人。","phraseFr":"Il est chinois.","mots":[["他","tā","il"],["是","shì","être"],["中国人","Zhōngguórén","Chinois(e)"]],"theme":"HSK 1"},{"hanzi":"中国","pinyin":"Zhōngguó","fr":"Chine","phrase":"我想去中国。","phraseFr":"Je veux aller en Chine.","mots":[["我","wǒ","je"],["想","xiǎng","vouloir, avoir envie"],["去","qù","aller"],["中国","Zhōngguó","Chine"]],"theme":"HSK 1"},{"hanzi":"老师","pinyin":"lǎoshī","fr":"professeur","phrase":"我的老师很好。","phraseFr":"Mon professeur est très bien.","mots":[["我","wǒ","je"],["的","de","particule possessive"],["老师","lǎoshī","professeur"],["很","hěn","très"],["好","hǎo","bien"]],"theme":"HSK 1"},{"hanzi":"学生","pinyin":"xuésheng","fr":"étudiant(e)","phrase":"我是学生。","phraseFr":"Je suis étudiante.","mots":[["我","wǒ","je"],["是","shì","être"],["学生","xuésheng","étudiant(e)"]],"theme":"HSK 1"},{"hanzi":"朋友","pinyin":"péngyou","fr":"ami(e)","phrase":"她是我的朋友。","phraseFr":"C'est mon amie.","mots":[["她","tā","elle"],["是","shì","être"],["我","wǒ","je"],["的","de","particule possessive"],["朋友","péngyou","ami(e)"]],"theme":"HSK 1"},{"hanzi":"喜欢","pinyin":"xǐhuan","fr":"aimer, apprécier","phrase":"我喜欢吃中国菜。","phraseFr":"J'aime la cuisine chinoise.","mots":[["我","wǒ","je"],["喜欢","xǐhuan","aimer"],["吃","chī","manger"],["中国菜","Zhōngguó cài","cuisine chinoise"]],"theme":"HSK 1"},{"hanzi":"什么","pinyin":"shénme","fr":"quoi, quel","phrase":"这是什么？","phraseFr":"Qu'est-ce que c'est ?","mots":[["这","zhè","ceci"],["是","shì","être"],["什么","shénme","quoi"]],"theme":"HSK 1"},{"hanzi":"妈妈","pinyin":"māma","fr":"maman","phrase":"我妈妈喜欢喝茶。","phraseFr":"Ma maman aime boire du thé.","mots":[["我","wǒ","je, ma"],["妈妈","māma","maman"],["喜欢","xǐhuan","aimer"],["喝","hē","boire"],["茶","chá","thé"]],"theme":"HSK 1"},{"hanzi":"今天","pinyin":"jīntiān","fr":"aujourd'hui","phrase":"今天我学中文。","phraseFr":"Aujourd'hui j'étudie le chinois.","mots":[["今天","jīntiān","aujourd'hui"],["我","wǒ","je"],["学","xué","étudier, apprendre"],["中文","Zhōngwén","chinois (langue)"]],"theme":"HSK 1"},{"hanzi":"明天","pinyin":"míngtiān","fr":"demain","phrase":"明天见！","phraseFr":"À demain !","mots":[["明天","míngtiān","demain"],["见","jiàn","se voir"]],"theme":"HSK 1"},{"hanzi":"昨天","pinyin":"zuótiān","fr":"hier","phrase":"昨天我很忙。","phraseFr":"Hier j'étais très occupée.","mots":[["昨天","zuótiān","hier"],["我","wǒ","je"],["很","hěn","très"],["忙","máng","occupé(e)"]],"theme":"HSK 1"},{"hanzi":"星期","pinyin":"xīngqī","fr":"semaine","phrase":"一个星期有七天。","phraseFr":"Une semaine a sept jours.","mots":[["一个","yí ge","un"],["星期","xīngqī","semaine"],["有","yǒu","avoir"],["七","qī","sept"],["天","tiān","jour(s)"]],"theme":"HSK 1"},{"hanzi":"现在","pinyin":"xiànzài","fr":"maintenant","phrase":"现在几点？","phraseFr":"Quelle heure est-il maintenant ?","mots":[["现在","xiànzài","maintenant"],["几","jǐ","combien"],["点","diǎn","heure"]],"theme":"HSK 1"},{"hanzi":"电脑","pinyin":"diànnǎo","fr":"ordinateur","phrase":"我的电脑很慢。","phraseFr":"Mon ordinateur est très lent.","mots":[["我","wǒ","je"],["的","de","particule possessive"],["电脑","diànnǎo","ordinateur"],["很","hěn","très"],["慢","màn","lent"]],"theme":"Informatique"},{"hanzi":"手机","pinyin":"shǒujī","fr":"téléphone portable","phrase":"我的手机没电了。","phraseFr":"Mon téléphone n'a plus de batterie.","mots":[["我","wǒ","je"],["的","de","particule possessive"],["手机","shǒujī","téléphone"],["没电","méi diàn","plus de batterie"],["了","le","particule (changement d'état)"]],"theme":"Informatique"},{"hanzi":"软件","pinyin":"ruǎnjiàn","fr":"logiciel","phrase":"这个软件很好用。","phraseFr":"Ce logiciel est très pratique.","mots":[["这个","zhège","ce, celui-ci"],["软件","ruǎnjiàn","logiciel"],["很","hěn","très"],["好用","hǎoyòng","pratique, facile à utiliser"]],"theme":"Informatique"},{"hanzi":"文件","pinyin":"wénjiàn","fr":"fichier, document","phrase":"请打开这个文件。","phraseFr":"Ouvre ce fichier, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["打开","dǎkāi","ouvrir"],["这个","zhège","ce"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"文件夹","pinyin":"wénjiànjiā","fr":"dossier (informatique)","phrase":"文件在这个文件夹里。","phraseFr":"Le fichier est dans ce dossier.","mots":[["文件","wénjiàn","fichier"],["在","zài","se trouver à"],["这个","zhège","ce"],["文件夹","wénjiànjiā","dossier"],["里","lǐ","dans, dedans"]],"theme":"Informatique"},{"hanzi":"下载","pinyin":"xiàzài","fr":"télécharger","phrase":"我在下载一个软件。","phraseFr":"Je suis en train de télécharger un logiciel.","mots":[["我","wǒ","je"],["在","zài","en train de"],["下载","xiàzài","télécharger"],["一个","yí ge","un"],["软件","ruǎnjiàn","logiciel"]],"theme":"Informatique"},{"hanzi":"打开","pinyin":"dǎkāi","fr":"ouvrir, allumer","phrase":"请打开电脑。","phraseFr":"Allume l'ordinateur, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["打开","dǎkāi","ouvrir, allumer"],["电脑","diànnǎo","ordinateur"]],"theme":"Informatique"},{"hanzi":"关闭","pinyin":"guānbì","fr":"fermer, éteindre","phrase":"请关闭这个程序。","phraseFr":"Ferme ce programme, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["关闭","guānbì","fermer"],["这个","zhège","ce"],["程序","chéngxù","programme"]],"theme":"Informatique"},{"hanzi":"保存","pinyin":"bǎocún","fr":"enregistrer, sauvegarder","phrase":"别忘了保存文件。","phraseFr":"N'oublie pas d'enregistrer le fichier.","mots":[["别","bié","ne... pas (interdiction)"],["忘了","wàng le","oublier"],["保存","bǎocún","enregistrer"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"删除","pinyin":"shānchú","fr":"supprimer","phrase":"我删除了这个文件。","phraseFr":"J'ai supprimé ce fichier.","mots":[["我","wǒ","je"],["删除","shānchú","supprimer"],["了","le","particule (action accomplie)"],["这个","zhège","ce"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"网站","pinyin":"wǎngzhàn","fr":"site web","phrase":"这个网站很有意思。","phraseFr":"Ce site web est très intéressant.","mots":[["这个","zhège","ce"],["网站","wǎngzhàn","site web"],["很","hěn","très"],["有意思","yǒu yìsi","intéressant"]],"theme":"Informatique"},{"hanzi":"网络","pinyin":"wǎngluò","fr":"réseau, internet","phrase":"网络不好。","phraseFr":"La connexion est mauvaise.","mots":[["网络","wǎngluò","réseau"],["不","bù","ne... pas"],["好","hǎo","bon"]],"theme":"Informatique"},{"hanzi":"上网","pinyin":"shàngwǎng","fr":"aller sur internet","phrase":"我每天上网。","phraseFr":"Je vais sur internet tous les jours.","mots":[["我","wǒ","je"],["每天","měitiān","chaque jour"],["上网","shàngwǎng","aller sur internet"]],"theme":"Informatique"},{"hanzi":"密码","pinyin":"mìmǎ","fr":"mot de passe","phrase":"我忘了我的密码。","phraseFr":"J'ai oublié mon mot de passe.","mots":[["我","wǒ","je"],["忘了","wàng le","a oublié"],["我","wǒ","je, mon"],["的","de","particule possessive"],["密码","mìmǎ","mot de passe"]],"theme":"Informatique"},{"hanzi":"用户","pinyin":"yònghù","fr":"utilisateur","phrase":"这个软件有很多用户。","phraseFr":"Ce logiciel a beaucoup d'utilisateurs.","mots":[["这个","zhège","ce"],["软件","ruǎnjiàn","logiciel"],["有","yǒu","avoir"],["很多","hěn duō","beaucoup de"],["用户","yònghù","utilisateurs"]],"theme":"Informatique"},{"hanzi":"点击","pinyin":"diǎnjī","fr":"cliquer","phrase":"点击这里。","phraseFr":"Clique ici.","mots":[["点击","diǎnjī","cliquer"],["这里","zhèlǐ","ici"]],"theme":"Informatique"},{"hanzi":"屏幕","pinyin":"píngmù","fr":"écran","phrase":"屏幕太小了。","phraseFr":"L'écran est trop petit.","mots":[["屏幕","píngmù","écran"],["太","tài","trop"],["小","xiǎo","petit"],["了","le","particule (exclamation)"]],"theme":"Informatique"},{"hanzi":"键盘","pinyin":"jiànpán","fr":"clavier","phrase":"我用中文键盘。","phraseFr":"J'utilise un clavier chinois.","mots":[["我","wǒ","je"],["用","yòng","utiliser"],["中文","Zhōngwén","chinois (langue)"],["键盘","jiànpán","clavier"]],"theme":"Informatique"},{"hanzi":"鼠标","pinyin":"shǔbiāo","fr":"souris (informatique)","phrase":"鼠标坏了。","phraseFr":"La souris est cassée.","mots":[["鼠标","shǔbiāo","souris"],["坏","huài","cassé"],["了","le","particule (changement d'état)"]],"theme":"Informatique"},{"hanzi":"程序","pinyin":"chéngxù","fr":"programme","phrase":"这个程序有问题。","phraseFr":"Ce programme a un problème.","mots":[["这个","zhège","ce"],["程序","chéngxù","programme"],["有","yǒu","avoir"],["问题","wèntí","problème"]],"theme":"Informatique"},{"hanzi":"数据","pinyin":"shùjù","fr":"données","phrase":"数据很重要。","phraseFr":"Les données sont très importantes.","mots":[["数据","shùjù","données"],["很","hěn","très"],["重要","zhòngyào","important"]],"theme":"Informatique"},{"hanzi":"人工智能","pinyin":"réngōng zhìnéng","fr":"intelligence artificielle","phrase":"我用人工智能学中文。","phraseFr":"J'utilise l'IA pour apprendre le chinois.","mots":[["我","wǒ","je"],["用","yòng","utiliser"],["人工智能","réngōng zhìnéng","intelligence artificielle"],["学","xué","apprendre"],["中文","Zhōngwén","chinois (langue)"]],"theme":"Informatique"},{"hanzi":"电子邮件","pinyin":"diànzǐ yóujiàn","fr":"e-mail","phrase":"请给我发电子邮件。","phraseFr":"Envoie-moi un e-mail, s'il te plaît.","mots":[["请","qǐng","s'il te plaît"],["给","gěi","à, pour"],["我","wǒ","moi"],["发","fā","envoyer"],["电子邮件","diànzǐ yóujiàn","e-mail"]],"theme":"Informatique"},{"hanzi":"您","pinyin":"nín","fr":"vous (poli)","phrase":"您好，老师！","phraseFr":"Bonjour, professeur !","mots":[["您","nín","vous (poli)"],["好","hǎo","bien, bonjour"],["老师","lǎoshī","professeur"]],"theme":"HSK 1"},{"hanzi":"你们","pinyin":"nǐmen","fr":"vous (pluriel)","phrase":"你们好！","phraseFr":"Bonjour à vous tous !","mots":[["你们","nǐmen","vous (pluriel)"],["好","hǎo","bien, bonjour"]],"theme":"HSK 1"},{"hanzi":"对不起","pinyin":"duìbuqǐ","fr":"désolé, pardon","phrase":"对不起，我不知道。","phraseFr":"Désolé, je ne sais pas.","mots":[["对不起","duìbuqǐ","désolé"],["我","wǒ","je"],["不","bù","ne... pas"],["知道","zhīdào","savoir"]],"theme":"HSK 1"},{"hanzi":"没关系","pinyin":"méiguānxi","fr":"ce n'est rien, pas grave","phrase":"没关系，没问题。","phraseFr":"Ce n'est rien, pas de problème.","mots":[["没关系","méiguānxi","ce n'est rien"],["没问题","méi wèntí","pas de problème"]],"theme":"HSK 1"},{"hanzi":"不客气","pinyin":"bú kèqi","fr":"de rien, je t'en prie","phrase":"谢谢你！不客气！","phraseFr":"Merci ! De rien !","mots":[["谢谢","xièxie","merci"],["你","nǐ","toi"],["不客气","bú kèqi","de rien"]],"theme":"HSK 1"},{"hanzi":"叫","pinyin":"jiào","fr":"s'appeler","phrase":"你叫什么名字？","phraseFr":"Comment tu t'appelles ?","mots":[["你","nǐ","tu"],["叫","jiào","s'appeler"],["什么","shénme","quoi"],["名字","míngzi","nom"]],"theme":"HSK 1"},{"hanzi":"名字","pinyin":"míngzi","fr":"nom, prénom","phrase":"我的名字是玛丽。","phraseFr":"Mon nom est Marie.","mots":[["我","wǒ","je, mon"],["的","de","particule possessive"],["名字","míngzi","nom"],["是","shì","être"],["玛丽","Mǎlì","Marie"]],"theme":"HSK 1"},{"hanzi":"美国","pinyin":"Měiguó","fr":"États-Unis","phrase":"我想去美国。","phraseFr":"Je veux aller aux États-Unis.","mots":[["我","wǒ","je"],["想","xiǎng","vouloir"],["去","qù","aller"],["美国","Měiguó","États-Unis"]],"theme":"HSK 1"},{"hanzi":"美国人","pinyin":"Měiguórén","fr":"Américain(e)","phrase":"大卫是美国人。","phraseFr":"David est américain.","mots":[["大卫","Dàwèi","David"],["是","shì","être"],["美国人","Měiguórén","Américain(e)"]],"theme":"HSK 1"},{"hanzi":"吗","pinyin":"ma","fr":"particule interrogative","phrase":"你是老师吗？","phraseFr":"Es-tu professeur ?","mots":[["你","nǐ","tu"],["是","shì","être"],["老师","lǎoshī","professeur"],["吗","ma","particule interrogative"]],"theme":"HSK 1"},{"hanzi":"模型","pinyin":"móxíng","fr":"modèle","phrase":"这个模型很大。","phraseFr":"Ce modèle est très grand.","mots":[["这个","zhège","ce, cet"],["模型","móxíng","modèle"],["很","hěn","très"],["大","dà","grand"]],"theme":"Informatique"},{"hanzi":"大模型","pinyin":"dà móxíng","fr":"grand modèle (LLM)","phrase":"大模型需要很多数据。","phraseFr":"Un grand modèle a besoin de beaucoup de données.","mots":[["大模型","dà móxíng","grand modèle"],["需要","xūyào","avoir besoin de"],["很多","hěn duō","beaucoup de"],["数据","shùjù","données"]],"theme":"Informatique"},{"hanzi":"监管","pinyin":"jiānguǎn","fr":"régulation, supervision","phrase":"人工智能需要监管。","phraseFr":"L'intelligence artificielle a besoin de régulation.","mots":[["人工智能","réngōng zhìnéng","intelligence artificielle"],["需要","xūyào","avoir besoin de"],["监管","jiānguǎn","régulation"]],"theme":"Informatique"},{"hanzi":"安全","pinyin":"ānquán","fr":"sécurité, sûr","phrase":"数据安全很重要。","phraseFr":"La sécurité des données est très importante.","mots":[["数据","shùjù","données"],["安全","ānquán","sécurité"],["很","hěn","très"],["重要","zhòngyào","important"]],"theme":"Informatique"},{"hanzi":"诉讼","pinyin":"sùsòng","fr":"procès, contentieux","phrase":"这个诉讼很重要。","phraseFr":"Ce procès est très important.","mots":[["这个","zhège","ce, cet"],["诉讼","sùsòng","procès"],["很","hěn","très"],["重要","zhòngyào","important"]],"theme":"Informatique"},{"hanzi":"平台","pinyin":"píngtái","fr":"plateforme","phrase":"这个平台有很多用户。","phraseFr":"Cette plateforme a beaucoup d'utilisateurs.","mots":[["这个","zhège","cette"],["平台","píngtái","plateforme"],["有","yǒu","avoir"],["很多","hěn duō","beaucoup de"],["用户","yònghù","utilisateur"]],"theme":"Informatique"},{"hanzi":"智能体","pinyin":"zhìnéngtǐ","fr":"agent (IA)","phrase":"智能体可以打开文件。","phraseFr":"L'agent peut ouvrir le fichier.","mots":[["智能体","zhìnéngtǐ","agent (IA)"],["可以","kěyǐ","pouvoir"],["打开","dǎkāi","ouvrir"],["文件","wénjiàn","fichier"]],"theme":"Informatique"},{"hanzi":"隐私","pinyin":"yǐnsī","fr":"vie privée","phrase":"我们要保护隐私。","phraseFr":"Nous devons protéger la vie privée.","mots":[["我们","wǒmen","nous"],["要","yào","devoir"],["保护","bǎohù","protéger"],["隐私","yǐnsī","vie privée"]],"theme":"Informatique"},{"hanzi":"芯片","pinyin":"xīnpiàn","fr":"puce (électronique)","phrase":"电脑里有芯片。","phraseFr":"Il y a une puce dans l'ordinateur.","mots":[["电脑","diànnǎo","ordinateur"],["里","lǐ","dans"],["有","yǒu","il y a"],["芯片","xīnpiàn","puce"]],"theme":"Informatique"},{"hanzi":"开源","pinyin":"kāiyuán","fr":"open source","phrase":"这个软件是开源的。","phraseFr":"Ce logiciel est open source.","mots":[["这个","zhège","ce"],["软件","ruǎnjiàn","logiciel"],["是","shì","être"],["开源","kāiyuán","open source"],["的","de","particule"]],"theme":"Informatique"},{"hanzi":"机器人","pinyin":"jīqìrén","fr":"robot","phrase":"机器人会说中文。","phraseFr":"Le robot sait parler chinois.","mots":[["机器人","jīqìrén","robot"],["会","huì","savoir (faire)"],["说","shuō","parler"],["中文","Zhōngwén","chinois (langue)"]],"theme":"Informatique"},{"hanzi":"数据中心","pinyin":"shùjù zhōngxīn","fr":"centre de données","phrase":"数据中心用很多电。","phraseFr":"Un centre de données consomme beaucoup d'électricité.","mots":[["数据中心","shùjù zhōngxīn","centre de données"],["用","yòng","utiliser"],["很多","hěn duō","beaucoup de"],["电","diàn","électricité"]],"theme":"Informatique"},{"hanzi":"起床","pinyin":"qǐ chuáng","fr":"se lever (du lit)","phrase":"我每天六点起床。","phraseFr":"Je me lève à six heures tous les jours.","mots":[["我","wǒ","je"],["每天","měi tiān","chaque jour"],["六点","liù diǎn","six heures"],["起床","qǐ chuáng","se lever"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"跑步","pinyin":"pǎobù","fr":"courir","phrase":"他每天早上都去跑步。","phraseFr":"Il va courir tous les matins.","mots":[["他","tā","il"],["每天","měi tiān","chaque jour"],["早上","zǎoshang","le matin"],["都","dōu","tous, chaque fois"],["去","qù","aller"],["跑步","pǎobù","courir"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"生病","pinyin":"shēngbìng","fr":"tomber malade","phrase":"他生病了，要休息。","phraseFr":"Il est tombé malade, il doit se reposer.","mots":[["他","tā","il"],["生病","shēngbìng","tomber malade"],["了","le","particule (changement d'état)"],["要","yào","devoir"],["休息","xiūxi","se reposer"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"吃药","pinyin":"chī yào","fr":"prendre un médicament","phrase":"该吃药了。","phraseFr":"C'est l'heure de prendre le médicament.","mots":[["该","gāi","il est temps de"],["吃药","chī yào","prendre un médicament"],["了","le","particule (nouvelle situation)"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"休息","pinyin":"xiūxi","fr":"se reposer","phrase":"累了就休息。","phraseFr":"Quand tu es fatiguée, repose-toi.","mots":[["累","lèi","fatigué"],["了","le","particule (changement d'état)"],["就","jiù","alors, aussitôt"],["休息","xiūxi","se reposer"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"出院","pinyin":"chūyuàn","fr":"sortir de l'hôpital","phrase":"医生说明天可以出院。","phraseFr":"Le médecin dit qu'on peut sortir demain.","mots":[["医生","yīshēng","médecin"],["说","shuō","dire"],["明天","míngtiān","demain"],["可以","kěyǐ","pouvoir"],["出院","chūyuàn","sortir de l'hôpital"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"住院","pinyin":"zhùyuàn","fr":"être hospitalisé","phrase":"他生病住院了。","phraseFr":"Il est tombé malade et a été hospitalisé.","mots":[["他","tā","il"],["生病","shēngbìng","tomber malade"],["住院","zhùyuàn","être hospitalisé"],["了","le","particule (changement d'état)"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"坚持","pinyin":"jiānchí","fr":"persévérer, tenir bon","phrase":"他坚持每天跑步。","phraseFr":"Il court tous les jours sans lâcher.","mots":[["他","tā","il"],["坚持","jiānchí","persévérer"],["每天","měi tiān","chaque jour"],["跑步","pǎobù","courir"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"按时","pinyin":"ànshí","fr":"à heure fixe, à temps","phrase":"生病了要按时吃药。","phraseFr":"Quand on est malade, il faut prendre ses médicaments à heure fixe.","mots":[["生病","shēngbìng","tomber malade"],["了","le","particule (changement d'état)"],["要","yào","devoir, il faut"],["按时","ànshí","à heure fixe"],["吃药","chī yào","prendre un médicament"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"每","pinyin":"měi","fr":"chaque","phrase":"他每年回一次家。","phraseFr":"Il rentre chez lui une fois par an.","mots":[["他","tā","il"],["每年","měi nián","chaque année"],["回","huí","rentrer"],["一次","yí cì","une fois"],["家","jiā","maison"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"运动","pinyin":"yùndòng","fr":"faire du sport, exercice","phrase":"我很喜欢运动。","phraseFr":"J'aime beaucoup le sport.","mots":[["我","wǒ","je"],["很","hěn","très"],["喜欢","xǐhuan","aimer"],["运动","yùndòng","le sport"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"累","pinyin":"lèi","fr":"fatigué","phrase":"他每天回来都很累。","phraseFr":"Chaque jour, il rentre très fatigué.","mots":[["他","tā","il"],["每天","měi tiān","chaque jour"],["回来","huílái","rentrer"],["都","dōu","toujours, chaque fois"],["很","hěn","très"],["累","lèi","fatigué"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"忙","pinyin":"máng","fr":"occupé","phrase":"他这几天很忙。","phraseFr":"Il est très occupé ces jours-ci.","mots":[["他","tā","il"],["这几天","zhè jǐ tiān","ces jours-ci"],["很","hěn","très"],["忙","máng","occupé"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"同学","pinyin":"tóngxué","fr":"camarade de classe","phrase":"他是我同学。","phraseFr":"C'est mon camarade de classe.","mots":[["他","tā","il"],["是","shì","être"],["我","wǒ","mon"],["同学","tóngxué","camarade de classe"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"医生","pinyin":"yīshēng","fr":"médecin","phrase":"医生说我没问题。","phraseFr":"Le médecin dit que je n'ai rien.","mots":[["医生","yīshēng","médecin"],["说","shuō","dire"],["我","wǒ","je"],["没问题","méi wèntí","pas de problème"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"身体","pinyin":"shēntǐ","fr":"corps, santé","phrase":"现在身体怎么样？","phraseFr":"Comment va la santé maintenant ?","mots":[["现在","xiànzài","maintenant"],["身体","shēntǐ","santé"],["怎么样","zěnmeyàng","comment"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"岁","pinyin":"suì","fr":"an(s) (âge)","phrase":"他今年二十多岁。","phraseFr":"Il a une vingtaine d'années cette année.","mots":[["他","tā","il"],["今年","jīnnián","cette année"],["二十多","èrshí duō","une vingtaine passée"],["岁","suì","ans"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"时间","pinyin":"shíjiān","fr":"temps","phrase":"他没有时间休息。","phraseFr":"Il n'a pas le temps de se reposer.","mots":[["他","tā","il"],["没有","méiyǒu","ne pas avoir"],["时间","shíjiān","temps"],["休息","xiūxi","se reposer"]],"theme":"HSK 2 · Leçon 2"},{"hanzi":"知道","pinyin":"zhīdào","fr":"savoir","phrase":"我不知道他的名字。","phraseFr":"Je ne sais pas son nom.","mots":[["我","wǒ","je"],["不","bù","ne... pas"],["知道","zhīdào","savoir"],["他","tā","il, son"],["的","de","particule possessive"],["名字","míngzi","nom"]],"theme":"HSK 2 · Leçon 2"}];
 /* VOCAB:END */
+
+/* GRAMMAR:BEGIN — généré par tools/update_vocab.py, ne pas éditer à la main */
+const EMBED_GRAMMAR = [{"id":"salutations-nihao","titre":"你好 / 您好 / 你们好","structure":"pronom + 好","theme":"HSK 1 · L1","resume":"Saluer une personne, un vis-à-vis respecté, un groupe.","explication":"好 hǎo se colle simplement au pronom : 你好 pour un vis-à-vis, 您好 nín hǎo quand on marque le respect (une personne âgée, un supérieur, un client), 你们好 pour un groupe. Pour demander comment va quelqu'un, on ajoute 吗 : 你好吗？ La réponse type est 我很好 : en chinois, un adjectif seul sonne comme une comparaison, on le fait précéder de 很.","pieges":["我好 seul sonne incomplet : on dit 我很好.","您 ne prend pas de pluriel dans l'usage courant : pour un groupe, 你们好.","你好吗 ne s'emploie pas à tout bout de champ entre proches, c'est une formule d'école."],"exemples":[{"hanzi":"你好！","pinyin":"nǐ hǎo","fr":"Bonjour !"},{"hanzi":"您好，老师！","pinyin":"nín hǎo, lǎoshī","fr":"Bonjour, professeur !"},{"hanzi":"我很好，谢谢你。","pinyin":"wǒ hěn hǎo, xièxie nǐ","fr":"Je vais bien, merci."}],"exercices":[{"type":"qcm","consigne":"Tu salues ton professeur :","phrase":"___好！","options":["您","你们","我"],"reponse":0,"pinyin":"nín hǎo","fr":"Bonjour (poli) !","explication":"您 marque le respect, 你 est neutre."},{"type":"qcm","consigne":"Réponds à 你好吗？","phrase":"我___好。","options":["很","是","不"],"reponse":0,"pinyin":"wǒ hěn hǎo","fr":"Je vais bien.","explication":"Un adjectif se construit avec 很, jamais avec 是."},{"type":"traduction","fr":"Bonjour à vous tous !","indice":"你们 …","reponse":"你们好！","pinyin":"nǐmen hǎo","explication":"们 marque le pluriel des pronoms personnels."}]},{"id":"bu-sandhi","titre":"Le ton de 不 change","structure":"不 + verbe / adjectif","theme":"HSK 1 · L2","resume":"bù devient bú devant un 4ᵉ ton.","explication":"不 se prononce bù (4ᵉ ton) devant une syllabe de 1ᵉʳ, 2ᵉ ou 3ᵉ ton : bù chī, bù xíng, bù hǎo. Devant une syllabe de 4ᵉ ton, il passe au 2ᵉ ton : bú shì, bú kàn, bú huì, bú kèqi. L'écriture ne change pas, seule la prononciation bouge. 不 nie le présent et le futur, alors que 没 nie l'accompli.","pieges":["不客气 se dit bú kèqi, pas bù kèqi.","不是 se dit bú shì.","Ne pas nier un verbe accompli avec 不 : c'est 没."],"exemples":[{"hanzi":"不客气！","pinyin":"bú kèqi","fr":"De rien !"},{"hanzi":"我不是老师。","pinyin":"wǒ bú shì lǎoshī","fr":"Je ne suis pas professeur."},{"hanzi":"我不喝咖啡。","pinyin":"wǒ bù hē kāfēi","fr":"Je ne bois pas de café."}],"exercices":[{"type":"qcm","consigne":"Comment se prononce 不是 ?","phrase":"___","options":["bú shì","bù shì","bu shí"],"reponse":0,"pinyin":"bú shì","fr":"ne pas être","explication":"是 est au 4ᵉ ton, donc 不 passe au 2ᵉ ton."},{"type":"qcm","consigne":"Comment se prononce 不好 ?","phrase":"___","options":["bù hǎo","bú hǎo","bu hào"],"reponse":0,"pinyin":"bù hǎo","fr":"pas bien","explication":"好 est au 3ᵉ ton : 不 garde son 4ᵉ ton."},{"type":"traduction","fr":"Je ne suis pas étudiante.","indice":"不是 …","reponse":"我不是学生。","pinyin":"wǒ bú shì xuésheng","explication":"不 devant 是 se lit bú."}]},{"id":"shi-phrase","titre":"La phrase avec 是 et sa négation","structure":"sujet + (不)是 + nom","theme":"HSK 1 · L3","resume":"是 relie deux noms, jamais un adjectif.","explication":"是 shì sert à identifier : sujet + 是 + nom ou groupe nominal. La négation est 不是, placée avant le nom. Avec un adjectif, 是 disparaît et laisse la place à 很 : 我很好, pas 我是好.","pieges":["我是好 est faux : 我很好.","La négation porte sur 是 : 我不是学生, pas 我是不学生.","是 ne se traduit pas toujours : 他很高 « il est grand » n'a pas de 是."],"exemples":[{"hanzi":"我是学生。","pinyin":"wǒ shì xuésheng","fr":"Je suis étudiante."},{"hanzi":"我不是中国人，我是法国人。","pinyin":"wǒ bú shì Zhōngguórén, wǒ shì Fǎguórén","fr":"Je ne suis pas chinoise, je suis française."},{"hanzi":"他很忙。","pinyin":"tā hěn máng","fr":"Il est très occupé."}],"exercices":[{"type":"qcm","consigne":"Quelle phrase est correcte ?","phrase":"___","options":["我很好。","我是好。","我是很好。"],"reponse":0,"pinyin":"wǒ hěn hǎo","fr":"Je vais bien.","explication":"Devant un adjectif, on emploie 很, pas 是."},{"type":"ordre","consigne":"Remets la phrase dans l'ordre","segments":["我","不是","老师","我","是","学生"],"reponse":"我不是老师，我是学生。","pinyin":"wǒ bú shì lǎoshī, wǒ shì xuésheng","fr":"Je ne suis pas professeur, je suis étudiante.","explication":"不 se place devant 是, jamais après."},{"type":"traduction","fr":"Il est américain.","indice":"是 … 人","reponse":"他是美国人。","pinyin":"tā shì Měiguórén","explication":"Nationalité = pays + 人, relié par 是."}]},{"id":"ma-shenme","titre":"Questions avec 吗 et avec 什么","structure":"phrase + 吗 ？ · sujet + V + 什么 (+ nom) ？","theme":"HSK 1 · L3","resume":"Deux façons d'interroger, jamais mélangées.","explication":"吗 ma transforme une phrase affirmative en question fermée, sans rien changer à l'ordre des mots : 你是老师吗？ 什么 shénme est un mot interrogatif qui prend la place du mot cherché, à l'endroit exact où viendrait la réponse : 你叫什么名字？ Comme la question est déjà marquée par 什么, on n'ajoute pas 吗.","pieges":["什么 + 吗 dans la même phrase est faux.","L'ordre des mots ne bouge pas dans une question chinoise : pas d'inversion comme en français.","什么 se place là où irait la réponse : 这是什么？"],"exemples":[{"hanzi":"你是老师吗？","pinyin":"nǐ shì lǎoshī ma","fr":"Es-tu professeur ?"},{"hanzi":"你叫什么名字？","pinyin":"nǐ jiào shénme míngzi","fr":"Comment t'appelles-tu ?"},{"hanzi":"这是什么？","pinyin":"zhè shì shénme","fr":"Qu'est-ce que c'est ?"}],"exercices":[{"type":"qcm","consigne":"Quelle question est correcte ?","phrase":"___","options":["你叫什么名字？","你叫什么名字吗？","你吗叫什么名字？"],"reponse":0,"pinyin":"nǐ jiào shénme míngzi","fr":"Comment t'appelles-tu ?","explication":"什么 marque déjà la question : pas de 吗."},{"type":"ordre","consigne":"Remets la question dans l'ordre","segments":["你","是","中国人","吗"],"reponse":"你是中国人吗？","pinyin":"nǐ shì Zhōngguórén ma","fr":"Es-tu chinois ?","explication":"吗 se place tout à la fin, l'ordre des mots ne change pas."},{"type":"traduction","fr":"Qu'est-ce que tu bois ?","indice":"喝 … 什么","reponse":"你喝什么？","pinyin":"nǐ hē shénme","explication":"什么 prend la place de l'objet, après le verbe."}]},{"id":"ji-liangci","titre":"几 + classificateur + nom","structure":"几 + 量词 + 名词 ？","theme":"HSK 1 · L5","resume":"你家有几口人？ demander un petit nombre.","explication":"几 jǐ demande un nombre attendu inférieur à dix, et il exige toujours un classificateur : 几个人, 几口人 (pour les membres d'une famille), 几本书. Au-delà de dix, ou pour une quantité inconnue, on emploie 多少, qui peut se passer de classificateur : 多少人.","pieges":["几人 sans classificateur est faux : 几个人.","口 est le classificateur des membres d'une famille, 个 celui par défaut.","几 attend une petite quantité ; pour un prix ou un grand nombre, on prend 多少."],"exemples":[{"hanzi":"你家有几口人？","pinyin":"nǐ jiā yǒu jǐ kǒu rén","fr":"Combien de personnes dans ta famille ?"},{"hanzi":"我家有三口人。","pinyin":"wǒ jiā yǒu sān kǒu rén","fr":"Nous sommes trois dans ma famille."},{"hanzi":"你有几个汉语老师？","pinyin":"nǐ yǒu jǐ ge Hànyǔ lǎoshī","fr":"Combien de professeurs de chinois as-tu ?"}],"exercices":[{"type":"qcm","consigne":"Complète la question","phrase":"你家有几___人？","options":["口","个","本"],"reponse":0,"pinyin":"nǐ jiā yǒu jǐ kǒu rén","fr":"Combien de personnes dans ta famille ?","explication":"口 est le classificateur des membres d'une famille."},{"type":"qcm","consigne":"Quelle phrase est correcte ?","phrase":"___","options":["你有几个老师？","你有几老师？","你几有个老师？"],"reponse":0,"pinyin":"nǐ yǒu jǐ ge lǎoshī","fr":"Combien de professeurs as-tu ?","explication":"几 exige un classificateur avant le nom."},{"type":"traduction","fr":"Nous sommes trois dans ma famille.","indice":"有 … 口人","reponse":"我家有三口人。","pinyin":"wǒ jiā yǒu sān kǒu rén","explication":"有 pour l'existence, nombre + 口 + 人."}]},{"id":"le-changement","titre":"了 de changement et 多大 / 几岁","structure":"… + 了 · 多大了 ？ / 几岁了 ？","theme":"HSK 1 · L5","resume":"她今年二十岁了 : l'âge a changé depuis l'an dernier.","explication":"Le 了 de fin de phrase marque une situation nouvelle, pas seulement un passé : 她今年二十岁了 « elle a vingt ans (maintenant) ». Pour demander un âge, on choisit selon la personne : 几岁了 pour un jeune enfant (moins de dix ans), 多大了 pour tous les autres. Pour une personne âgée, la forme respectueuse est 多大年纪了.","pieges":["几岁 à un adulte est maladroit : c'est 多大.","Ne pas oublier 了 dans la question d'âge : 你多大了？","Ce 了 n'est pas le 了 d'action accomplie qui suit le verbe."],"exemples":[{"hanzi":"你女儿几岁了？","pinyin":"nǐ nǚ'ér jǐ suì le","fr":"Quel âge a ta fille ?"},{"hanzi":"她今年四岁了。","pinyin":"tā jīnnián sì suì le","fr":"Elle a quatre ans cette année."},{"hanzi":"李老师今年多大了？","pinyin":"lǐ lǎoshī jīnnián duō dà le","fr":"Quel âge a le professeur Li cette année ?"}],"exercices":[{"type":"qcm","consigne":"Tu demandes son âge à une adulte :","phrase":"你今年___了？","options":["多大","几岁","多少岁"],"reponse":0,"pinyin":"nǐ jīnnián duō dà le","fr":"Quel âge as-tu cette année ?","explication":"几岁 est réservé aux jeunes enfants."},{"type":"ordre","consigne":"Remets la phrase dans l'ordre","segments":["她","今年","二十","岁","了"],"reponse":"她今年二十岁了。","pinyin":"tā jīnnián èrshí suì le","fr":"Elle a vingt ans cette année.","explication":"Le temps (今年) précède le prédicat, 了 ferme la phrase."},{"type":"traduction","fr":"Quel âge a ta fille ?","indice":"几岁 … 了","reponse":"你女儿几岁了？","pinyin":"nǐ nǚ'ér jǐ suì le","explication":"Enfant : 几岁了."}]},{"id":"yao-xiang","titre":"要 + verbe et sa négation 不想","structure":"sujet + 要 + V + O · 不想 + V","theme":"HSK 2 · L1","resume":"我要去北京 : intention. La négation n'est pas 不要.","explication":"要 yào devant un verbe annonce une intention ou un projet : 我要学习汉语, 马克要去北京. Pour dire le contraire, on n'emploie pas 不要 (qui signifie « ne fais pas ! ») mais 不想 : 我不想去北京 « je n'ai pas envie d'y aller ». La question fermée se fait avec 吗 ou avec la forme 要不要, strictement équivalente.","pieges":["不要去 = « n'y va pas », pas « je ne veux pas y aller ».","要不要 remplace 要…吗, on ne cumule pas les deux.","想 exprime l'envie, 要 la décision prise."],"exemples":[{"hanzi":"我要去北京旅游。","pinyin":"wǒ yào qù Běijīng lǚyóu","fr":"Je vais aller voyager à Pékin."},{"hanzi":"我不想吃米饭。","pinyin":"wǒ bù xiǎng chī mǐfàn","fr":"Je n'ai pas envie de manger du riz."},{"hanzi":"我们要不要买一本书？","pinyin":"wǒmen yào bu yào mǎi yì běn shū","fr":"On achète un livre ?"}],"exercices":[{"type":"qcm","consigne":"« Je n'ai pas envie d'y aller » se dit :","phrase":"我___去。","options":["不想","不要","没要"],"reponse":0,"pinyin":"wǒ bù xiǎng qù","fr":"Je n'ai pas envie d'y aller.","explication":"不要 serait un ordre : « n'y va pas »."},{"type":"qcm","consigne":"Quelle question est correcte ?","phrase":"___","options":["我们要不要买椅子？","我们要不要买椅子吗？","我们不要要买椅子？"],"reponse":0,"pinyin":"wǒmen yào bu yào mǎi yǐzi","fr":"On achète une chaise ?","explication":"要不要 est déjà une question : pas de 吗."},{"type":"traduction","fr":"Je vais aller voyager à Pékin.","indice":"要 … 去 … 旅游","reponse":"我要去北京旅游。","pinyin":"wǒ yào qù Běijīng lǚyóu","explication":"要 devant la série verbale 去…旅游."}]},{"id":"zui-de","titre":"最 et le complément 得","structure":"最 + adj / verbe · V + 得 + 最 + adj","theme":"HSK 2 · L1","resume":"我最喜欢…, 他说得最好.","explication":"最 zuì signifie « le plus » et se place directement devant l'adjectif ou le verbe de sentiment : 最好, 最喜欢, 最漂亮. Pour juger la manière dont on fait quelque chose, il faut le complément d'appréciation avec 得 de : verbe + 得 + adverbe. Si le verbe a un objet, on répète le verbe : 他说汉语说得最好.","pieges":["得 se prononce ici de, ton neutre, et n'a rien à voir avec 的.","说得最好 : 得 vient après le verbe, jamais avant.","Avec un objet, le verbe se répète : 说汉语说得很好."],"exemples":[{"hanzi":"我最喜欢吃米饭。","pinyin":"wǒ zuì xǐhuan chī mǐfàn","fr":"Ce que j'aime le plus, c'est manger du riz."},{"hanzi":"大卫的汉语说得最好。","pinyin":"Dàwèi de Hànyǔ shuō de zuì hǎo","fr":"C'est David qui parle le mieux chinois."},{"hanzi":"九月去北京旅游最好。","pinyin":"jiǔ yuè qù Běijīng lǚyóu zuì hǎo","fr":"Septembre est le meilleur moment pour visiter Pékin."}],"exercices":[{"type":"qcm","consigne":"Complète la phrase","phrase":"他汉语说___很好。","options":["得","的","地"],"reponse":0,"pinyin":"tā Hànyǔ shuō de hěn hǎo","fr":"Il parle très bien chinois.","explication":"Après un verbe, l'appréciation passe par 得 (de)."},{"type":"ordre","consigne":"Remets la phrase dans l'ordre","segments":["我","最","喜欢","吃","米饭"],"reponse":"我最喜欢吃米饭。","pinyin":"wǒ zuì xǐhuan chī mǐfàn","fr":"Ce que j'aime le plus, c'est manger du riz.","explication":"最 se place juste devant le verbe qu'il intensifie."},{"type":"traduction","fr":"Ses yeux sont les plus beaux.","indice":"的 … 最 …","reponse":"她的眼睛最漂亮。","pinyin":"tā de yǎnjing zuì piàoliang","explication":"最 devant l'adjectif, sans 很."}]},{"id":"ji-duo-quantite","titre":"几 « quelques » et nombre + 多","structure":"几 + 量词 + 名词 · 数词 + 量词 + 多","theme":"HSK 2 · L1","resume":"买几本书 (quelques livres) et 三个多星期 (plus de trois semaines).","explication":"几 ne sert pas qu'à interroger : dans une phrase affirmative, il signifie « quelques » (moins de dix) : 我想买几本书. Placé après un classificateur de temps ou de mesure, 多 ajoute « et quelques » : 三个多星期 (plus de trois semaines), 四个多小时 (quatre à cinq heures), 三点多 (un peu après trois heures). Avec de l'argent ou des objets, 多 suit le nombre rond : 二十多块钱.","pieges":["二十一多块钱 est faux : 多 ne s'emploie qu'après un nombre rond.","三个多星期 (durée) et 三多个星期 sont à ne pas confondre : 多 suit le classificateur pour une durée.","几 affirmatif veut dire « quelques », pas « combien »."],"exemples":[{"hanzi":"我想买几本书。","pinyin":"wǒ xiǎng mǎi jǐ běn shū","fr":"J'ai envie d'acheter quelques livres."},{"hanzi":"我们要三个多星期。","pinyin":"wǒmen yào sān ge duō xīngqī","fr":"Il nous faut un peu plus de trois semaines."},{"hanzi":"这本书二十多块钱。","pinyin":"zhè běn shū èrshí duō kuài qián","fr":"Ce livre coûte une vingtaine de yuans."}],"exercices":[{"type":"qcm","consigne":"« Quatre à cinq heures » se dit :","phrase":"___","options":["四个多小时","四多个小时","多四个小时"],"reponse":0,"pinyin":"sì ge duō xiǎoshí","fr":"un peu plus de quatre heures","explication":"Pour une durée, 多 se place après le classificateur 个."},{"type":"qcm","consigne":"Quelle phrase est correcte ?","phrase":"___","options":["二十多块钱","二十一多块钱","多二十块钱"],"reponse":0,"pinyin":"èrshí duō kuài qián","fr":"une vingtaine de yuans","explication":"多 ne s'emploie qu'après un nombre rond."},{"type":"traduction","fr":"J'ai envie d'acheter quelques livres.","indice":"想 … 几本 …","reponse":"我想买几本书。","pinyin":"wǒ xiǎng mǎi jǐ běn shū","explication":"几 affirmatif = quelques, avec le classificateur 本."}]},{"id":"mei-liangci-dou","titre":"每 + classificateur (+ 都)","structure":"每 + 量词 + (都) + verbe","theme":"HSK 2 · L2","resume":"Dire « chaque jour, chaque semaine, chaque année » et placer 都 au bon endroit.","explication":"每 měi ne se colle jamais directement à un nom ordinaire : il faut un classificateur. 天 tiān et 年 nián sont eux-mêmes des classificateurs, donc on dit 每天, 每年 sans 个. En revanche 星期 et 月 en demandent un : 每个星期, 每个月. Quand la phrase insiste sur « tous sans exception », on ajoute 都 dōu juste avant le verbe, pas après 每.","pieges":["每个天 est faux : 天 est déjà un classificateur, on dit 每天.","每星期 s'entend, mais la forme du manuel est 每个星期.","都 se place devant le verbe, jamais après le sujet seul : 他每年都去中国, pas 他都每年去中国."],"exemples":[{"hanzi":"我每天六点起床。","pinyin":"wǒ měi tiān liù diǎn qǐ chuáng","fr":"Je me lève à six heures tous les jours."},{"hanzi":"他每年都去中国旅游。","pinyin":"tā měi nián dōu qù Zhōngguó lǚyóu","fr":"Il va voyager en Chine chaque année."},{"hanzi":"他每天回来都很累。","pinyin":"tā měi tiān huílái dōu hěn lèi","fr":"Chaque jour, il rentre très fatigué."}],"exercices":[{"type":"qcm","consigne":"Complète la phrase","phrase":"我___六点起床。","options":["每天","每个天","天每"],"reponse":0,"pinyin":"wǒ měi tiān liù diǎn qǐ chuáng","fr":"Je me lève à six heures tous les jours.","explication":"天 est déjà un classificateur : 每天, jamais 每个天."},{"type":"qcm","consigne":"Complète la phrase","phrase":"你___星期休几天假？","options":["每个","每","个每"],"reponse":0,"pinyin":"nǐ měi ge xīngqī xiū jǐ tiān jià","fr":"Combien de jours de congé prends-tu chaque semaine ?","explication":"星期 n'est pas un classificateur : il lui faut 个, d'où 每个星期."},{"type":"ordre","consigne":"Remets la phrase dans l'ordre","segments":["他","每年","都","去","中国","旅游"],"reponse":"他每年都去中国旅游。","pinyin":"tā měi nián dōu qù Zhōngguó lǚyóu","fr":"Il va voyager en Chine chaque année.","explication":"Ordre : sujet, temps (每年), 都, verbe, lieu. 都 colle au verbe."},{"type":"traduction","fr":"Chaque jour, il rentre très fatigué.","indice":"每天 … 都 … 累","reponse":"他每天回来都很累。","pinyin":"tā měi tiān huílái dōu hěn lèi","explication":"Ici 都 porte sur 每天 mais reste devant le prédicat 很累."}]},{"id":"verbes-separables","titre":"Verbes séparables : 起床, 跑步, 休假","structure":"V + (nombre + 量词) + O","theme":"HSK 2 · L2","resume":"Pourquoi on dit 休几天假 et pas 休假几天.","explication":"起床, 跑步, 休假, 生病, 出院, 回家, 睡觉 sont des verbes séparables (离合词) : ce sont en réalité un verbe et son complément d'objet collés. Tout ce qui compte (nombre de jours, durée, fréquence) vient s'insérer entre les deux morceaux, pas après le bloc entier.","pieges":["休假几天 est faux : la quantité s'insère, 休几天假.","回家一次 est faux : 回一次家.","跑步半个小时 est faux : 跑半个小时步."],"exemples":[{"hanzi":"你每个星期休几天假？","pinyin":"nǐ měi ge xīngqī xiū jǐ tiān jià","fr":"Combien de jours de congé prends-tu chaque semaine ?"},{"hanzi":"他每年回一次家。","pinyin":"tā měi nián huí yí cì jiā","fr":"Il rentre chez lui une fois par an."},{"hanzi":"我每天跑半个小时步。","pinyin":"wǒ měi tiān pǎo bàn ge xiǎoshí bù","fr":"Je cours une demi-heure chaque jour."}],"exercices":[{"type":"ordre","consigne":"Remets la phrase dans l'ordre","segments":["你","每个星期","休","几天","假"],"reponse":"你每个星期休几天假？","pinyin":"nǐ měi ge xīngqī xiū jǐ tiān jià","fr":"Combien de jours de congé prends-tu chaque semaine ?","explication":"休…假 est séparable : 几天 se glisse au milieu."},{"type":"qcm","consigne":"Quelle phrase est correcte ?","phrase":"___","options":["他每年回一次家。","他每年回家一次。","他每年一次回家。"],"reponse":0,"pinyin":"tā měi nián huí yí cì jiā","fr":"Il rentre chez lui une fois par an.","explication":"回家 est séparable : la fréquence 一次 s'insère entre 回 et 家."},{"type":"ordre","consigne":"Remets la phrase dans l'ordre","segments":["我","每天","跑","半个小时","步"],"reponse":"我每天跑半个小时步。","pinyin":"wǒ měi tiān pǎo bàn ge xiǎoshí bù","fr":"Je cours une demi-heure chaque jour.","explication":"跑步 séparable : la durée s'insère, 跑半个小时步."},{"type":"traduction","fr":"Combien de jours de congé prends-tu chaque semaine ?","indice":"每个星期 … 休 … 假","reponse":"你每个星期休几天假？","pinyin":"nǐ měi ge xīngqī xiū jǐ tiān jià","explication":"La question porte sur un nombre : 几天 entre 休 et 假."}]},{"id":"duo-adj-question","titre":"多 + adjectif pour interroger","structure":"sujet + 多 + adj ?","theme":"HSK 2 · L2","resume":"你多大？ 他多高？ demander une mesure sans 几 ni 多少.","explication":"Pour demander une mesure (âge, taille, longueur, distance), on met 多 duō devant un adjectif d'une syllabe : 多大 (quel âge), 多高 (quelle taille), 多长 (quelle longueur), 多远 (à quelle distance). La réponse ne reprend pas 多 : 我十六岁。 他一米七。 Pour une durée, la formule figée est 多长时间.","pieges":["Pas de 吗 avec 多 : la question est déjà interrogative.","La réponse ne garde pas 多 : 我十六岁, pas 我多十六岁.","多少 sert à demander une quantité, 多 + adj une mesure."],"exemples":[{"hanzi":"你多大？","pinyin":"nǐ duō dà","fr":"Quel âge as-tu ?"},{"hanzi":"王医生的儿子多高？","pinyin":"wáng yīshēng de érzi duō gāo","fr":"Quelle taille fait le fils du docteur Wang ?"},{"hanzi":"你每天工作多长时间？","pinyin":"nǐ měi tiān gōngzuò duō cháng shíjiān","fr":"Combien de temps travailles-tu chaque jour ?"}],"exercices":[{"type":"qcm","consigne":"Complète la question","phrase":"你儿子___？","options":["多高","多少高","高吗多"],"reponse":0,"pinyin":"nǐ érzi duō gāo","fr":"Quelle taille fait ton fils ?","explication":"多 + adjectif d'une syllabe : 多高."},{"type":"qcm","consigne":"Quelle réponse est correcte à 你多大？","phrase":"___","options":["我十六岁。","我多十六岁。","我十六多岁。"],"reponse":0,"pinyin":"wǒ shíliù suì","fr":"J'ai seize ans.","explication":"多 disparaît dans la réponse. 十六多岁 voudrait dire « seize ans et quelques »."},{"type":"ordre","consigne":"Remets la question dans l'ordre","segments":["你","每天","工作","多长","时间"],"reponse":"你每天工作多长时间？","pinyin":"nǐ měi tiān gōngzuò duō cháng shíjiān","fr":"Combien de temps travailles-tu chaque jour ?","explication":"多长时间 se place après le verbe, en fin de phrase."},{"type":"traduction","fr":"Quelle taille fait David ?","indice":"大卫 … 多 …","reponse":"大卫多高？","pinyin":"dàwèi duō gāo","explication":"Sujet + 多 + adj, sans 吗."}]},{"id":"duo-ji-approximation","titre":"Approximations : 二十多岁, 一米八几","structure":"nombre + 多 / nombre + 几","theme":"HSK 2 · L2","resume":"Dire « une vingtaine d'années » ou « un mètre quatre-vingts et quelques ».","explication":"多 placé après un nombre rond signifie « et quelques, un peu plus de » : 二十多岁 = entre vingt et trente ans. 几 jǐ placé à la place d'un chiffre inconnu signifie « quelques » : 一米八几 = un mètre quatre-vingt et des poussières. On retrouve 几 dans 这几天 (ces jours-ci).","pieges":["二十几岁 (vingt et quelques) et 二十多岁 (une vingtaine passée) sont proches, mais 多 s'emploie après un nombre rond.","多 se place après le nombre et avant le classificateur : 二十多岁, pas 二十岁多."],"exemples":[{"hanzi":"他今年二十多岁。","pinyin":"tā jīnnián èrshí duō suì","fr":"Il a une vingtaine d'années cette année."},{"hanzi":"他一米八几。","pinyin":"tā yì mǐ bā jǐ","fr":"Il fait un mètre quatre-vingts et quelques."},{"hanzi":"他这几天很忙。","pinyin":"tā zhè jǐ tiān hěn máng","fr":"Il est très occupé ces jours-ci."}],"exercices":[{"type":"qcm","consigne":"« Il a une vingtaine d'années » se dit :","phrase":"___","options":["他二十多岁。","他二十岁多。","他多二十岁。"],"reponse":0,"pinyin":"tā èrshí duō suì","fr":"Il a une vingtaine d'années.","explication":"多 s'intercale entre le nombre et le classificateur 岁."},{"type":"qcm","consigne":"Complète la réponse à 他多高？","phrase":"他一米八___。","options":["几","多少","吗"],"reponse":0,"pinyin":"tā yì mǐ bā jǐ","fr":"Il fait un mètre quatre-vingts et quelques.","explication":"几 remplace le chiffre inconnu des centimètres."},{"type":"traduction","fr":"Il est très occupé ces jours-ci.","indice":"这几天 …","reponse":"他这几天很忙。","pinyin":"tā zhè jǐ tiān hěn máng","explication":"这几天 = ces quelques jours, le temps se place avant le prédicat."}]},{"id":"shi-bu-shi","titre":"是不是 : demander confirmation","structure":"(sujet) + 是不是 + prédicat ?","theme":"HSK 2 · L2","resume":"你很少生病，是不是喜欢运动？ « c'est bien que…, n'est-ce pas ? »","explication":"是不是 sert à faire confirmer une supposition, comme « n'est-ce pas ? ». Il se place devant le prédicat dont on doute, même si le verbe principal n'est pas 是. On répond 是啊 ou 不是. Attention : avec 是不是, on n'ajoute jamais 吗.","pieges":["是不是 + 吗 dans la même phrase est faux, une seule marque d'interrogation.","是不是 porte sur ce qui suit : 你是不是喜欢运动 (c'est aimer le sport qui est supposé).","不 se prononce bu neutre dans 是不是."],"exemples":[{"hanzi":"你很少生病，是不是喜欢运动？","pinyin":"nǐ hěn shǎo shēngbìng, shì bu shì xǐhuan yùndòng","fr":"Tu es rarement malade, c'est que tu aimes le sport, non ?"},{"hanzi":"是啊，我每天早上都要出去跑步。","pinyin":"shì a, wǒ měi tiān zǎoshang dōu yào chūqù pǎobù","fr":"Oui, je sors courir tous les matins."},{"hanzi":"你是不是生病了？","pinyin":"nǐ shì bu shì shēngbìng le","fr":"Tu es tombé malade, non ?"}],"exercices":[{"type":"qcm","consigne":"Quelle phrase est correcte ?","phrase":"___","options":["你是不是喜欢运动？","你是不是喜欢运动吗？","你喜欢是不是运动？"],"reponse":0,"pinyin":"nǐ shì bu shì xǐhuan yùndòng","fr":"Tu aimes le sport, non ?","explication":"Pas de 吗 avec 是不是, et le bloc se place devant le verbe."},{"type":"ordre","consigne":"Remets la phrase dans l'ordre","segments":["你","很少","生病","是不是","喜欢","运动"],"reponse":"你很少生病，是不是喜欢运动？","pinyin":"nǐ hěn shǎo shēngbìng, shì bu shì xǐhuan yùndòng","fr":"Tu es rarement malade, c'est que tu aimes le sport, non ?","explication":"Observation d'abord, supposition ensuite : 是不是 introduit la seconde partie."},{"type":"traduction","fr":"Tu es tombé malade, non ?","indice":"是不是 … 了","reponse":"你是不是生病了？","pinyin":"nǐ shì bu shì shēngbìng le","explication":"了 marque le changement d'état, 是不是 la demande de confirmation."}]},{"id":"gai-le","titre":"该…了 et 好多了","structure":"该 + V + 了 · adj + 多了","theme":"HSK 2 · L2","resume":"« Il est l'heure de… » et « ça va beaucoup mieux ».","explication":"该…了 gāi…le annonce que le moment est venu : 该吃药了 « c'est l'heure de prendre le médicament ». Le 了 final est obligatoire, il marque le passage à cette nouvelle situation. Avec un adjectif, 多了 exprime un net progrès par rapport à avant : 好多了 « beaucoup mieux », à distinguer de 好些 « un peu mieux ».","pieges":["Oublier 了 : 该吃药 seul sonne incomplet.","好了 = guéri / c'est bon ; 好多了 = beaucoup mieux qu'avant.","多了 se place après l'adjectif, jamais avant."],"exemples":[{"hanzi":"该吃药了。","pinyin":"gāi chī yào le","fr":"C'est l'heure de prendre ton médicament."},{"hanzi":"吃了，现在好多了。","pinyin":"chī le, xiànzài hǎo duō le","fr":"Oui, j'en ai pris, ça va beaucoup mieux maintenant."},{"hanzi":"该起床了。","pinyin":"gāi qǐ chuáng le","fr":"C'est l'heure de se lever."}],"exercices":[{"type":"qcm","consigne":"Complète : il est huit heures, tu dis…","phrase":"八点了，___起床了。","options":["该","很","多"],"reponse":0,"pinyin":"bā diǎn le, gāi qǐ chuáng le","fr":"Il est huit heures, c'est l'heure de se lever.","explication":"该…了 encadre le verbe pour dire que le moment est venu."},{"type":"qcm","consigne":"« Ça va beaucoup mieux » se dit :","phrase":"现在___。","options":["好多了","多好了","很好多"],"reponse":0,"pinyin":"xiànzài hǎo duō le","fr":"Ça va beaucoup mieux maintenant.","explication":"adjectif + 多了 pour un progrès net."},{"type":"traduction","fr":"C'est l'heure de prendre ton médicament.","indice":"该 … 了","reponse":"该吃药了。","pinyin":"gāi chī yào le","explication":"该 devant le verbe, 了 en fin de phrase."}]},{"id":"le-jiu-yao","titre":"…了就… et 生病了要…","structure":"condition + 了 + 就 + conséquence","theme":"HSK 2 · L2","resume":"累了就休息 : « dès que…, alors… ».","explication":"了 en fin de première proposition marque une situation atteinte, et 就 jiù enchaîne immédiatement sur la conséquence : 累了就休息 « dès que tu es fatiguée, repose-toi ». Avec 要 yào, la conséquence devient une obligation : 生病了要按时吃药 « quand on est malade, il faut prendre ses médicaments à heure fixe ». 按时 ànshí et 坚持 jiānchí se placent devant le verbe.","pieges":["就 se place devant le verbe de la seconde partie, jamais en tête de phrase.","要 ici veut dire « il faut », pas « vouloir ».","按时 est un adverbe : 按时吃药, pas 吃药按时."],"exemples":[{"hanzi":"累了就休息。","pinyin":"lèi le jiù xiūxi","fr":"Quand tu es fatiguée, repose-toi."},{"hanzi":"生病了要按时吃药。","pinyin":"shēngbìng le yào ànshí chī yào","fr":"Quand on est malade, il faut prendre ses médicaments à heure fixe."},{"hanzi":"他每天早晨坚持跑步。","pinyin":"tā měi tiān zǎochén jiānchí pǎobù","fr":"Il court tous les matins sans jamais lâcher."}],"exercices":[{"type":"qcm","consigne":"Complète la phrase","phrase":"累了___休息。","options":["就","都","才"],"reponse":0,"pinyin":"lèi le jiù xiūxi","fr":"Quand tu es fatiguée, repose-toi.","explication":"就 enchaîne immédiatement sur la conséquence."},{"type":"ordre","consigne":"Remets la phrase dans l'ordre","segments":["生病了","要","按时","吃药"],"reponse":"生病了要按时吃药。","pinyin":"shēngbìng le yào ànshí chī yào","fr":"Quand on est malade, il faut prendre ses médicaments à heure fixe.","explication":"按时 est un adverbe : il se place juste devant le verbe."},{"type":"traduction","fr":"Il court tous les matins sans jamais lâcher.","indice":"每天早晨 … 坚持 …","reponse":"他每天早晨坚持跑步。","pinyin":"tā měi tiān zǎochén jiānchí pǎobù","explication":"Temps d'abord, puis 坚持 devant le verbe."}]},{"id":"zenme-zheme","titre":"怎么 … 这么 … 呀","structure":"怎么 + V + 这么 + adj / 多 + 呀","theme":"HSK 2 · L2","resume":"你怎么知道这么多呀？ exprimer la surprise.","explication":"怎么 zěnme demande ici « comment se fait-il que », avec une nuance d'étonnement (et non « de quelle manière »). 这么 zhème signifie « à ce point, autant » et se place devant l'adjectif ou 多. La particule finale 呀 ya (variante de 啊 après une voyelle) adoucit la question et marque la surprise. 啊 en fin de phrase joue le même rôle : 张老师星期六也不休息啊？","pieges":["这么 modifie ce qui suit : 这么多, pas 多这么.","怎么 en début de proposition marque la surprise, 怎么样 en fin demande un avis.","呀 / 啊 sont des particules d'émotion, jamais obligatoires grammaticalement."],"exemples":[{"hanzi":"你怎么知道这么多呀？","pinyin":"nǐ zěnme zhīdào zhème duō ya","fr":"Comment se fait-il que tu en saches autant ?"},{"hanzi":"张老师星期六也不休息啊？","pinyin":"zhāng lǎoshī xīngqīliù yě bù xiūxi a","fr":"Le professeur Zhang ne se repose pas non plus le samedi ?"},{"hanzi":"现在身体怎么样？","pinyin":"xiànzài shēntǐ zěnmeyàng","fr":"Comment vas-tu maintenant ?"}],"exercices":[{"type":"ordre","consigne":"Remets la phrase dans l'ordre","segments":["你","怎么","知道","这么","多","呀"],"reponse":"你怎么知道这么多呀？","pinyin":"nǐ zěnme zhīdào zhème duō ya","fr":"Comment se fait-il que tu en saches autant ?","explication":"怎么 devant le verbe, 这么 devant 多, 呀 tout à la fin."},{"type":"qcm","consigne":"Complète la phrase","phrase":"你怎么知道___多呀？","options":["这么","多么","什么"],"reponse":0,"pinyin":"nǐ zěnme zhīdào zhème duō ya","fr":"Comment se fait-il que tu en saches autant ?","explication":"这么 = à ce point, autant. Il précède toujours ce qu'il intensifie."},{"type":"qcm","consigne":"Demander l'état de santé de quelqu'un :","phrase":"现在身体___？","options":["怎么样","怎么","这么样"],"reponse":0,"pinyin":"xiànzài shēntǐ zěnmeyàng","fr":"Comment vas-tu maintenant ?","explication":"怎么样 en fin de phrase demande un avis ou un état."},{"type":"traduction","fr":"Le professeur Zhang ne se repose pas non plus le samedi ?","indice":"星期六 … 也 … 啊","reponse":"张老师星期六也不休息啊？","pinyin":"zhāng lǎoshī xīngqīliù yě bù xiūxi a","explication":"也 devant la négation 不, 啊 en fin pour l'étonnement."}]}];
+/* GRAMMAR:END */
 
 /* ---------- État ---------- */
 let PY = null; // index hanzi -> pinyin, (re)construit à la demande (voir pyIndex)
@@ -426,6 +515,7 @@ function load() {
     if (raw) s = JSON.parse(raw);
   } catch (e) { /* stockage indisponible : session éphémère */ }
   if (!s) s = { cards: [], days: {}, reviews: 0 };
+  if (!s.gram) s.gram = {}; // progression des points de grammaire, une entrée par id de fiche
   mergeEmbed(s);
   return s;
 }
@@ -591,14 +681,15 @@ function speak(text, rate) {
 }
 
 /* ---------- Onglets & rendu ---------- */
+let curTab = "home";
 function showTab(t) {
-  $("view-home").classList.toggle("hidden", t !== "home");
-  $("view-dico").classList.toggle("hidden", t !== "dico");
-  $("view-words").classList.toggle("hidden", t !== "words");
-  $("tab-home").setAttribute("aria-selected", t === "home");
-  $("tab-dico").setAttribute("aria-selected", t === "dico");
-  $("tab-words").setAttribute("aria-selected", t === "words");
+  curTab = t;
+  ["home", "gram", "dico", "words"].forEach(k => {
+    $("view-" + k).classList.toggle("hidden", t !== k);
+    $("tab-" + k).setAttribute("aria-selected", t === k);
+  });
   if (t === "dico") renderDico();
+  else if (t === "gram") renderGram();
   else render();
 }
 function themeMatch(c) { return curTheme === "all" || (c.theme || "Général") === curTheme; }
@@ -666,6 +757,291 @@ function render() {
     `<li><span class="w-hanzi hanzi">${esc(c.hanzi)}</span>
      <span class="w-mid"><span class="w-pinyin">${renderPinyin(c.pinyin)}</span><span class="w-theme">${esc(c.theme || "Général")}</span><br><span class="w-fr">${esc(c.fr)}</span></span>
      <span class="w-lvl">🔊 ${c.son.level}<br>汉 ${c.zi.level}</span></li>`).join("");
+}
+
+/* ---------- Grammaire ----------
+   Chaque fiche a sa propre progression (state.gram[id]), indépendante du vocabulaire :
+   même moteur de répétition espacée, mais l'unité révisée est une structure, pas un mot.
+   `vue` retient si la fiche a déjà été lue une fois : la première rencontre commence
+   par l'explication, les suivantes attaquent directement l'exercice. */
+let curGramTheme = "all";
+const GRAM_SESSION_MAX = 8;
+
+function gramProg(id) {
+  if (!state.gram) state.gram = {};
+  if (!state.gram[id]) state.gram[id] = { level: 0, due: Date.now(), errors: 0, reviews: 0, vue: false };
+  return state.gram[id];
+}
+function gramThemeMatch(p) { return curGramTheme === "all" || p.theme === curGramTheme; }
+function gramDue() {
+  const now = Date.now();
+  return EMBED_GRAMMAR.filter(p => gramThemeMatch(p) && gramProg(p.id).due <= now)
+    .sort((a, b) => gramProg(a.id).due - gramProg(b.id).due);
+}
+/* Points fragiles : au moins deux passages et au moins une erreur, du plus raté au moins raté */
+function gramWeak() {
+  return EMBED_GRAMMAR
+    .map(p => ({ p, g: gramProg(p.id) }))
+    .filter(x => x.g.reviews >= 2 && x.g.errors >= 1)
+    .sort((a, b) => (b.g.errors / b.g.reviews) - (a.g.errors / a.g.reviews) || b.g.errors - a.g.errors)
+    .slice(0, 10);
+}
+function setGramTheme(t) { curGramTheme = t; renderGram(); }
+function toggleFiche(id) {
+  const el = $("fiche-" + id);
+  if (el) el.classList.toggle("hidden");
+}
+function renderGram() {
+  if (!$("gram-list")) return;
+  const themes = [...new Set(EMBED_GRAMMAR.map(p => p.theme))];
+  if (curGramTheme !== "all" && !themes.includes(curGramTheme)) curGramTheme = "all";
+  $("gram-theme-chips").innerHTML = themes.length > 1
+    ? [`<button class="chip" aria-pressed="${curGramTheme === "all"}" onclick="setGramTheme('all')">Tout</button>`,
+       ...themes.map(t => `<button class="chip" aria-pressed="${curGramTheme === t}" onclick="setGramTheme(${jsattr(t)})">${esc(t)}</button>`)
+      ].join("")
+    : "";
+
+  const due = gramDue();
+  $("gram-due-count").textContent = Math.min(due.length, GRAM_SESSION_MAX);
+  $("gram-due-label").textContent = (due.length === 1 ? "point à travailler" : "points à travailler") +
+    (curGramTheme === "all" ? "" : " · " + curGramTheme);
+  $("gram-start-btn").disabled = due.length === 0;
+  $("gram-no-due").style.display = due.length === 0 ? "" : "none";
+
+  const weak = gramWeak();
+  $("gram-weak").innerHTML = weak.map(x =>
+    `<li><span class="w-mid"><span class="w-pinyin">${esc(x.p.titre)}</span><span class="w-theme">${esc(x.p.theme)}</span><br><span class="w-fr">${esc(x.p.resume)}</span></span>
+     <span class="w-err">${x.g.errors}✕ / ${x.g.reviews}</span></li>`).join("");
+  $("gram-weak-empty").style.display = weak.length ? "none" : "";
+  $("gram-export").style.display = weak.length ? "" : "none";
+
+  $("gram-count").textContent = EMBED_GRAMMAR.length;
+  const list = EMBED_GRAMMAR.filter(gramThemeMatch);
+  $("gram-list").innerHTML = list.map(ficheHTML).join("");
+}
+function ficheHTML(p) {
+  const g = gramProg(p.id);
+  const rate = g.reviews ? g.errors / g.reviews : 0;
+  const cls = !g.reviews ? "" : (rate >= 0.34 ? " ko" : (g.level >= 4 ? " ok" : ""));
+  const badge = g.reviews ? `${g.reviews - g.errors}/${g.reviews}` : "à voir";
+  const ex = p.exemples.map(e =>
+    `<div class="gram-ex"><span class="zh hanzi">${esc(e.hanzi)}</span>
+       <button class="audio-btn" style="font-size:.9rem;padding:.2rem .6rem" onclick="speak(${jsattr(e.hanzi)})">🔊</button>
+       <div class="py">${renderPinyin(e.pinyin)}</div><div class="fr">${esc(e.fr)}</div></div>`).join("");
+  const pieges = (p.pieges || []).length
+    ? `<h4>Pièges</h4><ul>${p.pieges.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+  return `<div class="gram-item">
+    <button class="gram-head" onclick="toggleFiche(${jsattr(p.id)})" aria-expanded="false">
+      <span class="t">${esc(p.titre)}</span><span class="gram-score${cls}">${badge}</span>
+      <span class="r">${esc(p.resume)}</span>
+      <span class="gram-struct hanzi">${esc(p.structure)}</span>
+    </button>
+    <div class="gram-body hidden" id="fiche-${esc(p.id)}">
+      <p style="margin:.3rem 0">${esc(p.explication)}</p>
+      ${pieges}
+      <h4>Exemples</h4>${ex}
+    </div>
+  </div>`;
+}
+function exportGram() {
+  const weak = gramWeak();
+  const lines = weak.map(x =>
+    `- ${x.p.titre} (${x.p.structure}, ${x.p.theme}) : ${x.g.errors} erreurs sur ${x.g.reviews} passages`);
+  const text = `Points de grammaire fragiles exportés depuis mon app Liànxí (${todayKey()}). Retravaille-les en priorité à la prochaine leçon, fais-moi produire des phrases dessus, et note-les au carnet d'erreurs :\n${lines.join("\n")}`;
+  copyText(text, $("gram-msg"), "Copié. Colle-le dans ta session Claude Code.");
+}
+
+/* ---------- Session de grammaire ---------- */
+let gramQueue = [], gIndex = 0, gramErrors = [], gramOk = 0, gramTotal = 0;
+let ordreLibre = [], ordreChoisi = [], qcmOrder = [];
+
+function startGramSession() {
+  const due = gramDue().slice(0, GRAM_SESSION_MAX);
+  if (!due.length) return;
+  sessMode = "gram";
+  gramQueue = shuffle(due);
+  gIndex = 0; gramTotal = gramQueue.length; gramErrors = []; gramOk = 0;
+  speak(" "); // amorce iOS
+  $("session").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  nextGram();
+}
+function nextGram(forceExo) {
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  if (gIndex >= gramQueue.length) { endGramSession(); return; }
+  const p = gramQueue[gIndex], g = gramProg(p.id);
+  $("prog-bar").style.width = Math.round(100 * gIndex / gramTotal) + "%";
+  $("prog-txt").textContent = `${gIndex + 1} / ${gramTotal}`;
+  if (!g.vue && !forceExo) { $("card-zone").innerHTML = gramLearnHTML(p); return; }
+  const exos = p.exercices;
+  const ex = exos[g.reviews % exos.length];
+  ordreLibre = []; ordreChoisi = [];
+  $("card-zone").innerHTML =
+    `<span class="mode-tag">📐 ${esc(p.titre)}</span>` + exoHTML(p, ex);
+  if (ex.type === "ordre") renderOrdre(ex);
+}
+/* Première rencontre : on lit la fiche avant de s'entraîner dessus */
+function gramLearnHTML(p) {
+  const ex = p.exemples.map(e =>
+    `<div class="gram-ex"><span class="zh hanzi">${esc(e.hanzi)}</span>
+      <button class="audio-btn" style="font-size:.9rem;padding:.2rem .6rem" onclick="speak(${jsattr(e.hanzi)})">🔊</button>
+      <div class="py">${renderPinyin(e.pinyin)}</div><div class="fr">${esc(e.fr)}</div></div>`).join("");
+  return `<span class="mode-tag">📐 Nouvelle fiche</span>
+    <div class="qcard" style="text-align:left">
+      <div style="font-size:1.35rem;font-weight:600">${esc(p.titre)}</div>
+      <div class="gram-struct hanzi">${esc(p.structure)}</div>
+      <p style="margin:.2rem 0;font-size:1.06rem">${esc(p.explication)}</p>
+      ${(p.pieges || []).length ? `<div class="expl"><strong>Pièges :</strong><ul style="margin:.3rem 0;padding-left:1.1rem">${p.pieges.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+      ${ex}
+      <button class="btn" onclick="startExo()">S'entraîner dessus</button>
+    </div>`;
+}
+function startExo() {
+  gramProg(gramQueue[gIndex].id).vue = true;
+  save();
+  nextGram(true);
+}
+function exoHTML(p, ex) {
+  if (ex.type === "qcm") {
+    const phrase = esc(ex.phrase).replace("___", `<span class="blank">?</span>`);
+    /* Les options sont mélangées à chaque affichage : sinon la bonne réponse,
+       toujours écrite en premier dans les données, se repère sans réfléchir. */
+    qcmOrder = shuffle(ex.options.map((o, i) => i));
+    return `<div class="qcard">
+      <div class="q-prompt">${esc(ex.consigne || "Complète la phrase")}</div>
+      <div class="gram-q hanzi">${phrase}</div>
+      <div class="opts" id="opts">${qcmOrder.map((real, pos) =>
+        `<button class="hanzi" onclick="answerQcm(${pos})">${esc(ex.options[real])}</button>`).join("")}</div>
+      <div id="answer-zone" class="hidden"></div>
+    </div><div id="grades-slot"></div>`;
+  }
+  if (ex.type === "ordre") {
+    return `<div class="qcard">
+      <div class="q-prompt">${esc(ex.consigne || "Remets la phrase dans l'ordre")}</div>
+      <div class="q-fr">« ${esc(ex.fr)} »</div>
+      <div class="drop" id="drop"></div>
+      <div class="segs" id="segs"></div>
+      <div id="reveal-zone"><button class="btn secondary" onclick="checkOrdre()">Vérifier</button></div>
+      <div id="answer-zone" class="hidden"></div>
+    </div><div id="grades-slot"></div>`;
+  }
+  return `<div class="qcard">
+      <div class="q-prompt">Traduis en chinois, à voix haute puis dans ta tête</div>
+      <div class="q-fr">« ${esc(ex.fr)} »</div>
+      ${ex.indice ? `<div class="q-prompt hanzi">Indice : ${esc(ex.indice)}</div>` : ""}
+      <div id="reveal-zone"><button class="btn secondary" onclick="revealTrad()">Révéler</button></div>
+      <div id="answer-zone" class="hidden">
+        <div class="q-phrase hanzi">${esc(ex.reponse)}</div>
+        <div class="q-pinyin" style="font-size:1.15rem">${renderPinyin(ex.pinyin)}</div>
+        <div><button class="audio-btn" onclick="speak(${jsattr(ex.reponse)})">🔊 Écouter</button>
+             <button class="audio-btn" onclick="speak(${jsattr(ex.reponse)}, 0.55)">🐢 Lent</button></div>
+        <div class="expl">${esc(ex.explication)}</div>
+      </div>
+    </div>${gradesHTML()}`;
+}
+function curExo() {
+  const p = gramQueue[gIndex], g = gramProg(p.id);
+  return p.exercices[g.reviews % p.exercices.length];
+}
+function answerQcm(pos) {
+  const ex = curExo(), ok = qcmOrder[pos] === ex.reponse;
+  const opts = $("opts");
+  [...opts.children].forEach(b => b.disabled = true);
+  opts.children[pos].classList.add(ok ? "good" : "bad");
+  if (!ok) opts.children[qcmOrder.indexOf(ex.reponse)].classList.add("good");
+  const plein = ex.phrase.replace("___", ex.options[ex.reponse]);
+  $("answer-zone").innerHTML =
+    `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "Correct !" : "Pas celle-là"}</div>
+     <div class="q-phrase hanzi">${esc(plein)}</div>
+     <div class="q-pinyin" style="font-size:1.1rem">${renderPinyin(ex.pinyin)}</div>
+     <div class="q-phrase-fr">${esc(ex.fr)}</div>
+     <div><button class="audio-btn" onclick="speak(${jsattr(plein)})">🔊 Écouter</button></div>
+     <div class="expl">${esc(ex.explication)}</div>`;
+  $("answer-zone").classList.remove("hidden");
+  $("grades-slot").innerHTML = gradesHTML(ok ? "good" : "again");
+  $("grades").style.visibility = "visible";
+  speak(plein);
+}
+function renderOrdre(ex) {
+  if (!ordreLibre.length && !ordreChoisi.length) {
+    ordreLibre = shuffle(ex.segments.map((s, i) => ({ s, i })));
+  }
+  const drop = $("drop"), segs = $("segs");
+  if (!drop || !segs) return;
+  drop.innerHTML = ordreChoisi.length
+    ? ordreChoisi.map((it, k) => `<button class="hanzi" onclick="ordreRetirer(${k})">${esc(it.s)}</button>`).join("")
+    : `<span class="ph">Touche les mots dans le bon ordre</span>`;
+  segs.innerHTML = ordreLibre.map((it, k) =>
+    `<button class="hanzi" onclick="ordreAjouter(${k})">${esc(it.s)}</button>`).join("");
+}
+function ordreAjouter(k) {
+  ordreChoisi.push(ordreLibre[k]);
+  ordreLibre.splice(k, 1);
+  renderOrdre(curExo());
+}
+function ordreRetirer(k) {
+  ordreLibre.push(ordreChoisi[k]);
+  ordreChoisi.splice(k, 1);
+  renderOrdre(curExo());
+}
+function checkOrdre() {
+  const ex = curExo();
+  const got = normHanzi(ordreChoisi.map(it => it.s).join(""));
+  const want = normHanzi(ex.reponse);
+  const ok = got === want;
+  $("reveal-zone").classList.add("hidden");
+  $("segs").innerHTML = "";
+  [...$("drop").children].forEach(b => { if (b.tagName === "BUTTON") b.disabled = true; });
+  $("answer-zone").innerHTML =
+    `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "Correct !" : "Pas dans cet ordre"}</div>
+     <div class="q-phrase hanzi">${esc(ex.reponse)}</div>
+     <div class="q-pinyin" style="font-size:1.1rem">${renderPinyin(ex.pinyin)}</div>
+     <div><button class="audio-btn" onclick="speak(${jsattr(ex.reponse)})">🔊 Écouter</button>
+          <button class="audio-btn" onclick="speak(${jsattr(ex.reponse)}, 0.55)">🐢 Lent</button></div>
+     <div class="expl">${esc(ex.explication)}</div>`;
+  $("answer-zone").classList.remove("hidden");
+  $("grades-slot").innerHTML = gradesHTML(ok ? "good" : "again");
+  $("grades").style.visibility = "visible";
+  speak(ex.reponse);
+}
+function revealTrad() {
+  reveal();
+  speak(curExo().reponse);
+}
+function gradeGram(g) {
+  const p = gramQueue[gIndex], pr = gramProg(p.id);
+  pr.vue = true;
+  pr.reviews++; state.reviews++;
+  state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
+  if (g === 0) {
+    pr.errors++;
+    pr.level = Math.max(0, pr.level - 2);
+    if (!gramErrors.includes(p)) gramErrors.push(p);
+  } else {
+    gramOk++;
+    pr.level = Math.min(LEVELS.length - 1, pr.level + (g === 2 ? 2 : 1));
+  }
+  const days = LEVELS[pr.level];
+  pr.due = days === 0 ? Date.now() : Date.now() + days * 864e5 + Math.floor(Math.random() * 36e5);
+  save();
+  gIndex++;
+  nextGram();
+}
+function endGramSession() {
+  $("prog-bar").style.width = "100%";
+  $("prog-txt").textContent = "";
+  const list = gramErrors.length
+    ? `<hr class="divider"><div class="end-list"><strong>À reprendre :</strong>
+       <ul class="words">${gramErrors.map(p =>
+         `<li><span class="w-mid"><span class="w-pinyin">${esc(p.titre)}</span><br><span class="w-fr">${esc(p.structure)}</span></span></li>`).join("")}</ul></div>`
+    : `<p class="q-fr">Sans faute sur la grammaire. 太棒了 tài bàng le !</p>`;
+  $("card-zone").innerHTML = `<div class="qcard">
+      <div class="q-hanzi hanzi">语法</div>
+      <div class="q-pinyin">${renderPinyin("yǔfǎ")}</div>
+      <div class="q-fr">Entraînement terminé : ${gramOk} / ${gramTotal}.</div>
+      ${list}
+      <button class="btn" onclick="quitSession()">Terminer</button>
+    </div>`;
 }
 
 /* ---------- Dictionnaire ---------- */
@@ -804,6 +1180,7 @@ function quitSession() {
   $("session").classList.add("hidden");
   document.body.style.overflow = "";
   render();
+  renderGram();
 }
 function modeFor(it) {
   const list = it.track === "son" ? MODES_SON : MODES_ZI;
@@ -1021,6 +1398,7 @@ function skipCard() {
     nextTone();
     return;
   }
+  if (sessMode === "gram") { gIndex++; nextGram(); return; }
   stopRecog();
   const it = queue[qIndex];
   if (it && !sessSkipped.includes(it)) sessSkipped.push(it);
@@ -1125,6 +1503,7 @@ function endToneQuiz() {
 
 /* ---- Notation & planification ---- */
 function grade(g) {
+  if (sessMode === "gram") { gradeGram(g); return; }
   const it = queue[qIndex], tr = it.card[it.track];
   tr.reviews++; state.reviews++;
   state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
@@ -1184,6 +1563,7 @@ function copySessionReport() {
 
 save();
 render();
+renderGram();
 if (window.speechSynthesis) pickVoice();
 </script>
 </body>
