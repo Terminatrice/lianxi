@@ -415,11 +415,11 @@
     <!-- Les erreurs réelles passent avant tout le reste : c'est le principe
          « apprendre de mes erreurs » demandé le 2026-08-12. -->
   <div class="panel err-panel" id="err-panel" style="text-align:center">
-    <h2>Mes erreurs de cours</h2>
+    <h2>À peaufiner</h2>
     <div class="due-big" id="err-due-count">0</div>
-    <div class="due-label" id="err-due-label">à corriger</div>
-    <button class="btn" id="err-start-btn" onclick="startErrSession()">Corriger mes erreurs</button>
-    <p class="hint" id="err-none" style="display:none">Rien à corriger pour le moment. Tes erreurs de cours reviendront ici tant qu'elles ne sont pas solides.</p>
+    <div class="due-label" id="err-due-label">points repris en cours</div>
+    <button class="btn" id="err-start-btn" onclick="startErrSession()">Peaufiner mes phrases</button>
+    <p class="hint" id="err-none" style="display:none">Rien à peaufiner pour le moment. Les points repris en cours reviennent ici tant qu'ils ne sont pas solides.</p>
     <p class="hint" id="err-stat"></p>
   </div>
 
@@ -541,7 +541,7 @@
     </div>
   </section>
 
-  <footer class="build">Liànxí · <span id="build-stamp">220 mots · 57 points de grammaire · 25 composants · 23 erreurs · 2026-08-12</span></footer>
+  <footer class="build">Liànxí · <span id="build-stamp">220 mots · 57 points de grammaire · 25 composants · 23 à peaufiner · 2026-08-12</span></footer>
 </div>
 
 <!-- ============ SESSION ============ -->
@@ -630,7 +630,7 @@ const EMBED_PY_EXTRA = {"下":"xià","么":"me","二":"èr","五":"wǔ","们":"m
 /* PY_EXTRA:END */
 
 /* ERREURS:BEGIN — généré par tools/update_vocab.py, ne pas éditer à la main */
-const EMBED_ERREURS = [{"id":"e-20260804-01","date":"2026-08-04","fiche":"shui-na","dit":"这是那个人？","dit_pinyin":"zhè shì nà ge rén","correct":"这是哪个人？","correct_pinyin":"zhè shì nǎ ge rén","fr":"C'est laquelle de ces personnes ?","nature":"那 (nà, celui-là) et 哪 (nǎ, lequel) s'écrivent presque pareil. Seul le ton les sépare à l'oral : 哪 est au 3ᵉ ton et pose une question."},{"id":"e-20260804-02","date":"2026-08-04","fiche":"kou-famille","dit":"大家有四个人。","dit_pinyin":"dàjiā yǒu sì ge rén","correct":"他家有四口人。","correct_pinyin":"tā jiā yǒu sì kǒu rén","fr":"Ils sont quatre dans sa famille.","nature":"Deux erreurs à la fois : 他家 (sa famille) et non 大家 (tout le monde), et le classificateur des membres d'une famille est 口, pas 个."},{"id":"e-20260804-03","date":"2026-08-04","fiche":"le-changement","dit":"今年我三十八岁了。","dit_pinyin":"jīnnián wǒ sānshíbā suì le","correct":"今年我三十八岁。","correct_pinyin":"jīnnián wǒ sānshíbā suì","fr":"Cette année j'ai trente-huit ans.","nature":"了 marque un changement d'état. Avec 今年 qui donne déjà le cadre, il fait doublon et devient superflu."},{"id":"e-20260804-04","date":"2026-08-04","fiche":"kou-famille","dit":"你家有几个口？","dit_pinyin":"nǐ jiā yǒu jǐ ge kǒu","correct":"你家有几口人？","correct_pinyin":"nǐ jiā yǒu jǐ kǒu rén","fr":"Combien êtes-vous dans ta famille ?","nature":"口 est le classificateur, pas le nom. La formule est 几 + 口 + 人, jamais 几个口."},{"id":"e-20260804-05","date":"2026-08-04","fiche":"de-possessif","dit":"你的名字有一个字。","dit_pinyin":"nǐ de míngzi yǒu yí ge zì","correct":"你的名字是三个字。","correct_pinyin":"nǐ de míngzi shì sān ge zì","fr":"Ton nom fait trois caractères.","nature":"Pour dire de quoi une chose est faite, c'est 是 et non 有. 有 dirait qu'il possède un caractère."},{"id":"e-20260804-06","date":"2026-08-04","fiche":"date-expression","dit":"明天二零二六八月五号。","dit_pinyin":"míngtiān èr líng èr liù bā yuè wǔ hào","correct":"明天二零二六年八月五号。","correct_pinyin":"míngtiān èr líng èr liù nián bā yuè wǔ hào","fr":"Demain, le 5 août 2026.","nature":"年 est obligatoire après l'année. Les chiffres seuls ne suffisent pas, contrairement au français."},{"id":"e-20260804-07","date":"2026-08-04","fiche":"ma-shenme","dit":"你什么时候看书吗？","dit_pinyin":"nǐ shénme shíhòu kàn shū ma","correct":"你什么时候看书？","correct_pinyin":"nǐ shénme shíhòu kàn shū","fr":"Quand est-ce que tu lis ?","nature":"吗 transforme une affirmation en question. Quand la phrase contient déjà 什么时候, la question est posée : 吗 devient fautif. C'est ton erreur la plus fréquente."},{"id":"e-20260804-08","date":"2026-08-04","fiche":"moyens-transport","dit":"明天上午我上火车站。","dit_pinyin":"míngtiān shàngwǔ wǒ shàng huǒchēzhàn","correct":"明天上午我坐火车。","correct_pinyin":"míngtiān shàngwǔ wǒ zuò huǒchē","fr":"Demain matin je prends le train.","nature":"Prendre un moyen de transport se dit 坐 (s'asseoir dans). 上 monterait sur la gare elle-même."},{"id":"e-20260804-09","date":"2026-08-04","fiche":"verbes-serie","dit":"我不能做我们的中文课。","dit_pinyin":"wǒ bù néng zuò wǒmen de Zhōngwén kè","correct":"我不能上我们的中文课。","correct_pinyin":"wǒ bù néng shàng wǒmen de Zhōngwén kè","fr":"Je ne peux pas assister à notre cours de chinois.","nature":"Assister à un cours se dit 上课. 做 voudrait dire fabriquer le cours."},{"id":"e-20260804-10","date":"2026-08-04","fiche":"zhe-na-liangci","dit":"我想买一百椅子。","dit_pinyin":"wǒ xiǎng mǎi yìbǎi yǐzi","correct":"我想买一把椅子。","correct_pinyin":"wǒ xiǎng mǎi yì bǎ yǐzi","fr":"Je voudrais acheter une chaise.","nature":"把 est le classificateur des objets qu'on saisit par une poignée, dont les chaises. 百 veut dire cent : tu en commandais cent."},{"id":"e-20260804-11","date":"2026-08-04","fiche":"you-existence","dit":"桌下面有一把椅子。","dit_pinyin":"zhuō xiàmiàn yǒu yì bǎ yǐzi","correct":"桌子下面有一把椅子。","correct_pinyin":"zhuōzi xiàmiàn yǒu yì bǎ yǐzi","fr":"Il y a une chaise sous la table.","nature":"桌子 ne se coupe pas : le suffixe 子 fait partie du mot. 桌 seul ne s'emploie pas ainsi."},{"id":"e-20260804-12","date":"2026-08-04","fiche":"zai-verbe","dit":"我朋友在图书。","dit_pinyin":"wǒ péngyou zài túshū","correct":"我朋友在宿舍。","correct_pinyin":"wǒ péngyou zài sùshè","fr":"Mon amie est à la résidence.","nature":"图书 veut dire les livres. La bibliothèque est 图书馆, et la résidence étudiante 宿舍."},{"id":"e-20260804-13","date":"2026-08-04","fiche":"zai-preposition","dit":"我坐椅子下面。","dit_pinyin":"wǒ zuò yǐzi xiàmiàn","correct":"我坐在椅子上面。","correct_pinyin":"wǒ zuò zài yǐzi shàngmiàn","fr":"Je suis assise sur la chaise.","nature":"在 est obligatoire pour situer l'action, et tu étais sous la chaise plutôt que dessus."},{"id":"e-20260804-14","date":"2026-08-04","fiche":"ma-shenme","dit":"你想一起吃午饭。","dit_pinyin":"nǐ xiǎng yìqǐ chī wǔfàn","correct":"你想一起吃午饭吗？","correct_pinyin":"nǐ xiǎng yìqǐ chī wǔfàn ma","fr":"Tu veux qu'on déjeune ensemble ?","nature":"L'inverse de ton erreur habituelle : ici aucun mot interrogatif, donc 吗 est indispensable pour que ce soit une question."},{"id":"e-20260804-15","date":"2026-08-04","fiche":"qian-avant","dit":"你能三天前回家吗？","dit_pinyin":"nǐ néng sān tiān qián huí jiā ma","correct":"你能三点前回家吗？","correct_pinyin":"nǐ néng sān diǎn qián huí jiā ma","fr":"Tu peux rentrer avant trois heures ?","nature":"点 donne l'heure, 天 donne les jours. 三天前 voudrait dire il y a trois jours."},{"id":"e-20260804-16","date":"2026-08-04","fiche":"zenmeyang","dit":"美国的天气是什么？","dit_pinyin":"Měiguó de tiānqì shì shénme","correct":"美国的天气怎么样？","correct_pinyin":"Měiguó de tiānqì zěnmeyàng","fr":"Quel temps fait-il aux États-Unis ?","nature":"是什么 demande l'identité d'une chose. Pour demander un état ou une impression, c'est 怎么样."},{"id":"e-20260804-17","date":"2026-08-04","fiche":"temps-adverbial","dit":"北京天气明天下雨。","dit_pinyin":"Běijīng tiānqì míngtiān xià yǔ","correct":"明天北京下雨。","correct_pinyin":"míngtiān Běijīng xià yǔ","fr":"Demain il pleut à Pékin.","nature":"下雨 dit déjà qu'il s'agit du temps : 天气 fait doublon. Et le moment ouvre la phrase."},{"id":"e-20260804-18","date":"2026-08-04","fiche":"hui-futur","dit":"医生八点前会来家吗？","dit_pinyin":"yīshēng bā diǎn qián huì lái jiā ma","correct":"医生八点前会来我家吗？","correct_pinyin":"yīshēng bā diǎn qián huì lái wǒ jiā ma","fr":"Le médecin viendra chez moi avant huit heures ?","nature":"家 seul veut dire la maison en général. Pour dire chez moi, il faut 我家."},{"id":"e-20260804-19","date":"2026-08-04","fiche":"gei-ye","dit":"明天我给爸爸讲话。","dit_pinyin":"míngtiān wǒ gěi bàba jiǎnghuà","correct":"明天我给爸爸打电话。","correct_pinyin":"míngtiān wǒ gěi bàba dǎ diànhuà","fr":"Demain j'appelle mon père.","nature":"Téléphoner se dit 打电话, littéralement frapper le téléphone. 讲话 veut dire prendre la parole."},{"id":"e-20260804-20","date":"2026-08-04","fiche":"hou-apres","dit":"爸爸什么时候能回来家？","dit_pinyin":"bàba shénme shíhòu néng huílái jiā","correct":"爸爸什么时候能回家？","correct_pinyin":"bàba shénme shíhòu néng huí jiā","fr":"Quand est-ce que papa peut rentrer à la maison ?","nature":"回家 est un bloc. 回来 signifie revenir ici, et ne peut pas prendre 家 derrière lui."},{"id":"e-20260804-21","date":"2026-08-04","fiche":"le-deux-verbes","dit":"你们去了看书。","dit_pinyin":"nǐmen qù le kàn shū","correct":"你们去看书了。","correct_pinyin":"nǐmen qù kàn shū le","fr":"Vous êtes allés lire.","nature":"Avec deux verbes, 了 se colle au second, celui qui porte l'action. C'est exactement le point que le prof a expliqué en fin de séance."},{"id":"e-20260804-22","date":"2026-08-04","fiche":"shi-de","dit":"他是明天做饭的。","dit_pinyin":"tā shì míngtiān zuò fàn de","correct":"他是昨天做饭的。","correct_pinyin":"tā shì zuótiān zuò fàn de","fr":"C'est hier qu'il a cuisiné.","nature":"是…的 insiste sur les circonstances d'une action déjà faite. Un futur comme 明天 est incompatible avec cette structure."},{"id":"e-20260804-23","date":"2026-08-04","fiche":"shi-de","dit":"你们不是在饭店开车的。","dit_pinyin":"nǐmen bú shì zài fàndiàn kāichē de","correct":"你们不是开车来饭店的。","correct_pinyin":"nǐmen bú shì kāichē lái fàndiàn de","fr":"Ce n'est pas en voiture que vous êtes venus au restaurant.","nature":"Le moyen de transport se place avant le verbe de déplacement, et le lieu derrière : 开车 + 来 + 饭店."}];
+const EMBED_ERREURS = [{"id":"e-20260804-01","date":"2026-08-04","fiche":"shui-na","dit":"这是那个人？","dit_pinyin":"zhè shì nà ge rén","correct":"这是哪个人？","correct_pinyin":"zhè shì nǎ ge rén","fr":"C'est laquelle de ces personnes ?","nature":"那 (nà, celui-là) et 哪 (nǎ, lequel) s'écrivent presque pareil. Seul le ton les sépare à l'oral : 哪 est au 3ᵉ ton et pose une question."},{"id":"e-20260804-02","date":"2026-08-04","fiche":"kou-famille","dit":"大家有四个人。","dit_pinyin":"dàjiā yǒu sì ge rén","correct":"他家有四口人。","correct_pinyin":"tā jiā yǒu sì kǒu rén","fr":"Ils sont quatre dans sa famille.","nature":"Deux choses à ajuster : 他家 (sa famille) et non 大家 (tout le monde), et le classificateur des membres d'une famille est 口, pas 个."},{"id":"e-20260804-03","date":"2026-08-04","fiche":"le-changement","dit":"今年我三十八岁了。","dit_pinyin":"jīnnián wǒ sānshíbā suì le","correct":"今年我三十八岁。","correct_pinyin":"jīnnián wǒ sānshíbā suì","fr":"Cette année j'ai trente-huit ans.","nature":"了 marque un changement d'état. Avec 今年 qui donne déjà le cadre, il fait doublon et devient superflu."},{"id":"e-20260804-04","date":"2026-08-04","fiche":"kou-famille","dit":"你家有几个口？","dit_pinyin":"nǐ jiā yǒu jǐ ge kǒu","correct":"你家有几口人？","correct_pinyin":"nǐ jiā yǒu jǐ kǒu rén","fr":"Combien êtes-vous dans ta famille ?","nature":"口 est le classificateur, pas le nom. La formule est 几 + 口 + 人, jamais 几个口."},{"id":"e-20260804-05","date":"2026-08-04","fiche":"de-possessif","dit":"你的名字有一个字。","dit_pinyin":"nǐ de míngzi yǒu yí ge zì","correct":"你的名字是三个字。","correct_pinyin":"nǐ de míngzi shì sān ge zì","fr":"Ton nom fait trois caractères.","nature":"Pour dire de quoi une chose est faite, c'est 是 et non 有. 有 dirait qu'il possède un caractère."},{"id":"e-20260804-06","date":"2026-08-04","fiche":"date-expression","dit":"明天二零二六八月五号。","dit_pinyin":"míngtiān èr líng èr liù bā yuè wǔ hào","correct":"明天二零二六年八月五号。","correct_pinyin":"míngtiān èr líng èr liù nián bā yuè wǔ hào","fr":"Demain, le 5 août 2026.","nature":"年 est obligatoire après l'année. Les chiffres seuls ne suffisent pas, contrairement au français."},{"id":"e-20260804-07","date":"2026-08-04","fiche":"ma-shenme","dit":"你什么时候看书吗？","dit_pinyin":"nǐ shénme shíhòu kàn shū ma","correct":"你什么时候看书？","correct_pinyin":"nǐ shénme shíhòu kàn shū","fr":"Quand est-ce que tu lis ?","nature":"吗 transforme une affirmation en question. Quand la phrase contient déjà 什么时候, la question est posée : 吗 devient fautif. C'est le point qui revient le plus souvent chez toi."},{"id":"e-20260804-08","date":"2026-08-04","fiche":"moyens-transport","dit":"明天上午我上火车站。","dit_pinyin":"míngtiān shàngwǔ wǒ shàng huǒchēzhàn","correct":"明天上午我坐火车。","correct_pinyin":"míngtiān shàngwǔ wǒ zuò huǒchē","fr":"Demain matin je prends le train.","nature":"Prendre un moyen de transport se dit 坐 (s'asseoir dans). 上 monterait sur la gare elle-même."},{"id":"e-20260804-09","date":"2026-08-04","fiche":"verbes-serie","dit":"我不能做我们的中文课。","dit_pinyin":"wǒ bù néng zuò wǒmen de Zhōngwén kè","correct":"我不能上我们的中文课。","correct_pinyin":"wǒ bù néng shàng wǒmen de Zhōngwén kè","fr":"Je ne peux pas assister à notre cours de chinois.","nature":"Assister à un cours se dit 上课. 做 voudrait dire fabriquer le cours."},{"id":"e-20260804-10","date":"2026-08-04","fiche":"zhe-na-liangci","dit":"我想买一百椅子。","dit_pinyin":"wǒ xiǎng mǎi yìbǎi yǐzi","correct":"我想买一把椅子。","correct_pinyin":"wǒ xiǎng mǎi yì bǎ yǐzi","fr":"Je voudrais acheter une chaise.","nature":"把 est le classificateur des objets qu'on saisit par une poignée, dont les chaises. 百 veut dire cent : tu en commandais cent."},{"id":"e-20260804-11","date":"2026-08-04","fiche":"you-existence","dit":"桌下面有一把椅子。","dit_pinyin":"zhuō xiàmiàn yǒu yì bǎ yǐzi","correct":"桌子下面有一把椅子。","correct_pinyin":"zhuōzi xiàmiàn yǒu yì bǎ yǐzi","fr":"Il y a une chaise sous la table.","nature":"桌子 ne se coupe pas : le suffixe 子 fait partie du mot. 桌 seul ne s'emploie pas ainsi."},{"id":"e-20260804-12","date":"2026-08-04","fiche":"zai-verbe","dit":"我朋友在图书。","dit_pinyin":"wǒ péngyou zài túshū","correct":"我朋友在宿舍。","correct_pinyin":"wǒ péngyou zài sùshè","fr":"Mon amie est à la résidence.","nature":"图书 veut dire les livres. La bibliothèque est 图书馆, et la résidence étudiante 宿舍."},{"id":"e-20260804-13","date":"2026-08-04","fiche":"zai-preposition","dit":"我坐椅子下面。","dit_pinyin":"wǒ zuò yǐzi xiàmiàn","correct":"我坐在椅子上面。","correct_pinyin":"wǒ zuò zài yǐzi shàngmiàn","fr":"Je suis assise sur la chaise.","nature":"在 est obligatoire pour situer l'action, et tu étais sous la chaise plutôt que dessus."},{"id":"e-20260804-14","date":"2026-08-04","fiche":"ma-shenme","dit":"你想一起吃午饭。","dit_pinyin":"nǐ xiǎng yìqǐ chī wǔfàn","correct":"你想一起吃午饭吗？","correct_pinyin":"nǐ xiǎng yìqǐ chī wǔfàn ma","fr":"Tu veux qu'on déjeune ensemble ?","nature":"L'inverse du cas précédent : ici aucun mot interrogatif, donc 吗 est indispensable pour que ce soit une question."},{"id":"e-20260804-15","date":"2026-08-04","fiche":"qian-avant","dit":"你能三天前回家吗？","dit_pinyin":"nǐ néng sān tiān qián huí jiā ma","correct":"你能三点前回家吗？","correct_pinyin":"nǐ néng sān diǎn qián huí jiā ma","fr":"Tu peux rentrer avant trois heures ?","nature":"点 donne l'heure, 天 donne les jours. 三天前 voudrait dire il y a trois jours."},{"id":"e-20260804-16","date":"2026-08-04","fiche":"zenmeyang","dit":"美国的天气是什么？","dit_pinyin":"Měiguó de tiānqì shì shénme","correct":"美国的天气怎么样？","correct_pinyin":"Měiguó de tiānqì zěnmeyàng","fr":"Quel temps fait-il aux États-Unis ?","nature":"是什么 demande l'identité d'une chose. Pour demander un état ou une impression, c'est 怎么样."},{"id":"e-20260804-17","date":"2026-08-04","fiche":"temps-adverbial","dit":"北京天气明天下雨。","dit_pinyin":"Běijīng tiānqì míngtiān xià yǔ","correct":"明天北京下雨。","correct_pinyin":"míngtiān Běijīng xià yǔ","fr":"Demain il pleut à Pékin.","nature":"下雨 dit déjà qu'il s'agit du temps : 天气 fait doublon. Et le moment ouvre la phrase."},{"id":"e-20260804-18","date":"2026-08-04","fiche":"hui-futur","dit":"医生八点前会来家吗？","dit_pinyin":"yīshēng bā diǎn qián huì lái jiā ma","correct":"医生八点前会来我家吗？","correct_pinyin":"yīshēng bā diǎn qián huì lái wǒ jiā ma","fr":"Le médecin viendra chez moi avant huit heures ?","nature":"家 seul veut dire la maison en général. Pour dire chez moi, il faut 我家."},{"id":"e-20260804-19","date":"2026-08-04","fiche":"gei-ye","dit":"明天我给爸爸讲话。","dit_pinyin":"míngtiān wǒ gěi bàba jiǎnghuà","correct":"明天我给爸爸打电话。","correct_pinyin":"míngtiān wǒ gěi bàba dǎ diànhuà","fr":"Demain j'appelle mon père.","nature":"Téléphoner se dit 打电话, littéralement frapper le téléphone. 讲话 veut dire prendre la parole."},{"id":"e-20260804-20","date":"2026-08-04","fiche":"hou-apres","dit":"爸爸什么时候能回来家？","dit_pinyin":"bàba shénme shíhòu néng huílái jiā","correct":"爸爸什么时候能回家？","correct_pinyin":"bàba shénme shíhòu néng huí jiā","fr":"Quand est-ce que papa peut rentrer à la maison ?","nature":"回家 est un bloc. 回来 signifie revenir ici, et ne peut pas prendre 家 derrière lui."},{"id":"e-20260804-21","date":"2026-08-04","fiche":"le-deux-verbes","dit":"你们去了看书。","dit_pinyin":"nǐmen qù le kàn shū","correct":"你们去看书了。","correct_pinyin":"nǐmen qù kàn shū le","fr":"Vous êtes allés lire.","nature":"Avec deux verbes, 了 se colle au second, celui qui porte l'action. C'est exactement le point que le prof a expliqué en fin de séance."},{"id":"e-20260804-22","date":"2026-08-04","fiche":"shi-de","dit":"他是明天做饭的。","dit_pinyin":"tā shì míngtiān zuò fàn de","correct":"他是昨天做饭的。","correct_pinyin":"tā shì zuótiān zuò fàn de","fr":"C'est hier qu'il a cuisiné.","nature":"是…的 insiste sur les circonstances d'une action déjà faite. Un futur comme 明天 est incompatible avec cette structure."},{"id":"e-20260804-23","date":"2026-08-04","fiche":"shi-de","dit":"你们不是在饭店开车的。","dit_pinyin":"nǐmen bú shì zài fàndiàn kāichē de","correct":"你们不是开车来饭店的。","correct_pinyin":"nǐmen bú shì kāichē lái fàndiàn de","fr":"Ce n'est pas en voiture que vous êtes venus au restaurant.","nature":"Le moyen de transport se place avant le verbe de déplacement, et le lieu derrière : 开车 + 来 + 饭店."}];
 /* ERREURS:END */
 
 /* ---------- État ---------- */
@@ -1077,8 +1077,8 @@ function ficheHTML(p) {
 function exportGram() {
   const weak = gramWeak();
   const lines = weak.map(x =>
-    `- ${x.p.titre} (${x.p.structure}, ${x.p.theme}) : ${x.g.errors} erreurs sur ${x.g.reviews} passages`);
-  const text = `Points de grammaire fragiles exportés depuis mon app Liànxí (${todayKey()}). Retravaille-les en priorité à la prochaine leçon, fais-moi produire des phrases dessus, et note-les au carnet d'erreurs :\n${lines.join("\n")}`;
+    `- ${x.p.titre} (${x.p.structure}, ${x.p.theme}) : manqué ${x.g.errors} fois sur ${x.g.reviews}`);
+  const text = `Points de grammaire fragiles exportés depuis mon app Liànxí (${todayKey()}). Retravaille-les en priorité à la prochaine leçon, fais-moi produire des phrases dessus, et note-les au carnet :\n${lines.join("\n")}`;
   copyText(text, $("gram-msg"), "Copié. Colle-le dans ta session Claude Code.");
 }
 
@@ -1532,15 +1532,15 @@ function renderErr() {
   if (!$("err-panel")) return;
   const due = errDue();
   $("err-due-count").textContent = due.length;
-  $("err-due-label").textContent = due.length === 1 ? "à corriger" : "à corriger";
+  $("err-due-label").textContent = due.length === 1 ? "point repris en cours" : "points repris en cours";
   $("err-start-btn").disabled = due.length === 0;
   $("err-start-btn").textContent = due.length > ERR_SESSION_MAX
-    ? `Corriger mes erreurs (${ERR_SESSION_MAX})` : "Corriger mes erreurs";
+    ? `Peaufiner mes phrases (${ERR_SESSION_MAX})` : "Peaufiner mes phrases";
   $("err-none").style.display = due.length === 0 ? "" : "none";
   const solides = EMBED_ERREURS.filter(e => maturity(errProg(e.id)) === "longue"
     || maturity(errProg(e.id)) === "ancre").length;
   $("err-stat").textContent = EMBED_ERREURS.length
-    ? `${solides} corrigée(s) durablement sur ${EMBED_ERREURS.length} relevées en cours.`
+    ? `${solides} point(s) solide(s) sur ${EMBED_ERREURS.length} repris en cours.`
     : "";
 }
 
@@ -1570,7 +1570,7 @@ function nextErr() {
      réponse se repère à sa position au lieu de sa structure. */
   errOrder = shuffle([e.correct, e.dit]);
   $("card-zone").innerHTML = `<div class="qcard">
-      <div class="q-prompt">Tu as dit ça en cours le ${esc(e.date)}. Laquelle est correcte ?</div>
+      <div class="q-prompt">Repris en cours le ${esc(e.date)}. Laquelle est juste ?</div>
       <div class="q-fr">« ${esc(e.fr)} »</div>
       <div class="opts" id="opts">${errOrder.map(o =>
         `<button onclick="answerErr(${jsattr(o)})"><span class="ruby">${rubyHTML(o)}</span></button>`).join("")}</div>
@@ -1585,7 +1585,7 @@ function answerErr(choix) {
     b.classList.add(errOrder[i] === e.correct ? "good" : "bad");
   });
   $("answer-zone").innerHTML =
-    `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "✓ Correct" : "✕ C'est justement l'erreur que tu avais faite"}</div>
+    `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "✓ Correct" : "✕ C'est la version que tu avais dite en cours"}</div>
      <div class="contraste">
        <div class="ct ok"><span class="ct-m">✓</span><span class="ruby">${rubyHTML(e.correct)}</span></div>
        <div class="ct ko"><span class="ct-m">✕</span><span class="ruby">${rubyHTML(e.dit)}</span></div>
@@ -1610,14 +1610,14 @@ function endErrSession() {
   $("prog-bar").style.width = "100%";
   $("prog-txt").textContent = "";
   const list = errErrors.length
-    ? `<hr class="divider"><div class="end-list"><strong>Encore fragiles :</strong>
+    ? `<hr class="divider"><div class="end-list"><strong>À reprendre bientôt :</strong>
        <ul class="words">${errErrors.map(e =>
          `<li><span class="w-mid"><span class="ruby">${rubyHTML(e.correct)}</span><br><span class="w-fr">${esc(e.fr)}</span></span></li>`).join("")}</ul></div>`
     : `<p class="q-fr">Toutes corrigées. 太棒了 tài bàng le !</p>`;
   $("card-zone").innerHTML = `<div class="qcard">
-      <div class="q-hanzi hanzi">改错</div>
-      <div class="q-pinyin">${renderPinyin("gǎi cuò")}</div>
-      <div class="q-fr">Correction terminée : ${errOk} / ${errTotal}.</div>
+      <div class="q-hanzi hanzi">进步</div>
+      <div class="q-pinyin">${renderPinyin("jìnbù")}</div>
+      <div class="q-fr">Terminé : ${errOk} / ${errTotal}.</div>
       ${list}
       <button class="btn" onclick="quitSession()">Terminer</button>
     </div>`;
@@ -1930,9 +1930,9 @@ function exportWeak() {
   const weak = weakItems();
   const lines = weak.map(it => {
     const tr = it.card[it.track];
-    return `- ${it.card.hanzi} (${it.card.pinyin}) « ${it.card.fr} » : piste ${TRACK_LABEL[it.track]}, ${tr.errors} erreurs sur ${tr.reviews} révisions`;
+    return `- ${it.card.hanzi} (${it.card.pinyin}) « ${it.card.fr} » : piste ${TRACK_LABEL[it.track]}, manqué ${tr.errors} fois sur ${tr.reviews}`;
   });
-  const text = `Mots faibles exportés depuis mon app Liànxí (${todayKey()}). La piste indique ce qui coince : « Son » = pinyin, tons, sens ; « Caractères » = lecture et écriture des hanzi. Intègre-les en priorité à ma prochaine leçon et au carnet d'erreurs :\n${lines.join("\n")}`;
+  const text = `Mots faibles exportés depuis mon app Liànxí (${todayKey()}). La piste indique ce qui coince : « Son » = pinyin, tons, sens ; « Caractères » = lecture et écriture des hanzi. Intègre-les en priorité à ma prochaine leçon et au carnet :\n${lines.join("\n")}`;
   copyText(text, $("weak-empty"), "Copié. Colle-le dans ta session Claude Code.");
   $("weak-empty").style.display = "";
 }
@@ -2527,7 +2527,7 @@ function copySessionReport() {
   const missed = sessErrors.concat(sessSkipped.filter(it => !sessErrors.includes(it)));
   const lines = missed.map(it =>
     `- ${it.card.hanzi} (${it.card.pinyin}) « ${it.card.fr} » : piste ${TRACK_LABEL[it.track]}${sessErrors.includes(it) ? " (raté)" : " (passé)"}`);
-  const text = `Bilan de ma session Liànxí du ${todayKey()} : ${sessOk} réussites sur ${sessTotal}. Mots à intégrer au carnet d'erreurs et à la prochaine leçon (la piste indique si c'est le son ou les caractères qui coincent) :\n${lines.join("\n")}`;
+  const text = `Bilan de ma session Liànxí du ${todayKey()} : ${sessOk} réussites sur ${sessTotal}. Mots à intégrer au carnet et à la prochaine leçon (la piste indique si c'est le son ou les caractères qui coincent) :\n${lines.join("\n")}`;
   copyText(text, $("sess-msg"), "Copié. Colle-le dans ta session Claude Code.");
 }
 
