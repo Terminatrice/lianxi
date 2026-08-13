@@ -368,6 +368,26 @@
   .opts-row button { flex: 1 1 auto; min-width: 5rem; }
   .opts button.picked { background: var(--accent-soft); border-color: var(--accent); }
 
+  .filtre-btn {
+    background: none; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--muted); font-family: inherit; font-size: .98rem; font-weight: 600;
+    padding: .45rem 1rem; min-height: 44px; cursor: pointer; margin-top: .6rem;
+  }
+  .filtre-btn[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+
+  /* ---- Barre de parcours ---- */
+  .parcours { margin: .3rem 0 .9rem; }
+  .pc-rail { height: .7rem; background: var(--paper); border: 1px solid var(--line);
+    border-radius: 999px; overflow: hidden; }
+  .pc-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .4s; }
+  @media (prefers-reduced-motion: reduce) { .pc-fill { transition: none; } }
+  .pc-legend { font-size: 1.02rem; color: var(--muted); margin-top: .5rem; }
+  .pc-legend strong { color: var(--ink); font-size: 1.15rem; }
+
+  /* ---- Glose de prose : pinyin en ligne derrière les caractères ---- */
+  .gl { white-space: nowrap; }
+  .gl-py { font-size: .88em; margin-left: .12em; }
+
   /* ---- Classificateur ---- */
   .cl-bloc { background: var(--accent-soft); border-radius: .5rem; padding: .5rem .7rem; margin: .5rem 0; }
   .cl-lab { font-size: .95rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
@@ -427,29 +447,32 @@
       <div class="due-big" id="due-count">0</div>
       <div class="due-label" id="due-label">cartes à réviser</div>
       <div class="chips" id="track-chips"></div>
-      <div class="chips" id="theme-chips"></div>
+      <button class="filtre-btn" id="filtre-btn" onclick="toggleFiltres()" aria-expanded="false">Filtrer par thème</button>
+      <div class="chips hidden" id="theme-chips"></div>
       <button class="btn" id="start-btn" onclick="startSession()">Commencer la session</button>
       <button class="btn secondary" onclick="startToneQuiz()">Quiz tons</button>
-      <p class="hint" id="no-due-hint" style="display:none">Tout est à jour dans ce thème. Reviens demain, ou change de thème.</p>
+      <p class="hint" id="no-due-hint" style="display:none">Tu es à jour sur ce thème. Reviens demain, ou explore un autre thème.</p>
     </div>
 
     <div class="panel">
-      <h2>Progression</h2>
+      <h2>Ton parcours</h2>
+      <div class="parcours">
+        <div class="pc-rail"><div class="pc-fill" id="pc-fill" style="width:0%"></div></div>
+        <div class="pc-legend" id="pc-legend"></div>
+      </div>
       <div class="stats">
-        <div class="stat"><div class="n" id="st-total">0</div><div class="l">mots</div></div>
-        <div class="stat"><div class="n" id="st-fragile">0</div><div class="l">à peine vus</div></div>
-        <div class="stat"><div class="n" id="st-encours">0</div><div class="l">en cours</div></div>
-        <div class="stat"><div class="n" id="st-longue">0</div><div class="l">mémoire longue</div></div>
+        <div class="stat"><div class="n" id="st-semaine">0</div><div class="l">cartes cette semaine</div></div>
+        <div class="stat"><div class="n" id="st-total-rev">0</div><div class="l">révisions au total</div></div>
       </div>
       <p class="hint" id="st-hint"></p>
-      <p class="hint">Un mot passe en mémoire longue le jour où tu le retrouves après trois semaines sans l'avoir vu. Le compteur mesure cette rétention réelle, jamais une échéance prévue. Le son et les caractères comptent séparément : tu peux connaître le pinyin d'un mot sans savoir l'écrire.</p>
+
     </div>
 
     <div class="panel">
-      <h2>Mots fragiles</h2>
+      <h2>À consolider</h2>
       <ul class="words" id="weak-list"></ul>
-      <p class="hint" id="weak-empty">Aucun mot fragile pour l'instant. Ils apparaîtront ici après quelques sessions.</p>
-      <button class="btn secondary" id="export-weak" onclick="exportWeak()">Copier les mots faibles</button>
+      <p class="hint" id="weak-empty">Les mots à retravailler apparaîtront ici après quelques sessions.</p>
+      <button class="btn secondary" id="export-weak" onclick="exportWeak()">Copier pour mon tuteur</button>
       <div class="msg" id="weak-msg"></div>
     </div>
 
@@ -468,8 +491,8 @@
       <div class="due-big" id="comp-due-count">0</div>
       <div class="due-label" id="comp-due-label">composants à travailler</div>
       <button class="btn" id="comp-start-btn" onclick="startCompSession()">Entraînement composants</button>
-      <p class="hint" id="comp-no-due" style="display:none">Tous les composants sont à jour. Reviens plus tard, ou relis les fiches ci-dessous.</p>
-      <p class="hint">Un caractère chinois s'assemble à partir de briques qui reviennent partout. Environ 80 % des caractères combinent une brique qui donne le sens et une brique qui donne une piste de prononciation. Apprends les briques, et chaque nouveau caractère devient une combinaison d'éléments déjà familiers.</p>
+      <p class="hint" id="comp-no-due" style="display:none">Tu es à jour sur les briques. Les fiches restent consultables ci-dessous.</p>
+      <p class="hint">Un caractère s'assemble à partir de briques qui reviennent partout : apprends les briques, et chaque nouveau caractère devient une combinaison d'éléments familiers.</p>
     </div>
 
     <div class="panel">
@@ -485,14 +508,14 @@
       <div class="due-label" id="gram-due-label">points à travailler</div>
       <div class="chips" id="gram-theme-chips"></div>
       <button class="btn" id="gram-start-btn" onclick="startGramSession()">Entraînement grammaire</button>
-      <p class="hint" id="gram-no-due" style="display:none">Tous les points sont à jour. Reviens plus tard, ou relis les fiches ci-dessous.</p>
+      <p class="hint" id="gram-no-due" style="display:none">Tu es à jour sur la grammaire. Les fiches restent consultables ci-dessous.</p>
     </div>
 
     <div class="panel">
-      <h2>Ce qui coince</h2>
+      <h2>À consolider</h2>
       <ul class="words" id="gram-weak"></ul>
-      <p class="hint" id="gram-weak-empty">Les points les plus fragiles apparaîtront ici après quelques entraînements, du plus raté au moins raté.</p>
-      <button class="btn secondary" id="gram-export" onclick="exportGram()">Copier les points fragiles</button>
+      <p class="hint" id="gram-weak-empty">Les structures à retravailler apparaîtront ici après quelques entraînements.</p>
+      <button class="btn secondary" id="gram-export" onclick="exportGram()">Copier pour mon tuteur</button>
       <div class="msg" id="gram-msg"></div>
     </div>
 
@@ -507,7 +530,7 @@
     <div class="panel">
       <h2>Dictionnaire de tes mots</h2>
       <input id="dico-search" class="dico-input" placeholder="学 · xué · apprendre..." oninput="renderDico()" autocomplete="off">
-      <p class="hint">Cherche en caractères, en pinyin (sans les accents) ou en français, parmi les mots de tes fiches. Chaque résultat donne la prononciation, la décomposition et un exemple, avec l'audio.</p>
+      <p class="hint">Cherche en caractères, en pinyin sans les accents, ou en français.</p>
     </div>
     <div id="dico-results"></div>
   </section>
@@ -541,7 +564,7 @@
     </div>
   </section>
 
-  <footer class="build">Liànxí · <span id="build-stamp">220 mots · 57 points de grammaire · 25 composants · 23 à peaufiner · 2026-08-12</span></footer>
+  <footer class="build">Liànxí · <span id="build-stamp">220 mots · 57 points de grammaire · 25 composants · 23 à peaufiner · 2026-08-13</span></footer>
 </div>
 
 <!-- ============ SESSION ============ -->
@@ -618,7 +641,7 @@ const EMBED_GRAMMAR = [{"id":"salutations-nihao","titre":"你好 / 您好 / 你�
 /* GRAMMAR:END */
 
 /* COMPONENTS:BEGIN — généré par tools/update_vocab.py, ne pas éditer à la main */
-const EMBED_COMPONENTS = [{"id":"ren-lie","forme":"亻","origine":"人","pinyin":"rén","sens":"personne","role":"sem","position":"à gauche","mnemo":"C'est 人 (une personne debout) écrasé contre le bord gauche du caractère pour laisser la place au reste. Dès que tu vois ces deux traits à gauche, le caractère parle d'un être humain ou de ce qu'il fait.","vague":2},{"id":"shui-lie","forme":"氵","origine":"水","pinyin":"shuǐ","sens":"eau, liquide","role":"sem","position":"à gauche","mnemo":"Trois gouttes qui tombent. C'est 水 (l'eau) réduit à l'essentiel. Le caractère a un rapport avec un liquide, une rivière, ou le fait de laver.","vague":2},{"id":"yan-lie","forme":"讠","origine":"言","pinyin":"yán","sens":"parole","role":"sem","position":"à gauche","mnemo":"Un petit trait posé sur un crochet, comme un son qui sort d'une bouche. C'est 言 (la parole) simplifié. Le caractère a un rapport avec dire, parler, demander.","vague":2},{"id":"shou-lie","forme":"扌","origine":"手","pinyin":"shǒu","sens":"main, action","role":"sem","position":"à gauche","mnemo":"Une main vue de profil, doigts repliés. C'est 手 penché sur le côté. Le caractère décrit un geste fait avec les mains.","vague":2},{"id":"xin-lie","forme":"忄","origine":"心","pinyin":"xīn","sens":"émotion, état d'esprit","role":"sem","position":"à gauche","mnemo":"Un trait vertical entre deux petits traits, comme un cœur qui bat de chaque côté. C'est 心 (le cœur) redressé. Le caractère décrit ce qu'on ressent.","vague":2},{"id":"si-lie","forme":"纟","origine":"糸","pinyin":"sī","sens":"fil, textile","role":"sem","position":"à gauche","mnemo":"Une boucle de fil qui pend. Le caractère a un rapport avec le tissu, la couleur teinte, ou le fait de relier.","vague":2},{"id":"jin-lie","forme":"钅","origine":"金","pinyin":"jīn","sens":"métal","role":"sem","position":"à gauche","mnemo":"C'est 金 (le métal, l'or) aplati à gauche. Le caractère parle d'un objet en métal, souvent une pièce ou un outil.","vague":2},{"id":"shi-lie","forme":"饣","origine":"食","pinyin":"shí","sens":"nourriture","role":"sem","position":"à gauche","mnemo":"C'est 食 (manger) réduit. Le caractère a un rapport avec la nourriture ou le repas.","vague":2},{"id":"cao-tou","forme":"艹","origine":"艸","pinyin":"cǎo","sens":"plante, herbe","role":"sem","position":"au-dessus","mnemo":"Deux touffes d'herbe qui sortent de terre, posées comme un chapeau sur le reste du caractère. Le caractère désigne une plante, un légume, quelque chose qui pousse.","vague":2},{"id":"chuo","forme":"辶","origine":"辵","pinyin":"chuò","sens":"déplacement, route","role":"sem","position":"en bas à gauche, il entoure","mnemo":"Un pied qui avance sur une route, dessiné comme une vague qui part vers la droite. Le caractère a un rapport avec aller, venir, avancer.","vague":2},{"id":"mian","forme":"宀","pinyin":"mián","sens":"toit, maison","role":"sem","position":"au-dessus","mnemo":"Un toit avec sa cheminée, posé sur ce qui se passe dessous. Le caractère parle de la maison ou de ce qu'elle abrite.","vague":2},{"id":"nu","forme":"女","pinyin":"nǚ","sens":"femme","role":"sem","position":"à gauche ou en bas","mnemo":"Une femme assise, jambes croisées, les bras qui se rejoignent. Se retrouve dans les mots de parenté et dans plusieurs pronoms.","vague":1},{"id":"kou","forme":"口","pinyin":"kǒu","sens":"bouche","role":"sem","position":"à gauche, ou intégré","mnemo":"Une bouche grande ouverte, un carré. À gauche d'un caractère, il signale un son qui sort : un cri, un verbe de parole, ou une particule qui se prononce et se traduit rarement.","vague":1},{"id":"mu-arbre","forme":"木","pinyin":"mù","sens":"arbre, bois","role":"sem","position":"à gauche ou en bas","mnemo":"Un tronc, deux branches, deux racines. Le caractère a un rapport avec le bois ou les arbres.","vague":1},{"id":"mu-oeil","forme":"目","pinyin":"mù","sens":"œil","role":"sem","position":"variable","mnemo":"Un œil dessiné debout, avec la pupille au milieu. Le caractère a un rapport avec le regard.","vague":1},{"id":"ri","forme":"日","pinyin":"rì","sens":"soleil, jour","role":"sem","position":"variable","mnemo":"Le soleil, avec un trait au milieu pour ne pas le confondre avec une bouche 口. Le caractère a un rapport avec le jour ou la lumière.","vague":1},{"id":"huo-bas","forme":"灬","origine":"火","pinyin":"huǒ","sens":"feu","role":"sem","position":"en bas","mnemo":"Quatre petites flammes sous le caractère, comme un feu sous une casserole. C'est 火 (le feu) couché. Le caractère a un rapport avec la chaleur ou la cuisson.","vague":2},{"id":"bing","forme":"冫","pinyin":"bīng","sens":"glace, froid","role":"sem","position":"à gauche","mnemo":"Deux traits au lieu des trois de l'eau 氵 : l'eau qui a gelé, il en manque une goutte. Le caractère parle de froid.","vague":2},{"id":"quan-lie","forme":"犭","origine":"犬","pinyin":"quǎn","sens":"animal, bête","role":"sem","position":"à gauche","mnemo":"Un chien de profil, dressé sur ses pattes. Le caractère désigne un animal, souvent à quatre pattes.","vague":2},{"id":"tu","forme":"土","pinyin":"tǔ","sens":"terre, sol","role":"sem","position":"à gauche ou en bas","mnemo":"Une pousse qui sort d'une ligne de sol. Le caractère a un rapport avec la terre, le terrain, ou ce qu'on pose dessus.","vague":1},{"id":"ma-phon","forme":"马","pinyin":"mǎ","sens":"cheval","role":"phon","son":"ma","position":"à droite","mnemo":"Un cheval réduit à sa crinière et ses pattes. Placé à droite d'un caractère, il sert de brique sonore et donne le son « ma ». C'est ton meilleur exemple du système : 马 mǎ le cheval, 妈 mā la mère (une femme 女 plus le son ma), 吗 ma la particule de question (une bouche 口 plus le son ma).","vague":3},{"id":"ba-phon","forme":"巴","pinyin":"bā","sens":"(sans sens propre ici)","role":"phon","son":"ba","position":"à droite","mnemo":"Brique sonore : elle donne le son « ba ». 吧 ba (bouche 口 + ba) est la particule de suggestion, 爸 bà (père) porte le même son.","vague":3},{"id":"qing-phon","forme":"青","pinyin":"qīng","sens":"vert, bleu","role":"phon","son":"qing","position":"à droite","mnemo":"Brique sonore « qing ». Dans 请 qǐng (s'il te plaît), c'est la parole 讠 qui donne le sens et 青 qui donne le son. Attention : le son se transmet, le ton non.","vague":3},{"id":"ye-phon","forme":"也","pinyin":"yě","sens":"aussi","role":"phon","son":"ta / ye","position":"à droite","mnemo":"Seul, 也 yě veut dire « aussi ». À droite d'un caractère, c'est une brique sonore : 他 tā (personne 亻 + 也) et 她 tā (femme 女 + 也). Même son, même brique, le sens vient du composant de gauche.","vague":3},{"id":"men-phon","forme":"门","pinyin":"mén","sens":"porte","role":"phon","son":"men / wen","position":"autour","mnemo":"Une porte à un battant. Dans 问 wèn (demander), la porte entoure une bouche 口 : on frappe à la porte et on pose une question. Ici la porte donne à la fois une image et une piste sonore approximative.","vague":3}];
+const EMBED_COMPONENTS = [{"id":"ren-lie","forme":"亻","origine":"人","pinyin":"rén","sens":"personne","role":"sem","position":"à gauche","mnemo":"C'est 人 (une personne debout) écrasé contre le bord gauche du caractère pour laisser la place au reste. Dès que tu vois ces deux traits à gauche, le caractère parle d'un être humain ou de ce qu'il fait.","vague":2},{"id":"shui-lie","forme":"氵","origine":"水","pinyin":"shuǐ","sens":"eau, liquide","role":"sem","position":"à gauche","mnemo":"Trois gouttes qui tombent. C'est 水 (l'eau) réduit à l'essentiel. Le caractère a un rapport avec un liquide, une rivière, ou le fait de laver.","vague":2,"predire":{"hanzi":"河","pinyin":"hé","bon":"une rivière","leurres":["une chaise","un mois"],"pourquoi":"Les trois gouttes d'eau à gauche annoncent un liquide. 河 est la rivière."}},{"id":"yan-lie","forme":"讠","origine":"言","pinyin":"yán","sens":"parole","role":"sem","position":"à gauche","mnemo":"Un petit trait posé sur un crochet, comme un son qui sort d'une bouche. C'est 言 (la parole) simplifié. Le caractère a un rapport avec dire, parler, demander.","vague":2,"predire":{"hanzi":"语","pinyin":"yǔ","bon":"la langue, le parler","leurres":["la pluie","une porte"],"pourquoi":"La brique de la parole à gauche annonce quelque chose qui se dit. 语 est la langue."}},{"id":"shou-lie","forme":"扌","origine":"手","pinyin":"shǒu","sens":"main, action","role":"sem","position":"à gauche","mnemo":"Une main vue de profil, doigts repliés. C'est 手 penché sur le côté. Le caractère décrit un geste fait avec les mains.","vague":2},{"id":"xin-lie","forme":"忄","origine":"心","pinyin":"xīn","sens":"émotion, état d'esprit","role":"sem","position":"à gauche","mnemo":"Un trait vertical entre deux petits traits, comme un cœur qui bat de chaque côté. C'est 心 (le cœur) redressé. Le caractère décrit ce qu'on ressent.","vague":2,"predire":{"hanzi":"怕","pinyin":"pà","bon":"avoir peur","leurres":["marcher","acheter"],"pourquoi":"Le cœur redressé à gauche annonce un sentiment. 怕 est la peur."}},{"id":"si-lie","forme":"纟","origine":"糸","pinyin":"sī","sens":"fil, textile","role":"sem","position":"à gauche","mnemo":"Une boucle de fil qui pend. Le caractère a un rapport avec le tissu, la couleur teinte, ou le fait de relier.","vague":2,"predire":{"hanzi":"绿","pinyin":"lǜ","bon":"vert","leurres":["lourd","rapide"],"pourquoi":"La brique du fil à gauche annonce souvent une couleur teinte. 绿 est le vert."}},{"id":"jin-lie","forme":"钅","origine":"金","pinyin":"jīn","sens":"métal","role":"sem","position":"à gauche","mnemo":"C'est 金 (le métal, l'or) aplati à gauche. Le caractère parle d'un objet en métal, souvent une pièce ou un outil.","vague":2,"predire":{"hanzi":"银","pinyin":"yín","bon":"l'argent (le métal)","leurres":["le vent","un livre"],"pourquoi":"La brique du métal à gauche annonce un métal. 银 est l'argent."}},{"id":"shi-lie","forme":"饣","origine":"食","pinyin":"shí","sens":"nourriture","role":"sem","position":"à gauche","mnemo":"C'est 食 (manger) réduit. Le caractère a un rapport avec la nourriture ou le repas.","vague":2,"predire":{"hanzi":"饿","pinyin":"è","bon":"avoir faim","leurres":["avoir froid","courir"],"pourquoi":"La brique de la nourriture à gauche annonce un rapport au manger. 饿 est la faim."}},{"id":"cao-tou","forme":"艹","origine":"艸","pinyin":"cǎo","sens":"plante, herbe","role":"sem","position":"au-dessus","mnemo":"Deux touffes d'herbe qui sortent de terre, posées comme un chapeau sur le reste du caractère. Le caractère désigne une plante, un légume, quelque chose qui pousse.","vague":2,"predire":{"hanzi":"花","pinyin":"huā","bon":"une fleur","leurres":["un couteau","une route"],"pourquoi":"L'herbe en chapeau annonce une plante. 花 est la fleur."}},{"id":"chuo","forme":"辶","origine":"辵","pinyin":"chuò","sens":"déplacement, route","role":"sem","position":"en bas à gauche, il entoure","mnemo":"Un pied qui avance sur une route, dessiné comme une vague qui part vers la droite. Le caractère a un rapport avec aller, venir, avancer.","vague":2,"predire":{"hanzi":"送","pinyin":"sòng","bon":"accompagner, apporter","leurres":["dormir","compter"],"pourquoi":"La brique du déplacement annonce un mouvement. 送 est le fait d'accompagner ou de porter à quelqu'un."}},{"id":"mian","forme":"宀","pinyin":"mián","sens":"toit, maison","role":"sem","position":"au-dessus","mnemo":"Un toit avec sa cheminée, posé sur ce qui se passe dessous. Le caractère parle de la maison ou de ce qu'elle abrite.","vague":2,"predire":{"hanzi":"客","pinyin":"kè","bon":"un invité","leurres":["un nuage","un outil"],"pourquoi":"Le toit annonce ce qui se passe dans une maison. 客 est l'invité qu'on y reçoit."}},{"id":"nu","forme":"女","pinyin":"nǚ","sens":"femme","role":"sem","position":"à gauche ou en bas","mnemo":"Une femme assise, jambes croisées, les bras qui se rejoignent. Se retrouve dans les mots de parenté et dans plusieurs pronoms.","vague":1,"predire":{"hanzi":"姐","pinyin":"jiě","bon":"une grande sœur","leurres":["un chemin","un prix"],"pourquoi":"La brique de la femme à gauche annonce une personne de sexe féminin. 姐 est la grande sœur."}},{"id":"kou","forme":"口","pinyin":"kǒu","sens":"bouche","role":"sem","position":"à gauche, ou intégré","mnemo":"Une bouche grande ouverte, un carré. À gauche d'un caractère, il signale un son qui sort : un cri, un verbe de parole, ou une particule qui se prononce et se traduit rarement.","vague":1},{"id":"mu-arbre","forme":"木","pinyin":"mù","sens":"arbre, bois","role":"sem","position":"à gauche ou en bas","mnemo":"Un tronc, deux branches, deux racines. Le caractère a un rapport avec le bois ou les arbres.","vague":1,"predire":{"hanzi":"林","pinyin":"lín","bon":"un bois, une forêt","leurres":["une pierre","un fleuve"],"pourquoi":"Deux arbres côte à côte : 林 est le bois."}},{"id":"mu-oeil","forme":"目","pinyin":"mù","sens":"œil","role":"sem","position":"variable","mnemo":"Un œil dessiné debout, avec la pupille au milieu. Le caractère a un rapport avec le regard.","vague":1},{"id":"ri","forme":"日","pinyin":"rì","sens":"soleil, jour","role":"sem","position":"variable","mnemo":"Le soleil, avec un trait au milieu pour ne pas le confondre avec une bouche 口. Le caractère a un rapport avec le jour ou la lumière.","vague":1},{"id":"huo-bas","forme":"灬","origine":"火","pinyin":"huǒ","sens":"feu","role":"sem","position":"en bas","mnemo":"Quatre petites flammes sous le caractère, comme un feu sous une casserole. C'est 火 (le feu) couché. Le caractère a un rapport avec la chaleur ou la cuisson.","vague":2,"predire":{"hanzi":"煮","pinyin":"zhǔ","bon":"faire bouillir","leurres":["laver","plier"],"pourquoi":"Les flammes en dessous annoncent la cuisson. 煮 est faire bouillir."}},{"id":"bing","forme":"冫","pinyin":"bīng","sens":"glace, froid","role":"sem","position":"à gauche","mnemo":"Deux traits au lieu des trois de l'eau 氵 : l'eau qui a gelé, il en manque une goutte. Le caractère parle de froid.","vague":2,"predire":{"hanzi":"冰","pinyin":"bīng","bon":"la glace","leurres":["le sable","la fumée"],"pourquoi":"Les deux traits de glace à gauche annoncent le froid. 冰 est la glace."}},{"id":"quan-lie","forme":"犭","origine":"犬","pinyin":"quǎn","sens":"animal, bête","role":"sem","position":"à gauche","mnemo":"Un chien de profil, dressé sur ses pattes. Le caractère désigne un animal, souvent à quatre pattes.","vague":2,"predire":{"hanzi":"猪","pinyin":"zhū","bon":"un cochon","leurres":["une table","une chanson"],"pourquoi":"La brique de l'animal à gauche annonce une bête. 猪 est le cochon."}},{"id":"tu","forme":"土","pinyin":"tǔ","sens":"terre, sol","role":"sem","position":"à gauche ou en bas","mnemo":"Une pousse qui sort d'une ligne de sol. Le caractère a un rapport avec la terre, le terrain, ou ce qu'on pose dessus.","vague":1},{"id":"ma-phon","forme":"马","pinyin":"mǎ","sens":"cheval","role":"phon","son":"ma","position":"à droite","mnemo":"Un cheval réduit à sa crinière et ses pattes. Placé à droite d'un caractère, il sert de brique sonore et donne le son « ma ». C'est ton meilleur exemple du système : 马 mǎ le cheval, 妈 mā la mère (une femme 女 plus le son ma), 吗 ma la particule de question (une bouche 口 plus le son ma).","vague":3},{"id":"ba-phon","forme":"巴","pinyin":"bā","sens":"(sans sens propre ici)","role":"phon","son":"ba","position":"à droite","mnemo":"Brique sonore : elle donne le son « ba ». 吧 ba (bouche 口 + ba) est la particule de suggestion, 爸 bà (père) porte le même son.","vague":3},{"id":"qing-phon","forme":"青","pinyin":"qīng","sens":"vert, bleu","role":"phon","son":"qing","position":"à droite","mnemo":"Brique sonore « qing ». Dans 请 qǐng (s'il te plaît), c'est la parole 讠 qui donne le sens et 青 qui donne le son. Attention : le son se transmet, le ton non.","vague":3},{"id":"ye-phon","forme":"也","pinyin":"yě","sens":"aussi","role":"phon","son":"ta / ye","position":"à droite","mnemo":"Seul, 也 yě veut dire « aussi ». À droite d'un caractère, c'est une brique sonore : 他 tā (personne 亻 + 也) et 她 tā (femme 女 + 也). Même son, même brique, le sens vient du composant de gauche.","vague":3},{"id":"men-phon","forme":"门","pinyin":"mén","sens":"porte","role":"phon","son":"men / wen","position":"autour","mnemo":"Une porte à un battant. Dans 问 wèn (demander), la porte entoure une bouche 口 : on frappe à la porte et on pose une question. Ici la porte donne à la fois une image et une piste sonore approximative.","vague":3}];
 /* COMPONENTS:END */
 
 /* HANZI:BEGIN — généré par tools/update_vocab.py, ne pas éditer à la main */
@@ -626,7 +649,7 @@ const EMBED_HANZI = [{"hanzi":"你","parts":[["亻","sem","personne"],["尔","ph
 /* HANZI:END */
 
 /* PY_EXTRA:BEGIN — généré par tools/update_vocab.py, ne pas éditer à la main */
-const EMBED_PY_EXTRA = {"下":"xià","么":"me","二":"èr","五":"wǔ","们":"men","休":"xiū","假":"jià","出":"chū","半":"bàn","名":"míng","后":"hòu","呀":"ya","啊":"a","地":"dì","得":"de","才":"cái","打":"dǎ","数":"shù","方":"fāng","早":"zǎo","时":"shí","晨":"chén","李":"Lǐ","样":"yàng","楼":"lóu","步":"bù","没":"méi","第":"dì","米":"mǐ","词":"cí","话":"huà","走":"zǒu","跑":"pǎo","还":"hái","量":"liàng","钟":"zhōng","长":"cháng","零":"líng","饭":"fàn","馆":"guǎn","高":"gāo"};
+const EMBED_PY_EXTRA = {"下":"xià","东":"dōng","中":"zhōng","为":"wèi","主":"zhǔ","么":"me","乞":"qǐ","习":"xí","二":"èr","五":"wǔ","京":"jīng","亮":"liàng","亻":"rén","什":"shén","今":"jīn","以":"yǐ","们":"men","件":"jiàn","休":"xiū","位":"wèi","体":"tǐ","作":"zuò","候":"hòu","假":"jià","儿":"ér","元":"yuán","克":"kè","冖":"mì","冫":"bīng","冰":"bīng","出":"chū","刀":"dāo","动":"dòng","勺":"sháo","北":"běi","医":"yī","午":"wǔ","半":"bàn","友":"yǒu","双":"shuāng","只":"zhī","可":"kě","台":"tái","合":"hé","同":"tóng","名":"míng","后":"hòu","呀":"ya","商":"shāng","啊":"a","喜":"xǐ","囗":"wéi","图":"tú","土":"tǔ","地":"dì","坚":"jiān","夕":"xī","女":"nǚ","妈":"mā","姐":"jiě","子":"zi","宀":"mián","客":"kè","宿":"sù","山":"shān","工":"gōng","巴":"bā","师":"shī","幺":"yāo","床":"chuáng","店":"diàn","彳":"chì","得":"de","心":"xīn","忄":"xīn","怎":"zěn","怕":"pà","息":"xi","所":"suǒ","手":"shǒu","才":"cái","打":"dǎ","把":"bǎ","持":"chí","按":"àn","数":"shù","方":"fāng","旅":"lǚ","日":"rì","早":"zǎo","时":"shí","明":"míng","星":"xīng","昨":"zuó","晨":"chén","朋":"péng","服":"fú","期":"qī","木":"mù","机":"jī","李":"Lǐ","杯":"bēi","林":"lín","果":"guǒ","架":"jià","校":"xiào","样":"yàng","桌":"zhuō","椅":"yǐ","楼":"lóu","次":"cì","欢":"huān","步":"bù","气":"qì","氵":"shuǐ","汉":"Hàn","没":"méi","河":"hé","法":"fǎ","游":"yóu","漂":"piào","火":"huǒ","灬":"huǒ","煮":"zhǔ","爸":"bà","犭":"quǎn","猪":"zhū","玉":"yù","现":"xiàn","生":"shēng","田":"tián","病":"bìng","白":"bái","百":"bǎi","目":"mù","眼":"yǎn","睛":"jīng","睡":"shuì","知":"zhī","碗":"wǎn","离":"lí","禾":"hé","租":"zū","第":"dì","米":"mǐ","糸":"mì","纟":"sī","纪":"jì","绿":"lǜ","美":"měi","老":"lǎo","脑":"nǎo","舌":"shé","舍":"shè","艹":"cǎo","花":"huā","苹":"píng","药":"yào","衣":"yī","西":"xī","视":"shì","觉":"jiào","言":"yán","讠":"yán","讲":"jiǎng","词":"cí","话":"huà","语":"yǔ","课":"kè","豕":"shǐ","走":"zǒu","起":"qǐ","跑":"pǎo","身":"shēn","辆":"liàng","辶":"chuò","运":"yùn","还":"hái","远":"yuǎn","送":"sòng","道":"dào","部":"bù","采":"cǎi","量":"liàng","金":"jīn","钅":"jīn","钟":"zhōng","银":"yín","长":"cháng","门":"mén","间":"jiān","阝":"fù","院":"yuàn","零":"líng","青":"qīng","面":"miàn","飞":"fēi","食":"shí","饣":"shí","饭":"fàn","饿":"è","馆":"guǎn","马":"mǎ","高":"gāo"};
 /* PY_EXTRA:END */
 
 /* ERREURS:BEGIN — généré par tools/update_vocab.py, ne pas éditer à la main */
@@ -781,6 +804,37 @@ function segment(text) {
   }
   return out;
 }
+/* Glose de prose : toutes les explications de l'app mélangent du français et
+   du chinois. Sans pinyin, ce chinois est illisible pour quelqu'un qui connaît
+   le son mais pas encore la forme écrite, et l'explication devient inutile.
+   Cette fonction annote chaque suite de caractères avec son pinyin, en ligne
+   pour ne pas casser le rythme du paragraphe, et saute les cas où l'auteur a
+   déjà écrit le pinyin juste derrière (« 好 hǎo se colle… »). */
+function pinyinDeSuite(run) {
+  const segs = segment(run);
+  if (!segs.length || segs.some(s => !s[2] && !s[1])) return "";
+  return segs.filter(s => !s[2]).map(s => s[1]).join(" ");
+}
+function glose(txt) {
+  if (!txt) return "";
+  const s = String(txt), CJK = /[一-鿿]/;
+  let out = "", i = 0;
+  while (i < s.length) {
+    if (!CJK.test(s[i])) { out += esc(s[i]); i++; continue; }
+    let j = i;
+    while (j < s.length && CJK.test(s[j])) j++;
+    const run = s.slice(i, j), py = pinyinDeSuite(run);
+    const nu = pinyinPlain(py).replace(/[^a-z]/g, "");
+    const suite = pinyinPlain(s.slice(j, j + 40)).replace(/[^a-z]/g, "");
+    const dejaEcrit = nu && suite.startsWith(nu);
+    out += (py && !dejaEcrit)
+      ? `<span class="gl"><span class="hanzi">${esc(run)}</span><span class="gl-py">${renderPinyin(py)}</span></span>`
+      : `<span class="hanzi">${esc(run)}</span>`;
+    i = j;
+  }
+  return out;
+}
+
 /* Rendu « caractère au-dessus, pinyin coloré en dessous » */
 function rubyHTML(text) {
   return segment(text).map(([seg, p, punct]) =>
@@ -916,6 +970,18 @@ function weakItems() {
   });
   return out.sort((a, b) => b.rate - a.rate).slice(0, 10);
 }
+/* Les 14 thèmes occupaient six rangées avant le bouton Commencer : il fallait
+   scroller pour agir. Ils sont repliés, et s'ouvrent quand on veut filtrer. */
+let filtresOuverts = false;
+function toggleFiltres() {
+  filtresOuverts = !filtresOuverts;
+  $("theme-chips").classList.toggle("hidden", !filtresOuverts);
+  $("filtre-btn").setAttribute("aria-expanded", filtresOuverts);
+  $("filtre-btn").textContent = filtresOuverts ? "Masquer les thèmes" : filtreLabel();
+}
+function filtreLabel() {
+  return curTheme === "all" ? "Filtrer par thème" : `Thème : ${curTheme}`;
+}
 function setTheme(t) { curTheme = t; render(); }
 function setTrack(t) { curTrack = t; render(); }
 function render() {
@@ -926,6 +992,8 @@ function render() {
        ...themes.map(t => `<button class="chip" aria-pressed="${curTheme === t}" onclick="setTheme(${jsattr(t)})">${esc(t)}</button>`)
       ].join("")
     : "";
+  $("filtre-btn").textContent = filtresOuverts ? "Masquer les thèmes" : filtreLabel();
+  $("filtre-btn").style.display = themes.length > 1 ? "" : "none";
   $("track-chips").innerHTML =
     [`<button class="chip" aria-pressed="${curTrack === "all"}" onclick="setTrack('all')">Les deux</button>`,
      ...TRACKS.map(t => `<button class="chip" aria-pressed="${curTrack === t}" onclick="setTrack(${jsattr(t)})">${TRACK_ICON[t]} ${esc(TRACK_LABEL[t])}</button>`)
@@ -946,20 +1014,31 @@ function render() {
 
   /* Compteurs de progression : ils suivent le filtre de thème affiché juste
      au-dessus, et comptent des pistes (un mot pèse deux fois, son et caractères). */
+  /* Le cadre montre le chemin parcouru, pas la montagne restante. L'ancienne
+     version affichait « 440 à peine vus » et trois zéros : exact, et
+     décourageant au point d'être contre-productif. */
   const shown = state.cards.filter(themeMatch);
-  const buckets = { neuf: 0, fragile: 0, encours: 0, longue: 0, ancre: 0 };
-  shown.forEach(c => TRACKS.forEach(t => { if (trackMatch(t)) buckets[maturity(c[t])]++; }));
-  $("st-total").textContent = shown.length;
-  $("st-fragile").textContent = buckets.neuf + buckets.fragile;
-  $("st-encours").textContent = buckets.encours;
-  $("st-longue").textContent = buckets.longue + buckets.ancre;
-  const suivies = buckets.fragile + buckets.encours + buckets.longue + buckets.ancre;
-  const reste = newQuotaLeft();
-  $("st-hint").textContent = suivies
-    ? `${buckets.longue + buckets.ancre} pistes retrouvées après trois semaines ou plus`
-      + (buckets.ancre ? `, dont ${buckets.ancre} après trois mois` : "") + `.`
-      + (reste ? ` ${reste} nouveauté(s) prévue(s) aujourd'hui.` : " Quota de nouveautés atteint pour aujourd'hui.")
-    : "Les paliers se remplissent au fil des sessions.";
+  const rencontres = shown.filter(c => c.son.reviews || c.zi.reviews).length;
+  const solides = shown.filter(c =>
+    ["longue", "ancre"].includes(maturity(c.son)) || ["longue", "ancre"].includes(maturity(c.zi))).length;
+  const pct = shown.length ? Math.round(100 * rencontres / shown.length) : 0;
+  $("pc-fill").style.width = Math.max(pct, rencontres ? 2 : 0) + "%";
+  $("pc-legend").innerHTML = rencontres
+    ? `<strong>${rencontres}</strong> mot${rencontres > 1 ? "s" : ""} rencontré${rencontres > 1 ? "s" : ""} sur ${shown.length}`
+      + (solides ? ` · <strong>${solides}</strong> déjà solide${solides > 1 ? "s" : ""}` : "")
+    : `${shown.length} mots t'attendent. La barre se remplit dès la première session.`;
+
+  /* Deux compteurs qui ne peuvent que monter : ce qu'on a fait, jamais ce qui manque. */
+  const d = new Date(), semaine = [];
+  for (let k = 0; k < 7; k++) {
+    semaine.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"));
+    d.setDate(d.getDate() - 1);
+  }
+  $("st-semaine").textContent = semaine.reduce((s, k) => s + (state.days[k] || 0), 0);
+  $("st-total-rev").textContent = state.reviews;
+  $("st-hint").textContent = solides
+    ? "Un mot devient solide quand tu le retrouves après trois semaines sans l'avoir vu."
+    : "";
 
   const weak = weakItems();
   $("weak-list").innerHTML = weak.map(it =>
@@ -1060,15 +1139,15 @@ function ficheHTML(p) {
        <button class="audio-btn" onclick="speak(${jsattr(e.hanzi)})">🔊</button>
        <div class="py">${renderPinyin(e.pinyin)}</div><div class="fr">${esc(e.fr)}</div></div>`).join("");
   const pieges = (p.pieges || []).length
-    ? `<h4>Pièges</h4><ul>${p.pieges.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+    ? `<h4>Pièges</h4><ul>${p.pieges.map(x => `<li>${glose(x)}</li>`).join("")}</ul>` : "";
   return `<div class="gram-item">
     <button class="gram-head" onclick="toggleFiche(${jsattr(p.id)})" aria-expanded="false">
       <span class="t">${esc(p.titre)}</span><span class="gram-score${cls}">${badge}</span>
-      <span class="r">${esc(p.resume)}</span>
+      <span class="r">${glose(p.resume)}</span>
       <span class="gram-struct hanzi">${esc(p.structure)}</span>
     </button>
     <div class="gram-body hidden" id="fiche-${esc(p.id)}">
-      <p style="margin:.3rem 0">${esc(p.explication)}</p>
+      <p style="margin:.3rem 0">${glose(p.explication)}</p>
       ${pieges}
       <h4>Exemples</h4>${ex}
     </div>
@@ -1150,7 +1229,7 @@ function contrasteHTML(c) {
   return c.map(x => `<div class="contraste">
       <div class="ct ok"><span class="ct-m">✓</span><span class="ruby">${rubyHTML(x.ok)}</span></div>
       <div class="ct ko"><span class="ct-m">✕</span><span class="ruby">${rubyHTML(x.ko)}</span></div>
-      <div class="ct-why">${esc(x.pourquoi)}</div>
+      <div class="ct-why">${glose(x.pourquoi)}</div>
     </div>`).join("");
 }
 /* Première rencontre. Format court : une règle, un gabarit, un modèle, un
@@ -1167,7 +1246,7 @@ function gramLearnHTML(p) {
         <div class="fr">${esc(m.fr)}</div>
         <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(m.hanzi)})" aria-label="Écouter l'exemple">🔊</button></div>
       </div>
-      <div class="gram-regle">${esc(p.regle)}</div>
+      <div class="gram-regle">${glose(p.regle)}</div>
       ${contrasteHTML(p.contraste)}
       <button class="btn" onclick="startExo()">S'entraîner</button>
     </div>`;
@@ -1180,8 +1259,8 @@ function gramLearnHTML(p) {
   return `<div class="qcard" style="text-align:left">
       <div class="gram-titre">${esc(p.titre)}</div>
       <div class="gram-struct">${rubyHTML(p.structure)}</div>
-      <p style="margin:.2rem 0;font-size:1.06rem">${esc(p.explication)}</p>
-      ${(p.pieges || []).length ? `<div class="expl"><strong>Pièges :</strong><ul style="margin:.3rem 0;padding-left:1.1rem">${p.pieges.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+      <p style="margin:.2rem 0;font-size:1.06rem">${glose(p.explication)}</p>
+      ${(p.pieges || []).length ? `<div class="expl"><strong>Pièges :</strong><ul style="margin:.3rem 0;padding-left:1.1rem">${p.pieges.map(x => `<li>${glose(x)}</li>`).join("")}</ul></div>` : ""}
       ${ex}
       <button class="btn" onclick="startExo()">S'entraîner</button>
     </div>`;
@@ -1281,7 +1360,7 @@ function exoHTML(p, ex) {
         <div class="q-pinyin" style="font-size:1.15rem">${renderPinyin(ex.pinyin)}</div>
         <div><button class="audio-btn" onclick="speak(${jsattr(ex.reponse)})">🔊 Écouter</button>
              <button class="audio-btn" onclick="speak(${jsattr(ex.reponse)}, 0.55)">🐢 Lent</button></div>
-        <div class="expl">${esc(ex.explication)}</div>
+        <div class="expl">${glose(ex.explication)}</div>
       </div>
     </div>${gradesHTML()}`;
 }
@@ -1328,7 +1407,7 @@ function answerQcm(pos) {
      <div class="q-pinyin" style="font-size:1.1rem">${renderPinyin(ex.pinyin)}</div>
      <div class="q-phrase-fr">${esc(ex.fr)}</div>
      <div><button class="audio-btn" onclick="speak(${jsattr(plein)})">🔊 Écouter</button></div>
-     <div class="expl">${esc(ex.explication)}</div>`;
+     <div class="expl">${glose(ex.explication)}</div>`;
   $("answer-zone").classList.remove("hidden");
   autoGradeGram(ok);
   $("grades-slot").innerHTML = nextOnlyGramHTML();
@@ -1387,7 +1466,7 @@ function checkSub() {
      <div class="ruby">${rubyHTML(ex.reponse)}</div>
      <div class="q-pinyin" style="font-size:1.1rem">${renderPinyin(ex.pinyin)}</div>
      <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(ex.reponse)})" aria-label="Écouter">🔊</button></div>
-     <div class="expl">${esc(ex.explication)}</div>`;
+     <div class="expl">${glose(ex.explication)}</div>`;
   $("answer-zone").classList.remove("hidden");
   autoGradeGram(ok);
   $("grades-slot").innerHTML = nextOnlyGramHTML();
@@ -1421,7 +1500,7 @@ function checkProduction() {
      <div class="ruby">${rubyHTML(ex.modele)}</div>
      <div class="q-pinyin" style="font-size:1.1rem">${renderPinyin(ex.modele_pinyin)}</div>
      <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(ex.modele)})" aria-label="Écouter">🔊</button></div>
-     <div class="expl">${esc(ex.explication)}</div>`;
+     <div class="expl">${glose(ex.explication)}</div>`;
   $("answer-zone").classList.remove("hidden");
   autoGradeGram(ok);
   $("grades-slot").innerHTML = nextOnlyGramHTML();
@@ -1442,7 +1521,7 @@ function checkOrdre() {
      <div class="q-pinyin" style="font-size:1.1rem">${renderPinyin(ex.pinyin)}</div>
      <div><button class="audio-btn" onclick="speak(${jsattr(ex.reponse)})">🔊 Écouter</button>
           <button class="audio-btn" onclick="speak(${jsattr(ex.reponse)}, 0.55)">🐢 Lent</button></div>
-     <div class="expl">${esc(ex.explication)}</div>`;
+     <div class="expl">${glose(ex.explication)}</div>`;
   $("answer-zone").classList.remove("hidden");
   autoGradeGram(ok);
   $("grades-slot").innerHTML = nextOnlyGramHTML();
@@ -1589,7 +1668,7 @@ function answerErr(choix) {
      <div class="contraste">
        <div class="ct ok"><span class="ct-m">✓</span><span class="ruby">${rubyHTML(e.correct)}</span></div>
        <div class="ct ko"><span class="ct-m">✕</span><span class="ruby">${rubyHTML(e.dit)}</span></div>
-       <div class="ct-why">${esc(e.nature)}</div>
+       <div class="ct-why">${glose(e.nature)}</div>
      </div>
      <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(e.correct)})" aria-label="Écouter la forme correcte">🔊</button></div>`;
   $("answer-zone").classList.remove("hidden");
@@ -1696,7 +1775,7 @@ function compFicheHTML(c) {
       <span class="r">${c.role === "phon" ? "brique sonore" : "brique de sens"}${c.origine ? ` · forme liée de ${c.origine}` : ""}${chars.length ? ` · ${chars.length} de tes caractères` : ""}</span>
     </button>
     <div class="gram-body hidden" id="fiche-c-${esc(c.id)}">
-      <p style="margin:.3rem 0">${esc(c.mnemo)}</p>
+      <p style="margin:.3rem 0">${glose(c.mnemo)}</p>
       ${c.position ? `<p class="hint">Position : ${esc(c.position)}.</p>` : ""}
       ${famille}
     </div>
@@ -1736,7 +1815,7 @@ function compLearnHTML(c) {
       <div class="q-hanzi hanzi">${esc(c.forme)}</div>
       ${c.origine ? `<div class="q-prompt">forme liée de <span class="hanzi">${esc(c.origine)}</span></div>` : ""}
       <div class="q-fr">${esc(c.sens)}</div>
-      <p style="font-size:1.06rem;text-align:left">${esc(c.mnemo)}</p>
+      <p style="font-size:1.06rem;text-align:left">${glose(c.mnemo)}</p>
       ${chars.length ? `<div class="q-prompt">Tu l'as déjà croisé dans :</div>
         <div class="ruby">${chars.map(ch => `<span class="pyseg"><span class="hanzi">${esc(ch)}</span></span>`).join("")}</div>` : ""}
       <button class="btn" onclick="startCompExo()">S'entraîner dessus</button>
@@ -1754,7 +1833,27 @@ function compExoHTML(c) {
     return h && (h.parts || []).length >= 2 && h.parts.some(p => p[1] === "phon");
   });
   if (avecRole.length) types.push("role");
+  /* La prédiction est l'exercice qui a le plus de valeur : deviner le sens d'un
+     caractère jamais appris à partir de sa brique. C'est ce qui transforme la
+     brique en outil au lieu d'un fait de plus à retenir. On le tire deux fois
+     plus souvent que les autres quand il existe. */
+  if (c.predire) { types.push("predire"); types.push("predire"); }
   const t = types[Math.floor(Math.random() * types.length)];
+
+  if (t === "predire") {
+    const pr = c.predire;
+    compAttendu = pr.bon;
+    const opts = shuffle([pr.bon, ...pr.leurres]);
+    return `<div class="qcard">
+      <div class="q-prompt">Tu n'as jamais appris ce caractère. Que veut-il dire, à ton avis ?</div>
+      <div class="q-hanzi hanzi">${esc(pr.hanzi)}</div>
+      <div class="q-pinyin">${renderPinyin(pr.pinyin)}</div>
+      <div class="q-prompt">Indice : il contient <span class="hanzi" style="font-size:1.4rem">${esc(c.forme)}</span></div>
+      <div class="opts" id="opts">${opts.map(o =>
+        `<button onclick="answerComp(${jsattr(o)})">${esc(o)}</button>`).join("")}</div>
+      <div id="answer-zone" class="hidden"></div>
+    </div><div id="grades-slot"></div>`;
+  }
 
   if (t === "reperage") {
     /* Quatre caractères, un seul contient la brique. Les leurres sont tirés
@@ -1773,19 +1872,29 @@ function compExoHTML(c) {
   }
   if (t === "role") {
     const ch = avecRole[Math.floor(Math.random() * avecRole.length)];
-    const h = hzIndex().get(ch);
-    const bonne = h.parts.find(p => p[1] === "sem") || h.parts[0];
+    const hz = hzIndex().get(ch);
+    const bonne = hz.parts.find(p => p[1] === "sem") || hz.parts[0];
     compAttendu = bonne[0];
-    const opts = shuffle(h.parts.map(p => p[0]));
+    /* Un choix entre les deux seules briques du caractère se joue à pile ou face.
+       On ajoute une brique étrangère plausible pour que la réponse demande de
+       reconnaître, pas de deviner. Et on donne le sens du mot : sans lui, la
+       question est indevinable autrement que par élimination. */
+    const siennes = hz.parts.map(p => p[0]);
+    const etrangere = shuffle(EMBED_COMPONENTS.filter(x => x.role === "sem" && !siennes.includes(x.forme)))[0];
+    const mot = state.cards.find(cd => cd.hanzi.includes(ch));
+    const opts = shuffle(siennes.concat(etrangere ? [etrangere.forme] : []));
     return `<div class="qcard">
       <div class="q-hanzi hanzi">${esc(ch)}</div>
+      ${mot ? `<div class="q-fr">« ${esc(mot.fr)} »</div>` : ""}
       <div class="q-prompt">Quelle brique donne le sens ?</div>
       <div class="opts" id="opts">${opts.map(o =>
         `<button class="hanzi" style="font-size:2rem" onclick="answerComp(${jsattr(o)})">${esc(o)}</button>`).join("")}</div>
       <div id="answer-zone" class="hidden"></div>
     </div><div id="grades-slot"></div>`;
   }
-  const leurres = shuffle(EMBED_COMPONENTS.filter(x => x.id !== c.id)).slice(0, 3).map(x => x.sens);
+  const memeRole = EMBED_COMPONENTS.filter(x => x.id !== c.id && x.role === c.role);
+  const pool = memeRole.length >= 3 ? memeRole : EMBED_COMPONENTS.filter(x => x.id !== c.id);
+  const leurres = shuffle(pool).slice(0, 3).map(x => x.sens);
   const opts = shuffle([c.sens, ...leurres]);
   compAttendu = c.sens;
   return `<div class="qcard">
@@ -1806,9 +1915,11 @@ function answerComp(choix) {
     else if (b.textContent === choix) b.classList.add("bad");
   });
   const chars = compChars().get(c.id) || [];
+  const pred = compAttendu === (c.predire || {}).bon ? c.predire : null;
   $("answer-zone").innerHTML =
     `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "✓ Correct" : "✕ Pas celle-là"}</div>
-     <div class="expl"><span class="hanzi" style="font-size:1.5rem">${esc(c.forme)}</span> ${esc(c.sens)}. ${esc(c.mnemo)}</div>
+     <div class="expl">${pred ? glose(pred.pourquoi)
+       : `<span class="hanzi" style="font-size:1.5rem">${esc(c.forme)}</span> ${esc(c.sens)}. ${glose(c.mnemo)}`}</div>
      ${chars.length ? `<div class="ruby">${chars.map(ch =>
         `<span class="pyseg"><span class="hanzi">${esc(ch)}</span></span>`).join("")}</div>` : ""}`;
   $("answer-zone").classList.remove("hidden");
@@ -1855,7 +1966,7 @@ function decompHTML(hanzi) {
       : "";
     return `<div class="expl" style="margin-top:.5rem">
       <span class="hanzi" style="font-size:1.5rem">${esc(h.hanzi)}</span>
-      ${parts}<div style="margin-top:.3rem">${esc(h.histoire)}</div></div>`;
+      ${parts}<div style="margin-top:.3rem">${glose(h.histoire)}</div></div>`;
   }).join("");
 }
 
@@ -2079,7 +2190,7 @@ function clHTML(c, avecNote) {
   return `<div class="cl-bloc"><span class="cl-lab">classificateur</span>
     <span class="hanzi cl-zi">${esc(c.cl)}</span> <span class="cl-py">${renderPinyin(c.cl_pinyin)}</span>
     <span class="cl-ex hanzi">一${esc(c.cl)}${esc(c.hanzi)}</span>
-    ${avecNote ? `<div class="cl-note">${esc(c.cl_note)}</div>` : ""}</div>`;
+    ${avecNote ? `<div class="cl-note">${glose(c.cl_note)}</div>` : ""}</div>`;
 }
 function cardHTML(c, mode) {
   /* Boutons audio en icônes seules : « Écouter / Lent / La phrase / Lente »
@@ -2504,8 +2615,8 @@ function endSession() {
     ? `<hr class="divider"><div class="end-list"><strong>${block.title}</strong>
        <ul class="words">${block.items.map(itemLI).join("")}</ul></div>` : "";
   const body = missed.length
-    ? listHTML({ title: "À retravailler :", items: sessErrors }) +
-      listHTML({ title: "Passés, pas encore vus :", items: sessSkipped.filter(it => !sessErrors.includes(it)) }) +
+    ? listHTML({ title: "À reprendre :", items: sessErrors }) +
+      listHTML({ title: "Reportés à plus tard :", items: sessSkipped.filter(it => !sessErrors.includes(it)) }) +
       `<button class="btn secondary" onclick="replayMissed()">Repasser ces ${missed.length} carte(s) sans compter</button>
        <button class="btn ghost" onclick="copySessionReport()">Copier le bilan</button>
        <div class="msg" id="sess-msg"></div>`
@@ -2516,8 +2627,8 @@ function endSession() {
       <div class="q-fr">Session terminée sur ${sessTotal} carte(s).</div>
       <div class="score">
         <div class="sc ok"><div class="n">${sessOk}</div><div class="l">maîtrisées</div></div>
-        <div class="sc ko"><div class="n">${sessErrors.length}</div><div class="l">à revoir</div></div>
-        <div class="sc"><div class="n">${sessSkipped.filter(it => !sessErrors.includes(it)).length}</div><div class="l">passées</div></div>
+        <div class="sc ko"><div class="n">${sessErrors.length}</div><div class="l">à reprendre</div></div>
+        <div class="sc"><div class="n">${sessSkipped.filter(it => !sessErrors.includes(it)).length}</div><div class="l">reportées</div></div>
       </div>
       ${body}
       <button class="btn" onclick="quitSession()">Terminer</button>
