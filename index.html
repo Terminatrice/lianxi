@@ -479,6 +479,7 @@
 
     <div class="panel">
       <h2>À consolider</h2>
+      <div id="tone-conf"></div>
       <ul class="words" id="weak-list"></ul>
       <p class="hint" id="weak-empty">Les mots à retravailler apparaîtront ici après quelques sessions.</p>
       <button class="btn secondary" id="export-weak" onclick="exportWeak()">Copier pour mon tuteur</button>
@@ -619,9 +620,9 @@ const SESSION_MAX = 25;
    graphique jamais tracée ne tient pas les mêmes intervalles qu'un mot dont on
    connaît déjà le son. Le gain par réussite est volontairement faible (0.02) :
    avec une notation binaire, un gain de 0.05 saturait le plafond en dix cartes. */
-const EASE_START = { son: 2.2, zi: 1.9, gram: 2.1 };
+const EASE_START = { son: 2.2, zi: 1.9, gram: 2.1, ton: 2.0 };
 const EASE_MIN = 1.3, EASE_MAX = 2.5, EASE_UP = 0.02, EASE_DOWN = 0.25;
-const STEP_1 = 1, STEP_2 = { son: 3, zi: 2 }; // premiers paliers, plus serrés sur les caractères
+const STEP_1 = 1, STEP_2 = { son: 3, zi: 2, ton: 2 }; // premiers paliers, plus serrés sur les caractères
 const MAX_INTER = 365;             // plafond : un mot ancré revient au moins une fois par an
 const MATURE = 21, ANCRE = 90;     // paliers de rétention démontrée, en jours
 const NEW_PER_DAY = 8;             // pistes jamais vues introduites par jour
@@ -1045,12 +1046,14 @@ function render() {
   const nErr = curVolet === "cours" ? Math.min(errDue().length, ERR_SESSION_MAX) : 0;
   const nSrs = Math.min(due.length, SESSION_MAX);
   const nGram = curVolet === "cours" ? Math.min(gramDue().length, GRAM_SESSION_MAX) : 0;
-  const total = nErr + nSrs + nGram;
+  const nTon = Math.min(tonsDue().length, TONE_SESSION_MAX);
+  const total = nErr + nTon + nSrs + nGram;
   $("due-count").textContent = total;
   $("due-label").textContent = total === 1 ? "chose à travailler aujourd'hui" : "choses à travailler aujourd'hui";
   $("start-btn").disabled = total === 0;
   const morceaux = [];
   if (nErr) morceaux.push(`${nErr} repris en cours`);
+  if (nTon) morceaux.push(`${nTon} ton${nTon > 1 ? "s" : ""}`);
   if (nSrs) morceaux.push(`${nSrs} mot${nSrs > 1 ? "s" : ""}`);
   if (nGram) morceaux.push(`${nGram} point${nGram > 1 ? "s" : ""} de grammaire`);
   $("plan-hint").textContent = morceaux.length ? "Au programme : " + morceaux.join(", ") + "." : "";
@@ -1093,6 +1096,12 @@ function render() {
     ? "Un mot devient solide quand tu le retrouves après trois semaines sans l'avoir vu."
     : "";
 
+  const conf = confusionsTop();
+  $("tone-conf").innerHTML = conf.length
+    ? `<p class="hint" style="text-align:left">${conf.map(c =>
+        `Tu prends souvent le <strong>${TONE_NOM[c.vrai]}</strong> pour un <strong>${TONE_NOM[c.dit]}</strong> (${c.n} fois).`).join("<br>")}</p>`
+    : "";
+
   const weak = weakItems();
   $("weak-list").innerHTML = weak.map(it =>
     `<li><span class="w-hanzi hanzi">${esc(it.card.hanzi)}</span>
@@ -1130,9 +1139,10 @@ function gramProg(id) {
 }
 function gramThemeMatch(p) { return curGramTheme === "all" || p.theme === curGramTheme; }
 function gramDue() {
+  /* Pistes créées d'abord, heure relevée ensuite : voir tonsDue(). */
+  const prog = EMBED_GRAMMAR.filter(gramThemeMatch).map(p => ({ p, tr: gramProg(p.id) }));
   const now = Date.now();
-  return EMBED_GRAMMAR.filter(p => gramThemeMatch(p) && gramProg(p.id).due <= now)
-    .sort((a, b) => gramProg(a.id).due - gramProg(b.id).due);
+  return prog.filter(x => x.tr.due <= now).sort((a, b) => a.tr.due - b.tr.due).map(x => x.p);
 }
 /* Points fragiles : dès la première erreur, du plus raté au moins raté.
    Le seuil est volontairement bas : avec une cinquantaine de fiches, attendre
@@ -1656,9 +1666,10 @@ function errProg(id) {
   return state.err[id];
 }
 function errDue() {
+  /* Pistes créées d'abord, heure relevée ensuite : voir tonsDue(). */
+  const prog = EMBED_ERREURS.map(e => ({ e, tr: errProg(e.id) }));
   const now = Date.now();
-  return EMBED_ERREURS.filter(e => errProg(e.id).due <= now)
-    .sort((a, b) => errProg(a.id).due - errProg(b.id).due);
+  return prog.filter(x => x.tr.due <= now).sort((a, b) => a.tr.due - b.tr.due).map(x => x.e);
 }
 function renderErr() {
   if (!$("err-panel")) return;
@@ -2137,6 +2148,7 @@ let plan = [], planPos = 0;
 function planDuJour() {
   const p = [];
   if (curVolet === "cours" && errDue().length) p.push("err");
+  if (tonsDue().length) p.push("tons");
   if (dueItems().length) p.push("srs");
   if (curVolet === "cours" && gramDue().length) p.push("gram");
   return p;
@@ -2149,6 +2161,7 @@ function startJour() {
 function lancerEtape() {
   const e = plan[planPos];
   if (e === "err") startErrSession();
+  else if (e === "tons") startToneQuiz();
   else if (e === "gram") startGramSession();
   else startSession();
 }
@@ -2535,6 +2548,46 @@ function skipCard() {
 
 /* ---------- Quiz tons ---------- */
 let toneQueue = [], toneIndex = 0, toneScore = 0, toneMissed = [], toneTimer = null;
+const TONE_SESSION_MAX = 10;
+const TONE_NOM = { 1: "1ᵉʳ ton", 2: "2ᵉ ton", 3: "3ᵉ ton", 4: "4ᵉ ton", 0: "ton neutre" };
+
+/* Chaque caractère porte sa propre piste de tons, séparée de sa piste Son et de
+   sa piste Caractères : savoir qu'un mot veut dire « livre » et savoir qu'il se
+   dit au 1ᵉʳ ton sont deux souvenirs distincts, et c'est le second qui coince. */
+function tonProg(h) {
+  if (!state.tons) state.tons = {};
+  if (!state.tons[h]) state.tons[h] = newTrack("ton");
+  migrateTrack(state.tons[h], "ton");
+  return state.tons[h];
+}
+/* Les confusions se comptent par paire (ton réel → ton annoncé). Une erreur
+   isolée ne dit rien ; « 3ᵉ pris pour un 2ᵉ, onze fois » est un diagnostic. */
+function noteConfusion(vrai, dit) {
+  if (!state.tonConf) state.tonConf = {};
+  const k = vrai + ">" + dit;
+  state.tonConf[k] = (state.tonConf[k] || 0) + 1;
+}
+function confusionsTop() {
+  const c = state.tonConf || {};
+  return Object.keys(c).filter(k => c[k] >= 3)
+    .sort((a, b) => c[b] - c[a]).slice(0, 3)
+    .map(k => { const [v, d] = k.split(">"); return { vrai: +v, dit: +d, n: c[k] }; });
+}
+function tonsDue() {
+  const dus = [], neufs = [];
+  /* Les pistes sont créées d'abord, l'heure est relevée ensuite : une piste
+     neuve porte `due = Date.now()` au moment de sa création, donc la lire avec
+     un `now` capturé avant la boucle la faisait paraître due dans le futur, et
+     le premier affichage annonçait zéro ton à travailler. */
+  const items = tonesPool().map(it => ({ it, tr: tonProg(it.hanzi) }));
+  const now = Date.now();
+  items.forEach(({ it, tr }) => {
+    if (tr.due > now) return;
+    (tr.reviews ? dus : neufs).push(it);
+  });
+  dus.sort((a, b) => tonProg(a.hanzi).due - tonProg(b.hanzi).due);
+  return dus.concat(shuffle(neufs));
+}
 
 /* Pool de caractères d'une seule syllabe, avec leur ton connu, dans le thème courant */
 function tonesPool() {
@@ -2556,7 +2609,8 @@ function tonesPool() {
 function startToneQuiz() {
   sessMode = "tones";
   const pool = tonesPool();
-  toneQueue = shuffle(pool).slice(0, 10);
+  toneQueue = tonsDue().slice(0, TONE_SESSION_MAX);
+  if (!toneQueue.length) toneQueue = shuffle(pool).slice(0, TONE_SESSION_MAX);
   toneIndex = 0; toneScore = 0; toneMissed = [];
   speak(" ");
   $("session").classList.remove("hidden");
@@ -2598,7 +2652,9 @@ function answerTone(t, btn) {
   const opts = $("tone-opts");
   [...opts.children].forEach(b => b.disabled = true);
   state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
-  if (t === it.tone) {
+  state.reviews++;
+  const ok = t === it.tone;
+  if (ok) {
     toneScore++;
     btn.classList.add("good");
   } else {
@@ -2607,7 +2663,11 @@ function answerTone(t, btn) {
     const good = opts.children[idxOf[it.tone]];
     if (good) good.classList.add("good");
     toneMissed.push(it);
+    noteConfusion(it.tone, t);
   }
+  /* Le quiz alimente la même mécanique que le reste : un ton retrouvé s'espace,
+     un ton manqué revient. Sans ça, il se rejouait à vide indéfiniment. */
+  schedule(tonProg(it.hanzi), ok, "ton");
   save();
   toneTimer = setTimeout(() => { toneTimer = null; toneIndex++; nextTone(); }, 1300);
 }
