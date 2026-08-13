@@ -439,6 +439,7 @@
       <div class="due-big" id="due-count">0</div>
       <div class="due-label" id="due-label">à travailler aujourd'hui</div>
       <button class="btn" id="start-btn" onclick="startJour()">Ma session du jour</button>
+      <p class="hint" id="quit-safe">Tu peux quitter à tout moment : chaque réponse est enregistrée aussitôt.</p>
       <p class="hint" id="plan-hint"></p>
       <p class="hint" id="no-due-hint" style="display:none">Tu es à jour. Reviens demain.</p>
       <button class="filtre-btn" id="filtre-btn" onclick="toggleFiltres()" aria-expanded="false">Options</button>
@@ -581,7 +582,7 @@
 <div id="session" class="hidden">
   <div class="wrap">
     <div class="sess-top">
-      <button onclick="quitSession()" aria-label="Quitter la session">✕</button>
+      <button onclick="quitSession()" aria-label="Quitter : ce que tu as répondu est enregistré" title="Quitter : ce que tu as répondu est enregistré">✕</button>
       <span class="sess-track" id="sess-track" aria-hidden="true"></span>
       <div class="progress"><div id="prog-bar" style="width:0%"></div></div>
       <span class="sess-count" id="prog-txt"></span>
@@ -1056,8 +1057,17 @@ function render() {
   if (nTon) morceaux.push(`${nTon} ton${nTon > 1 ? "s" : ""}`);
   if (nSrs) morceaux.push(`${nSrs} mot${nSrs > 1 ? "s" : ""}`);
   if (nGram) morceaux.push(`${nGram} point${nGram > 1 ? "s" : ""} de grammaire`);
-  $("plan-hint").textContent = morceaux.length ? "Au programme : " + morceaux.join(", ") + "." : "";
+  const rep = state.reprise && state.reprise.d === todayKey() ? state.reprise : null;
+  $("start-btn").textContent = rep && total ? "Reprendre ma session" : "Ma session du jour";
+  const programme = morceaux.length ? "Au programme : " + morceaux.join(", ") + "." : "";
+  /* Quitter en cours de route n'efface rien : chaque réponse est écrite au
+     moment où elle est donnée. Le dire explicitement, sinon la croix en haut à
+     gauche ressemble à un bouton qui annule la session. */
+  $("plan-hint").innerHTML = rep
+    ? `<strong>${rep.faites} carte${rep.faites > 1 ? "s" : ""} déjà faite${rep.faites > 1 ? "s" : ""} aujourd'hui, c'est enregistré.</strong><br>${programme}`
+    : programme;
   $("no-due-hint").style.display = total === 0 ? "" : "none";
+  $("quit-safe").style.display = total === 0 ? "none" : "";
 
   /* Mise à jour : proposée tant qu'il reste des mots jamais testés dans le volet. */
   const jamais = calibMots().length;
@@ -1245,6 +1255,7 @@ let gramQueue = [], gIndex = 0, gramErrors = [], gramOk = 0, gramTotal = 0;
 let ordreLibre = [], ordreChoisi = [], qcmOrder = [];
 
 function startGramSession() {
+  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
   const due = gramDue().slice(0, GRAM_SESSION_MAX);
   if (!due.length) return;
   sessMode = "gram";
@@ -1646,6 +1657,7 @@ function gradeGram(g) {
   nextGram();
 }
 function endGramSession() {
+  sessEnCours = false;
   $("prog-bar").style.width = "100%";
   $("prog-txt").textContent = "";
   const list = gramErrors.length
@@ -1698,6 +1710,7 @@ function renderErr() {
 let errQueue = [], eIndex = 0, errErrors = [], errOk = 0, errTotal = 0, errOrder = [];
 
 function startErrSession() {
+  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
   const due = errDue().slice(0, ERR_SESSION_MAX);
   if (!due.length) return;
   sessMode = "err";
@@ -1758,6 +1771,7 @@ function answerErr(choix) {
 }
 function advanceErr() { eIndex++; nextErr(); }
 function endErrSession() {
+  sessEnCours = false;
   $("prog-bar").style.width = "100%";
   $("prog-txt").textContent = "";
   const list = errErrors.length
@@ -1859,6 +1873,7 @@ let compQueue = [], cIndex = 0, compErrors = [], compOk = 0, compTotal = 0;
 
 function startGramExoReset() { exoCourant = null; }
 function startCompSession() {
+  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
   const due = compDue().slice(0, COMP_SESSION_MAX);
   if (!due.length) return;
   sessMode = "comp";
@@ -2008,6 +2023,7 @@ function answerComp(choix) {
 }
 function advanceComp() { cIndex++; nextComp(); }
 function endCompSession() {
+  sessEnCours = false;
   $("prog-bar").style.width = "100%";
   $("prog-txt").textContent = "";
   const list = compErrors.length
@@ -2146,6 +2162,10 @@ let sessPractice = false;
 /* Vrai pendant le passage de mise à jour : il ne consomme pas le quota de
    nouveautés du jour, sinon balayer 30 mots connus bloquerait l'app une semaine. */
 let sessCalib = false;
+/* Vrai entre le démarrage d'une session et son écran de fin. Sert uniquement à
+   distinguer « elle a terminé » de « elle est partie en cours de route » : les
+   réponses, elles, sont déjà enregistrées carte par carte. */
+let sessEnCours = false;
 
 /* Session à longueur fixe : la file est constituée une fois pour toutes et
    ne s'allonge jamais en cours de route. Les mots ratés ou passés reviennent
@@ -2189,6 +2209,7 @@ function boutonFin() {
 }
 
 function startCalibrage() {
+  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
   const items = calibItems(shuffle(calibMots()).slice(0, CALIB_MOTS_MAX));
   if (!items.length) return;
   sessMode = "srs";
@@ -2203,6 +2224,7 @@ function startCalibrage() {
 }
 
 function startSession() {
+  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
   const due = dueItems().slice(0, SESSION_MAX);
   if (!due.length) return;
   sessMode = "srs";
@@ -2236,6 +2258,15 @@ function shuffle(a) {
   return r;
 }
 function quitSession() {
+  /* Rien à sauver ici : chaque réponse a déjà été planifiée et écrite. On note
+     seulement qu'une session a été interrompue, pour pouvoir le lui dire et lui
+     proposer de reprendre au lieu de la laisser croire qu'elle a tout perdu. */
+  if (sessEnCours) {
+    const faites = state.days[todayKey()] || 0;
+    state.reprise = { d: todayKey(), faites: faites };
+    save();
+  }
+  sessEnCours = false;
   plan = []; planPos = 0; sessCalib = false;
   if (toneTimer) { clearTimeout(toneTimer); toneTimer = null; }
   if (window.speechSynthesis) speechSynthesis.cancel();
@@ -2618,6 +2649,7 @@ function tonesPool() {
   return pool;
 }
 function startToneQuiz() {
+  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
   sessMode = "tones";
   const pool = tonesPool();
   toneQueue = tonsDue().slice(0, TONE_SESSION_MAX);
@@ -2683,6 +2715,7 @@ function answerTone(t, btn) {
   toneTimer = setTimeout(() => { toneTimer = null; toneIndex++; nextTone(); }, 1300);
 }
 function endToneQuiz() {
+  sessEnCours = false;
   $("prog-bar").style.width = "100%";
   $("prog-txt").textContent = "";
   const missed = toneMissed.length
@@ -2783,6 +2816,7 @@ function itemLI(it) {
     <span class="w-mid"><span class="w-pinyin">${renderPinyin(it.card.pinyin)}</span><span class="w-theme">${TRACK_ICON[it.track]} ${esc(TRACK_LABEL[it.track])}</span><br><span class="w-fr">${esc(it.card.fr)}</span></span></li>`;
 }
 function endSession() {
+  sessEnCours = false;
   $("prog-bar").style.width = "100%";
   $("prog-txt").textContent = "";
   if (sessPractice) {
