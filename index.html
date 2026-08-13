@@ -434,24 +434,33 @@
   <section id="view-home">
     <!-- Les erreurs réelles passent avant tout le reste : c'est le principe
          « apprendre de mes erreurs » demandé le 2026-08-12. -->
-  <div class="panel err-panel" id="err-panel" style="text-align:center">
-    <h2>À peaufiner</h2>
-    <div class="due-big" id="err-due-count">0</div>
-    <div class="due-label" id="err-due-label">points repris en cours</div>
-    <button class="btn" id="err-start-btn" onclick="startErrSession()">Peaufiner mes phrases</button>
-    <p class="hint" id="err-none" style="display:none">Rien à peaufiner pour le moment. Les points repris en cours reviennent ici tant qu'ils ne sont pas solides.</p>
-    <p class="hint" id="err-stat"></p>
-  </div>
-
     <div class="panel" style="text-align:center">
+      <div class="chips" id="volet-chips"></div>
       <div class="due-big" id="due-count">0</div>
-      <div class="due-label" id="due-label">cartes à réviser</div>
-      <div class="chips" id="track-chips"></div>
-      <button class="filtre-btn" id="filtre-btn" onclick="toggleFiltres()" aria-expanded="false">Filtrer par thème</button>
+      <div class="due-label" id="due-label">à travailler aujourd'hui</div>
+      <button class="btn" id="start-btn" onclick="startJour()">Ma session du jour</button>
+      <p class="hint" id="plan-hint"></p>
+      <p class="hint" id="no-due-hint" style="display:none">Tu es à jour. Reviens demain.</p>
+      <button class="filtre-btn" id="filtre-btn" onclick="toggleFiltres()" aria-expanded="false">Options</button>
       <div class="chips hidden" id="theme-chips"></div>
-      <button class="btn" id="start-btn" onclick="startSession()">Commencer la session</button>
-      <button class="btn secondary" onclick="startToneQuiz()">Quiz tons</button>
-      <p class="hint" id="no-due-hint" style="display:none">Tu es à jour sur ce thème. Reviens demain, ou explore un autre thème.</p>
+      <div class="chips hidden" id="track-chips"></div>
+      <button class="btn secondary hidden" id="tones-btn" onclick="startToneQuiz()">Quiz tons</button>
+    </div>
+
+    <!-- La mise à jour : un balayage de tout ce qui n'a jamais été testé, pour
+         écarter d'emblée ce qu'elle connaît déjà et ne travailler que le reste. -->
+    <div class="panel err-panel hidden" id="calib-panel" style="text-align:center">
+      <h2>Faire le point</h2>
+      <div class="due-big" id="calib-count">0</div>
+      <div class="due-label" id="calib-label">mots jamais testés</div>
+      <button class="btn" id="calib-btn" onclick="startCalibrage()">Me tester dessus</button>
+      <p class="hint">Un passage rapide. Ce que tu retrouves du premier coup est mis de côté pour un mois, le reste entre dans tes révisions.</p>
+    </div>
+
+    <div class="panel hidden" id="err-panel">
+      <h2>Repris en cours</h2>
+      <p class="hint" id="err-stat"></p>
+      <p class="hint" id="err-none" style="display:none">Rien en attente. Ces points reviennent dans ta session du jour tant qu'ils ne sont pas solides.</p>
     </div>
 
     <div class="panel">
@@ -616,6 +625,11 @@ const STEP_1 = 1, STEP_2 = { son: 3, zi: 2 }; // premiers paliers, plus serrés 
 const MAX_INTER = 365;             // plafond : un mot ancré revient au moins une fois par an
 const MATURE = 21, ANCRE = 90;     // paliers de rétention démontrée, en jours
 const NEW_PER_DAY = 8;             // pistes jamais vues introduites par jour
+/* Mise à jour : le premier passage sert de test de niveau. Réussi du premier
+   coup, le mot est réputé déjà acquis et n'est revérifié qu'un mois plus tard.
+   Raté, il entre dans l'échelle normale et revient dès le lendemain. */
+const CALIB_OK = 30;
+const CALIB_MOTS_MAX = 15;         // 15 mots par passage, soit 30 questions courtes
 /* Ancienne échelle par niveaux, conservée pour convertir la progression déjà acquise */
 const OLD_LEVELS = [0, 1, 2, 4, 7, 15, 30, 60];
 
@@ -913,7 +927,28 @@ function showTab(t) {
   else if (t === "comp") renderComp();
   else { render(); renderErr(); }
 }
-function themeMatch(c) { return curTheme === "all" || (c.theme || "Général") === curTheme; }
+/* Deux volets étanches. Le vocabulaire du cours et celui de la veille IA n'ont
+   ni le même rythme ni le même usage : les mélanger dans une même file faisait
+   remonter 芯片 au milieu d'une révision de la leçon 7. On révise l'un ou
+   l'autre, jamais les deux ensemble. */
+let curVolet = "cours";
+function voletDe(c) { return c.theme === "Informatique" ? "info" : "cours"; }
+function voletMatch(c) { return voletDe(c) === curVolet; }
+function setVolet(v) { curVolet = v; curTheme = "all"; render(); renderErr(); }
+function themeMatch(c) { return voletMatch(c) && (curTheme === "all" || (c.theme || "Général") === curTheme); }
+/* Pistes jamais testées, pour le passage de mise à jour. Elles ne passent pas
+   par le quota de nouveautés : le but est justement de balayer vite. */
+function calibMots() {
+  return state.cards.filter(c => themeMatch(c) &&
+    TRACKS.some(t => trackMatch(t) && c[t] && !c[t].reviews));
+}
+function calibItems(mots) {
+  const out = [];
+  (mots || calibMots()).forEach(c => {
+    TRACKS.forEach(t => { if (trackMatch(t) && c[t] && !c[t].reviews) out.push({ card: c, track: t }); });
+  });
+  return out;
+}
 function trackMatch(t) { return curTrack === "all" || curTrack === t; }
 /* Une « carte due » est désormais un couple (mot, piste) : un mot peut être dû
    en Son sans l'être en Caractères, et inversement. */
@@ -975,17 +1010,18 @@ function weakItems() {
 let filtresOuverts = false;
 function toggleFiltres() {
   filtresOuverts = !filtresOuverts;
-  $("theme-chips").classList.toggle("hidden", !filtresOuverts);
+  ["theme-chips", "track-chips", "tones-btn"].forEach(id =>
+    $(id).classList.toggle("hidden", !filtresOuverts));
   $("filtre-btn").setAttribute("aria-expanded", filtresOuverts);
-  $("filtre-btn").textContent = filtresOuverts ? "Masquer les thèmes" : filtreLabel();
+  $("filtre-btn").textContent = filtresOuverts ? "Masquer les options" : filtreLabel();
 }
 function filtreLabel() {
-  return curTheme === "all" ? "Filtrer par thème" : `Thème : ${curTheme}`;
+  return curTheme === "all" ? "Options" : `Thème : ${curTheme}`;
 }
 function setTheme(t) { curTheme = t; render(); }
 function setTrack(t) { curTrack = t; render(); }
 function render() {
-  const themes = [...new Set(state.cards.map(c => c.theme || "Général"))].sort();
+  const themes = [...new Set(state.cards.filter(voletMatch).map(c => c.theme || "Général"))].sort();
   if (curTheme !== "all" && !themes.includes(curTheme)) curTheme = "all";
   $("theme-chips").innerHTML = themes.length > 1
     ? [`<button class="chip" aria-pressed="${curTheme === "all"}" onclick="setTheme('all')">Tout</button>`,
@@ -999,17 +1035,34 @@ function render() {
      ...TRACKS.map(t => `<button class="chip" aria-pressed="${curTrack === t}" onclick="setTrack(${jsattr(t)})">${TRACK_ICON[t]} ${esc(TRACK_LABEL[t])}</button>`)
     ].join("");
 
+  $("volet-chips").innerHTML =
+    [["cours", "Cours de chinois"], ["info", "Veille IA"]].map(([v, lab]) =>
+      `<button class="chip" aria-pressed="${curVolet === v}" onclick="setVolet(${jsattr(v)})">${esc(lab)}</button>`).join("");
+
+  /* Le compteur d'accueil annonce la session entière, dans l'ordre où elle va se
+     dérouler, et non le seul vocabulaire. */
   const due = dueItems();
-  /* Le vrai total dû, sans plafond : sinon le compteur affichait 25 avant et
-     après une session de 25 cartes, et rien ne semblait jamais avancer. */
-  $("due-count").textContent = due.length;
-  $("due-label").textContent = (due.length === 1 ? "carte à réviser" : "cartes à réviser") +
-    (curTrack === "all" ? "" : " · " + TRACK_LABEL[curTrack]) +
-    (curTheme === "all" ? "" : " · " + curTheme);
-  $("start-btn").disabled = due.length === 0;
-  $("start-btn").textContent = due.length > SESSION_MAX
-    ? `Commencer (${SESSION_MAX} cartes)` : "Commencer la session";
-  $("no-due-hint").style.display = due.length === 0 ? "" : "none";
+  const nErr = curVolet === "cours" ? Math.min(errDue().length, ERR_SESSION_MAX) : 0;
+  const nSrs = Math.min(due.length, SESSION_MAX);
+  const nGram = curVolet === "cours" ? Math.min(gramDue().length, GRAM_SESSION_MAX) : 0;
+  const total = nErr + nSrs + nGram;
+  $("due-count").textContent = total;
+  $("due-label").textContent = total === 1 ? "chose à travailler aujourd'hui" : "choses à travailler aujourd'hui";
+  $("start-btn").disabled = total === 0;
+  const morceaux = [];
+  if (nErr) morceaux.push(`${nErr} repris en cours`);
+  if (nSrs) morceaux.push(`${nSrs} mot${nSrs > 1 ? "s" : ""}`);
+  if (nGram) morceaux.push(`${nGram} point${nGram > 1 ? "s" : ""} de grammaire`);
+  $("plan-hint").textContent = morceaux.length ? "Au programme : " + morceaux.join(", ") + "." : "";
+  $("no-due-hint").style.display = total === 0 ? "" : "none";
+
+  /* Mise à jour : proposée tant qu'il reste des mots jamais testés dans le volet. */
+  const jamais = calibMots().length;
+  $("calib-panel").classList.toggle("hidden", jamais === 0);
+  $("calib-count").textContent = jamais;
+  $("calib-label").textContent = jamais === 1 ? "mot jamais testé" : "mots jamais testés";
+  $("calib-btn").textContent = jamais > CALIB_MOTS_MAX
+    ? `Me tester sur ${CALIB_MOTS_MAX}` : "Me tester dessus";
   $("streak").textContent = "🔥 " + streak();
 
   /* Compteurs de progression : ils suivent le filtre de thème affiché juste
@@ -1584,7 +1637,7 @@ function endGramSession() {
       <div class="q-pinyin">${renderPinyin("yǔfǎ")}</div>
       <div class="q-fr">Entraînement terminé : ${gramOk} / ${gramTotal}.</div>
       ${list}
-      <button class="btn" onclick="quitSession()">Terminer</button>
+      ${boutonFin()}
     </div>`;
 }
 
@@ -1609,18 +1662,15 @@ function errDue() {
 }
 function renderErr() {
   if (!$("err-panel")) return;
+  /* Ce panneau ne lance plus rien : les reprises du cours passent en tête de la
+     session du jour. Il ne sert qu'à montrer où en est ce chantier. */
   const due = errDue();
-  $("err-due-count").textContent = due.length;
-  $("err-due-label").textContent = due.length === 1 ? "point repris en cours" : "points repris en cours";
-  $("err-start-btn").disabled = due.length === 0;
-  $("err-start-btn").textContent = due.length > ERR_SESSION_MAX
-    ? `Peaufiner mes phrases (${ERR_SESSION_MAX})` : "Peaufiner mes phrases";
+  $("err-panel").classList.toggle("hidden", !EMBED_ERREURS.length || curVolet !== "cours");
   $("err-none").style.display = due.length === 0 ? "" : "none";
-  const solides = EMBED_ERREURS.filter(e => maturity(errProg(e.id)) === "longue"
-    || maturity(errProg(e.id)) === "ancre").length;
-  $("err-stat").textContent = EMBED_ERREURS.length
-    ? `${solides} point(s) solide(s) sur ${EMBED_ERREURS.length} repris en cours.`
-    : "";
+  const solides = EMBED_ERREURS.filter(e => ["longue", "ancre"].includes(maturity(errProg(e.id)))).length;
+  $("err-stat").textContent = solides
+    ? `${solides} sur ${EMBED_ERREURS.length} sont maintenant solides.`
+    : `${EMBED_ERREURS.length} phrases reprises par ton prof, remises dans ta session du jour.`;
 }
 
 let errQueue = [], eIndex = 0, errErrors = [], errOk = 0, errTotal = 0, errOrder = [];
@@ -1698,7 +1748,7 @@ function endErrSession() {
       <div class="q-pinyin">${renderPinyin("jìnbù")}</div>
       <div class="q-fr">Terminé : ${errOk} / ${errTotal}.</div>
       ${list}
-      <button class="btn" onclick="quitSession()">Terminer</button>
+      ${boutonFin()}
     </div>`;
 }
 
@@ -1949,7 +1999,7 @@ function endCompSession() {
       <div class="q-pinyin">${renderPinyin("bùjiàn")}</div>
       <div class="q-fr">Entraînement terminé : ${compOk} / ${compTotal}.</div>
       ${list}
-      <button class="btn" onclick="quitSession()">Terminer</button>
+      ${boutonFin()}
     </div>`;
 }
 /* Décomposition d'un mot, affichée au dos des cartes Caractères et dans le Dico.
@@ -2071,15 +2121,69 @@ let sessMode = "srs"; // "srs" (révision) ou "tones" (quiz tons)
 let queue = [], qIndex = 0, sessTotal = 0, sessErrors = [], sessSkipped = [], sessOk = 0;
 /* true pendant un repassage libre : on rejoue les cartes ratées sans planifier */
 let sessPractice = false;
+/* Vrai pendant le passage de mise à jour : il ne consomme pas le quota de
+   nouveautés du jour, sinon balayer 30 mots connus bloquerait l'app une semaine. */
+let sessCalib = false;
 
 /* Session à longueur fixe : la file est constituée une fois pour toutes et
    ne s'allonge jamais en cours de route. Les mots ratés ou passés reviennent
    dans une session suivante, pas dans celle-ci. */
+/* ---------- La session du jour ----------
+   Un seul bouton. L'app décide de l'ordre : ce que le prof a repris en cours
+   d'abord, puis le vocabulaire dû, puis la grammaire due. Tant qu'il fallait
+   choisir entre trois boutons, la partie la plus utile (les reprises du cours)
+   était aussi la plus facile à sauter. */
+let plan = [], planPos = 0;
+function planDuJour() {
+  const p = [];
+  if (curVolet === "cours" && errDue().length) p.push("err");
+  if (dueItems().length) p.push("srs");
+  if (curVolet === "cours" && gramDue().length) p.push("gram");
+  return p;
+}
+function startJour() {
+  plan = planDuJour(); planPos = 0;
+  if (!plan.length) return;
+  lancerEtape();
+}
+function lancerEtape() {
+  const e = plan[planPos];
+  if (e === "err") startErrSession();
+  else if (e === "gram") startGramSession();
+  else startSession();
+}
+function etapeSuivante() {
+  planPos++;
+  if (planPos < plan.length) { lancerEtape(); return; }
+  plan = []; quitSession();
+}
+/* Bouton de fin : « Continuer » tant qu'il reste une étape au plan du jour. */
+function boutonFin() {
+  return planPos < plan.length - 1
+    ? `<button class="btn" onclick="etapeSuivante()">Continuer ›</button>`
+    : `<button class="btn" onclick="etapeSuivante()">Terminer</button>`;
+}
+
+function startCalibrage() {
+  const items = calibItems(shuffle(calibMots()).slice(0, CALIB_MOTS_MAX));
+  if (!items.length) return;
+  sessMode = "srs";
+  sessPractice = false;
+  sessCalib = true;
+  plan = []; planPos = 0;
+  runQueue(spread(shuffle(items)));
+  speak(" ");
+  $("session").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  nextCard();
+}
+
 function startSession() {
   const due = dueItems().slice(0, SESSION_MAX);
   if (!due.length) return;
   sessMode = "srs";
   sessPractice = false;
+  sessCalib = false;
   runQueue(spread(shuffle(due)));
   speak(" "); // amorce iOS : première utterance déclenchée par un geste utilisateur
   $("session").classList.remove("hidden");
@@ -2108,6 +2212,7 @@ function shuffle(a) {
   return r;
 }
 function quitSession() {
+  plan = []; planPos = 0; sessCalib = false;
   if (toneTimer) { clearTimeout(toneTimer); toneTimer = null; }
   if (window.speechSynthesis) speechSynthesis.cancel();
   stopRecog();
@@ -2119,6 +2224,10 @@ function quitSession() {
   renderErr();
 }
 function modeFor(it) {
+  /* Pendant la mise à jour, un seul format par piste, le plus rapide : le but
+     est de trancher « connu / pas connu » sur beaucoup de mots, pas de faire
+     produire. L'oral et l'écriture reviendront dans les révisions normales. */
+  if (sessCalib) return it.track === "son" ? "pinyin" : "lecture";
   const list = it.track === "son" ? MODES_SON : MODES_ZI;
   const tr = it.card[it.track];
   /* Rotation de base pour garantir que tous les modes passent, plus un décalage
@@ -2295,7 +2404,7 @@ function autoGrade(ok) {
   const it = queue[qIndex];
   if (sessPractice || !it) return;
   const tr = it.card[it.track];
-  if (!tr.reviews) { newQuotaLeft(); state.newDay.n++; }
+  if (!tr.reviews && !sessCalib) { newQuotaLeft(); state.newDay.n++; }
   schedule(tr, ok, it.track);
   state.reviews++;
   state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
@@ -2517,7 +2626,7 @@ function endToneQuiz() {
       <div class="q-pinyin">${renderPinyin("shēngdiào")}</div>
       <div class="q-fr">Quiz tons terminé : ${toneScore} / ${toneQueue.length}.</div>
       ${missed}
-      <button class="btn" onclick="quitSession()">Terminer</button>
+      ${boutonFin()}
     </div>`;
 }
 
@@ -2543,7 +2652,12 @@ function schedule(tr, ok, kind) {
   if (ok) {
     tr.bestGap = Math.max(tr.bestGap || 0, gap);
     const step2 = STEP_2[k] || 3;
-    if (tr.inter < STEP_1) tr.inter = STEP_1;
+    /* Premier contact réussi : elle connaissait déjà. Lui refaire monter
+       l'échelle 1 jour → 3 jours → 8 jours reviendrait à lui réapprendre ce
+       qu'elle sait, quatre fois. On vérifie une fois, à un mois. Si elle tient,
+       l'échelle normale prend le relais et le mot part vers l'ancrage. */
+    if (tr.reviews === 1 && !tr.inter) tr.inter = CALIB_OK;
+    else if (tr.inter < STEP_1) tr.inter = STEP_1;
     else if (tr.inter < step2) tr.inter = step2;
     else tr.inter = Math.min(MAX_INTER, Math.round(tr.inter * tr.ease));
     tr.ease = Math.min(EASE_MAX, tr.ease + EASE_UP);
@@ -2582,7 +2696,7 @@ function grade(g) {
      rien d'autre que la mémoire de travail. */
   if (sessPractice) { qIndex++; nextCard(); return; }
   const tr = it.card[it.track], ok = g !== 0;
-  if (!tr.reviews) { newQuotaLeft(); state.newDay.n++; }
+  if (!tr.reviews && !sessCalib) { newQuotaLeft(); state.newDay.n++; }
   schedule(tr, ok, it.track);
   state.reviews++;
   state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
@@ -2606,7 +2720,7 @@ function endSession() {
       <div class="q-pinyin">${renderPinyin("jiā yóu")}</div>
       <div class="q-fr">Repassage terminé sur ${sessTotal} carte(s).</div>
       <p class="q-prompt">Ces mots reviendront d'eux-mêmes dans une prochaine session.</p>
-      <button class="btn" onclick="quitSession()">Terminer</button>
+      ${boutonFin()}
     </div>`;
     return;
   }
@@ -2631,7 +2745,7 @@ function endSession() {
         <div class="sc"><div class="n">${sessSkipped.filter(it => !sessErrors.includes(it)).length}</div><div class="l">reportées</div></div>
       </div>
       ${body}
-      <button class="btn" onclick="quitSession()">Terminer</button>
+      ${boutonFin()}
     </div>`;
 }
 function copySessionReport() {
