@@ -383,6 +383,25 @@
   @media (prefers-reduced-motion: reduce) { .pc-fill { transition: none; } }
   .pc-legend { font-size: 1.02rem; color: var(--muted); margin-top: .5rem; }
   .pc-legend strong { color: var(--ink); font-size: 1.15rem; }
+  .pc-niveau, .pc-piste { margin: 0 0 1rem; }
+  .pc-tete { display: flex; justify-content: space-between; align-items: baseline;
+             gap: .6rem; margin-bottom: .35rem; }
+  .pc-nom { font-weight: 600; font-size: 1.1rem; }
+  .pc-pct { font-size: 1.05rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pc-detail { display: flex; flex-wrap: wrap; gap: .2rem 1.1rem; margin-top: .4rem;
+               font-size: 1rem; color: var(--muted); }
+  .pc-detail strong { color: var(--ink); }
+  .pc-note { font-size: .98rem; color: var(--muted); margin-top: .35rem; line-height: 1.4; }
+  .pc-ligne { display: flex; justify-content: space-between; gap: .6rem;
+              font-size: 1.02rem; color: var(--muted); padding: .18rem 0; }
+  .pc-ligne strong { color: var(--ink); }
+  .gram-groupe { margin: 0 0 1.4rem; }
+  .gram-groupe .pc-tete { margin-bottom: .3rem; }
+  .gram-score.neuf { color: var(--muted); }
+  .gram-score.presque { color: var(--accent); }
+  .gram-plus { margin-top: .6rem; }
+  .gram-plus summary { cursor: pointer; font-size: 1.02rem; color: var(--muted);
+                       padding: .5rem 0; min-height: 44px; display: flex; align-items: center; }
 
   /* ---- Glose de prose : pinyin en ligne derrière les caractères ---- */
   .gl { white-space: nowrap; }
@@ -466,16 +485,13 @@
 
     <div class="panel">
       <h2>Ton parcours</h2>
-      <div class="parcours">
-        <div class="pc-rail"><div class="pc-fill" id="pc-fill" style="width:0%"></div></div>
-        <div class="pc-legend" id="pc-legend"></div>
-      </div>
+      <div id="pc-niveaux"></div>
+      <div id="pc-pistes"></div>
       <div class="stats">
+        <div class="stat"><div class="n" id="st-rythme">—</div><div class="l">nouveaux mots par jour travaillé</div></div>
         <div class="stat"><div class="n" id="st-semaine">0</div><div class="l">cartes cette semaine</div></div>
-        <div class="stat"><div class="n" id="st-total-rev">0</div><div class="l">révisions au total</div></div>
       </div>
       <p class="hint" id="st-hint"></p>
-
     </div>
 
     <div class="panel">
@@ -520,6 +536,7 @@
       <div class="chips" id="gram-theme-chips"></div>
       <button class="btn" id="gram-start-btn" onclick="startGramSession()">Entraînement grammaire</button>
       <p class="hint" id="gram-no-due" style="display:none">Tu es à jour sur la grammaire. Les fiches restent consultables ci-dessous.</p>
+      <div id="gram-niveaux"></div>
     </div>
 
     <div class="panel">
@@ -957,6 +974,29 @@ function trackMatch(t) { return curTrack === "all" || curTrack === t; }
 /* Quota de nouveautés du jour. Les 220 mots ont été injectés d'un coup : sans
    quota, la file affiche une dette de 440 pistes et les nouveautés se rempilent
    plus vite qu'elles ne s'apprennent. Les révisions dues passent toujours avant. */
+/* Historique des découvertes, jour par jour. `state.days` compte les cartes
+   vues, ce qui n'est pas la même chose : réviser vingt fois le même mot ne fait
+   pas vingt mots appris. */
+function noteDecouverte(card) {
+  /* Un MOT compte une fois, pas deux. Un mot a deux pistes (son et caractères) :
+     les compter séparément doublait le rythme affiché. On ne compte donc que le
+     tout premier contact, quelle que soit la piste par laquelle il arrive. */
+  if (!card || card.son.reviews || card.zi.reviews) return;
+  if (!state.decouvertes) state.decouvertes = {};
+  const k = todayKey();
+  state.decouvertes[k] = (state.decouvertes[k] || 0) + 1;
+}
+/* Moyenne quotidienne sur les jours réellement travaillés. Diviser par le
+   nombre de jours calendaires ferait chuter la moyenne à chaque week-end sans
+   session, ce qui ne dit rien de son rythme d'apprentissage. */
+function moyenneParJour(jours) {
+  const h = state.decouvertes || {};
+  let cles = Object.keys(h).sort();
+  if (jours) cles = cles.slice(-jours);
+  if (!cles.length) return null;
+  const total = cles.reduce((s, k) => s + h[k], 0);
+  return { moy: total / cles.length, jours: cles.length, total: total };
+}
 function newQuotaLeft() {
   const k = todayKey();
   if (!state.newDay || state.newDay.d !== k) state.newDay = { d: k, n: 0 };
@@ -1022,6 +1062,85 @@ function filtreLabel() {
 }
 function setTheme(t) { curTheme = t; render(); }
 function setTrack(t) { curTrack = t; render(); }
+/* ---------- Ton parcours ----------
+   Un mot « rencontré » a été vu au moins une fois ; un mot « solide » a été
+   retrouvé après trois semaines sans révision (bestGap). Les deux chiffres sont
+   affichés côte à côte parce qu'ils ne disent pas la même chose, et que ne
+   montrer que le premier reviendrait à créditer une rétention non démontrée. */
+function estSolide(tr) { return ["longue", "ancre"].includes(maturity(tr)); }
+
+/* Le programme du manuel HSK 1 est chargé en entier (15 leçons) ; du HSK 2 il
+   n'y a que les 2 leçons déjà vues en cours. Afficher un pourcentage HSK 2 sur
+   cette base laisserait croire que le niveau est presque atteint, alors que la
+   grande majorité n'est pas dans l'app. On le dit au lieu de le masquer. */
+const HSK_PLAN = [
+  { cle: "HSK 1", titre: "HSK 1", lecons: 15, chargees: 15 },
+  { cle: "HSK 2", titre: "HSK 2", lecons: 15, chargees: 2 },
+];
+function barreHTML(pct, plein) {
+  return `<div class="pc-rail"><div class="pc-fill${plein ? " plein" : ""}" style="width:${Math.max(0, Math.min(100, pct))}%"></div></div>`;
+}
+function renderParcours() {
+  const niveaux = HSK_PLAN.map(n => {
+    const mots = state.cards.filter(c => (c.theme || "").startsWith(n.cle));
+    const gram = EMBED_GRAMMAR.filter(p => (p.theme || "").startsWith(n.cle));
+    if (!mots.length && !gram.length) return "";
+    const vus = mots.filter(c => c.son.reviews || c.zi.reviews).length;
+    const sol = mots.filter(c => estSolide(c.son) || estSolide(c.zi)).length;
+    const gVus = gram.filter(p => gramProg(p.id).reviews).length;
+    const gSol = gram.filter(p => estSolide(gramProg(p.id))).length;
+    const pct = mots.length ? Math.round(100 * vus / mots.length) : 0;
+    const partiel = n.chargees < n.lecons
+      ? `<div class="pc-note">${n.chargees} leçon${n.chargees > 1 ? "s" : ""} sur ${n.lecons} sont dans l'app pour l'instant. Le reste arrivera avec tes cours.</div>` : "";
+    return `<div class="pc-niveau">
+      <div class="pc-tete"><span class="pc-nom">${esc(n.titre)}</span><span class="pc-pct">${pct}%</span></div>
+      ${barreHTML(pct)}
+      <div class="pc-detail">
+        <span><strong>${vus}</strong> mot${vus > 1 ? "s" : ""} sur ${mots.length}${sol ? ` · ${sol} solide${sol > 1 ? "s" : ""}` : ""}</span>
+        <span><strong>${gVus}</strong> règle${gVus > 1 ? "s" : ""} sur ${gram.length}${gSol ? ` · ${gSol} solide${gSol > 1 ? "s" : ""}` : ""}</span>
+      </div>
+      ${partiel}
+    </div>`;
+  }).join("");
+
+  /* Le vocabulaire hors programme (veille IA, expressions) a son propre bloc :
+     le mêler au décompte HSK fausserait le pourcentage du niveau. */
+  const hors = [...new Set(state.cards.map(c => c.theme).filter(t => t && !t.startsWith("HSK")))];
+  const autres = hors.map(t => {
+    const mots = state.cards.filter(c => c.theme === t);
+    const vus = mots.filter(c => c.son.reviews || c.zi.reviews).length;
+    return `<div class="pc-ligne"><span>${esc(t)}</span><span><strong>${vus}</strong> / ${mots.length}</span></div>`;
+  }).join("");
+  $("pc-niveaux").innerHTML = niveaux +
+    (autres ? `<div class="pc-niveau"><div class="pc-tete"><span class="pc-nom">Hors programme</span></div>${autres}</div>` : "");
+
+  /* Les deux pistes séparées : elle a demandé à voir le son et les caractères
+     distinctement, parce qu'ils ne progressent pas au même rythme. */
+  $("pc-pistes").innerHTML = TRACKS.map(t => {
+    const vus = state.cards.filter(c => c[t] && c[t].reviews).length;
+    const sol = state.cards.filter(c => c[t] && estSolide(c[t])).length;
+    const pct = state.cards.length ? Math.round(100 * vus / state.cards.length) : 0;
+    return `<div class="pc-piste">
+      <div class="pc-tete"><span class="pc-nom">${TRACK_ICON[t]} ${esc(TRACK_LABEL[t])}</span>
+        <span class="pc-pct">${vus} / ${state.cards.length}</span></div>
+      ${barreHTML(pct)}
+      <div class="pc-note">${sol ? `${sol} en mémoire longue` : "Aucun encore en mémoire longue, c'est normal les trois premières semaines."}</div>
+    </div>`;
+  }).join("");
+
+  const r = moyenneParJour(14);
+  $("st-rythme").textContent = r ? (Math.round(r.moy * 10) / 10).toString().replace(".", ",") : "—";
+  const d = new Date(), semaine = [];
+  for (let k = 0; k < 7; k++) {
+    semaine.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"));
+    d.setDate(d.getDate() - 1);
+  }
+  $("st-semaine").textContent = semaine.reduce((s, k) => s + (state.days[k] || 0), 0);
+  $("st-hint").textContent = r
+    ? `Moyenne sur tes ${r.jours} dernier${r.jours > 1 ? "s" : ""} jour${r.jours > 1 ? "s" : ""} de travail. Un mot compte comme solide quand tu le retrouves après trois semaines sans l'avoir vu.`
+    : "Ton rythme s'affichera après ta première session.";
+}
+
 function render() {
   const themes = [...new Set(state.cards.filter(voletMatch).map(c => c.theme || "Général"))].sort();
   if (curTheme !== "all" && !themes.includes(curTheme)) curTheme = "all";
@@ -1083,28 +1202,7 @@ function render() {
   /* Le cadre montre le chemin parcouru, pas la montagne restante. L'ancienne
      version affichait « 440 à peine vus » et trois zéros : exact, et
      décourageant au point d'être contre-productif. */
-  const shown = state.cards.filter(themeMatch);
-  const rencontres = shown.filter(c => c.son.reviews || c.zi.reviews).length;
-  const solides = shown.filter(c =>
-    ["longue", "ancre"].includes(maturity(c.son)) || ["longue", "ancre"].includes(maturity(c.zi))).length;
-  const pct = shown.length ? Math.round(100 * rencontres / shown.length) : 0;
-  $("pc-fill").style.width = Math.max(pct, rencontres ? 2 : 0) + "%";
-  $("pc-legend").innerHTML = rencontres
-    ? `<strong>${rencontres}</strong> mot${rencontres > 1 ? "s" : ""} rencontré${rencontres > 1 ? "s" : ""} sur ${shown.length}`
-      + (solides ? ` · <strong>${solides}</strong> déjà solide${solides > 1 ? "s" : ""}` : "")
-    : `${shown.length} mots t'attendent. La barre se remplit dès la première session.`;
-
-  /* Deux compteurs qui ne peuvent que monter : ce qu'on a fait, jamais ce qui manque. */
-  const d = new Date(), semaine = [];
-  for (let k = 0; k < 7; k++) {
-    semaine.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"));
-    d.setDate(d.getDate() - 1);
-  }
-  $("st-semaine").textContent = semaine.reduce((s, k) => s + (state.days[k] || 0), 0);
-  $("st-total-rev").textContent = state.reviews;
-  $("st-hint").textContent = solides
-    ? "Un mot devient solide quand tu le retrouves après trois semaines sans l'avoir vu."
-    : "";
+  renderParcours();
 
   const conf = confusionsTop();
   $("tone-conf").innerHTML = conf.length
@@ -1191,6 +1289,17 @@ function renderGram() {
     ? `Entraînement grammaire (${GRAM_SESSION_MAX})` : "Entraînement grammaire";
   $("gram-no-due").style.display = due.length === 0 ? "" : "none";
 
+  /* Le total par niveau, pour que « 57 fiches » cesse d'être un mur : 46 points
+     en HSK 1 se regardent en face, 57 tout court ne veulent rien dire. */
+  $("gram-niveaux").innerHTML = HSK_PLAN.map(n => {
+    const f = EMBED_GRAMMAR.filter(p => (p.theme || "").startsWith(n.cle));
+    if (!f.length) return "";
+    const sol = f.filter(p => estSolide(gramProg(p.id))).length;
+    const vus = f.filter(p => gramProg(p.id).reviews).length;
+    return `<div class="pc-ligne"><span>${esc(n.titre)}</span>
+      <span><strong>${vus}</strong> abordées sur ${f.length}${sol ? ` · ${sol} solides` : ""}</span></div>`;
+  }).join("");
+
   const weak = gramWeak();
   $("gram-weak").innerHTML = weak.map(x =>
     `<li><span class="w-mid"><span class="w-pinyin">${esc(x.p.titre)}</span><span class="w-theme">${esc(x.p.theme)}</span><br><span class="w-fr">${esc(x.p.resume)}</span></span>
@@ -1199,31 +1308,78 @@ function renderGram() {
   $("gram-export").style.display = weak.length ? "" : "none";
 
   $("gram-count").textContent = EMBED_GRAMMAR.length;
+  /* Les fiches sont groupées par leçon, chaque groupe portant son avancement.
+     Une liste plate de 57 fiches ne dit ni où on en est, ni par où reprendre. */
   const list = EMBED_GRAMMAR.filter(gramThemeMatch);
-  $("gram-list").innerHTML = list.map(ficheHTML).join("");
+  const groupes = [];
+  list.forEach(p => {
+    let gr = groupes.find(x => x.theme === p.theme);
+    if (!gr) groupes.push(gr = { theme: p.theme, fiches: [] });
+    gr.fiches.push(p);
+  });
+  /* Ordre du programme, pas ordre du fichier : « HSK 1 · L2 » doit précéder
+     « HSK 1 · L11 », ce qu'un tri alphabétique fait exactement à l'envers. */
+  const rang = t => {
+    const m = /HSK\s*(\d+).*?L(\d+)/.exec(t || "");
+    return m ? +m[1] * 1000 + +m[2] : 9e6;
+  };
+  groupes.sort((a, b) => rang(a.theme) - rang(b.theme) || a.theme.localeCompare(b.theme));
+  $("gram-list").innerHTML = groupes.map(gr => {
+    const sol = gr.fiches.filter(p => estSolide(gramProg(p.id))).length;
+    const vus = gr.fiches.filter(p => gramProg(p.id).reviews).length;
+    const pct = Math.round(100 * sol / gr.fiches.length);
+    const etat = sol === gr.fiches.length ? "leçon acquise"
+      : sol ? `${sol} solide${sol > 1 ? "s" : ""} sur ${gr.fiches.length}`
+      : vus ? `${vus} en cours sur ${gr.fiches.length}`
+      : `${gr.fiches.length} à découvrir`;
+    return `<div class="gram-groupe">
+      <div class="pc-tete"><span class="pc-nom">${esc(gr.theme)}</span><span class="pc-pct">${esc(etat)}</span></div>
+      ${barreHTML(pct)}
+      ${gr.fiches.map(ficheHTML).join("")}
+    </div>`;
+  }).join("");
+}
+/* État d'une fiche, en mots plutôt qu'en score. « 2/5 » se lit comme un bulletin
+   et décourage ; ce qui aide, c'est de savoir où en est le point et quoi faire.
+   Le palier « solide » se lit sur bestGap, jamais sur l'intervalle promis. */
+function gramEtat(g) {
+  if (!g.reviews) return { mot: "à découvrir", cls: "neuf" };
+  if (estSolide(g)) return { mot: "solide", cls: "ok" };
+  const taux = g.errors / g.reviews;
+  if (g.reviews >= 3 && taux <= 0.25) return { mot: "presque", cls: "presque" };
+  if (taux >= 0.5) return { mot: "à reprendre", cls: "ko" };
+  return { mot: "en cours", cls: "" };
 }
 function ficheHTML(p) {
   const g = gramProg(p.id);
-  const rate = g.reviews ? g.errors / g.reviews : 0;
-  const cls = !g.reviews ? "" : (rate >= 0.34 ? " ko" : (maturity(g) === "longue" ? " ok" : ""));
-  const badge = g.reviews ? `${g.reviews - g.errors}/${g.reviews}` : "à voir";
-  const ex = p.exemples.map(e =>
-    `<div class="gram-ex"><span class="zh hanzi">${esc(e.hanzi)}</span>
-       <button class="audio-btn" onclick="speak(${jsattr(e.hanzi)})">🔊</button>
-       <div class="py">${renderPinyin(e.pinyin)}</div><div class="fr">${esc(e.fr)}</div></div>`).join("");
+  const e = gramEtat(g);
+  const m = p.modele || p.exemples[0];
+  /* Ce qui s'affiche replié : la fonction communicative, l'état, et la règle en
+     une phrase. C'est ce qu'elle doit pouvoir retrouver sans rien déplier. */
+  const tete = `<button class="gram-head" onclick="toggleFiche(${jsattr(p.id)})" aria-expanded="false">
+      <span class="t">${esc(p.titre)}</span><span class="gram-score ${e.cls}">${e.mot}</span>
+      <span class="r">${glose(p.regle || p.resume)}</span>
+    </button>`;
+  const exemples = p.exemples.map(x =>
+    `<div class="gram-ex"><div class="ruby">${rubyHTML(x.hanzi)}</div>
+       <button class="audio-btn" onclick="speak(${jsattr(x.hanzi)})" aria-label="Écouter">🔊</button>
+       <div class="fr">${esc(x.fr)}</div></div>`).join("");
   const pieges = (p.pieges || []).length
     ? `<h4>Pièges</h4><ul>${p.pieges.map(x => `<li>${glose(x)}</li>`).join("")}</ul>` : "";
-  return `<div class="gram-item">
-    <button class="gram-head" onclick="toggleFiche(${jsattr(p.id)})" aria-expanded="false">
-      <span class="t">${esc(p.titre)}</span><span class="gram-score${cls}">${badge}</span>
-      <span class="r">${glose(p.resume)}</span>
-      <span class="gram-struct hanzi">${esc(p.structure)}</span>
-    </button>
-    <div class="gram-body hidden" id="fiche-${esc(p.id)}">
-      <p style="margin:.3rem 0">${glose(p.explication)}</p>
-      ${pieges}
-      <h4>Exemples</h4>${ex}
-    </div>
+  const corps = p.regle && p.gabarit
+    ? `${gabaritHTML(p.gabarit)}
+       <div class="gram-modele">
+         <div class="ruby">${rubyHTML(m.hanzi)}</div><div class="fr">${esc(m.fr)}</div>
+         <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(m.hanzi)})" aria-label="Écouter">🔊</button></div>
+       </div>
+       ${contrasteHTML(p.contraste)}
+       <details class="gram-plus"><summary>Aller plus loin</summary>
+         <p style="margin:.4rem 0">${glose(p.explication)}</p>${pieges}
+         <h4>Autres exemples</h4>${exemples}
+       </details>`
+    : `<p style="margin:.3rem 0">${glose(p.explication)}</p>${pieges}<h4>Exemples</h4>${exemples}`;
+  return `<div class="gram-item">${tete}
+    <div class="gram-body hidden" id="fiche-${esc(p.id)}">${corps}</div>
   </div>`;
 }
 function exportGram() {
@@ -1848,8 +2004,7 @@ function renderComp() {
 function compFicheHTML(c) {
   const g = compProg(c.id);
   const chars = compChars().get(c.id) || [];
-  const badge = g.reviews ? `${g.reviews - g.errors}/${g.reviews}` : "à voir";
-  const cls = !g.reviews ? "" : (g.errors / g.reviews >= 0.34 ? " ko" : (maturity(g) === "longue" ? " ok" : ""));
+  const e = gramEtat(g);
   const famille = chars.length
     ? `<h4>Dans tes mots</h4><div class="dico-decomp">${chars.map(ch =>
         `<button class="dico-mot hanzi" style="font-size:1.4rem" onclick="speak(${jsattr(ch)})">${esc(ch)}</button>`).join("")}</div>`
@@ -1857,7 +2012,7 @@ function compFicheHTML(c) {
   return `<div class="gram-item">
     <button class="gram-head" onclick="toggleFiche(${jsattr("c-" + c.id)})" aria-expanded="false">
       <span class="t hanzi" style="font-size:1.8rem">${esc(c.forme)}</span>
-      <span class="t">${esc(c.sens)}</span><span class="gram-score${cls}">${badge}</span>
+      <span class="t">${esc(c.sens)}</span><span class="gram-score ${e.cls}">${e.mot}</span>
       <span class="r">${c.role === "phon" ? "brique sonore" : "brique de sens"}${c.origine ? ` · forme liée de ${c.origine}` : ""}${chars.length ? ` · ${chars.length} de tes caractères` : ""}</span>
     </button>
     <div class="gram-body hidden" id="fiche-c-${esc(c.id)}">
@@ -2460,6 +2615,7 @@ function autoGrade(ok) {
   if (sessPractice || !it) return;
   const tr = it.card[it.track];
   if (!tr.reviews && !sessCalib) { newQuotaLeft(); state.newDay.n++; }
+  noteDecouverte(it.card);
   schedule(tr, ok, it.track);
   state.reviews++;
   state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
@@ -2801,6 +2957,7 @@ function grade(g) {
   if (sessPractice) { qIndex++; nextCard(); return; }
   const tr = it.card[it.track], ok = g !== 0;
   if (!tr.reviews && !sessCalib) { newQuotaLeft(); state.newDay.n++; }
+  noteDecouverte(it.card);
   schedule(tr, ok, it.track);
   state.reviews++;
   state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
