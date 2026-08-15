@@ -392,6 +392,8 @@
                font-size: 1rem; color: var(--muted); }
   .pc-detail strong { color: var(--ink); }
   .pc-note { font-size: .98rem; color: var(--muted); margin-top: .35rem; line-height: 1.4; }
+  .pc-phrase { font-size: 1.06rem; line-height: 1.5; margin-top: .45rem; }
+  .pc-phrase strong { font-size: 1.18rem; }
   .pc-ligne { display: flex; justify-content: space-between; gap: .6rem;
               font-size: 1.02rem; color: var(--muted); padding: .18rem 0; }
   .pc-ligne strong { color: var(--ink); }
@@ -595,7 +597,7 @@
     </div>
   </section>
 
-  <footer class="build">Liànxí · <span id="build-stamp">244 mots · 57 points de grammaire · 50 composants · 23 à peaufiner · 2026-08-14</span></footer>
+  <footer class="build">Liànxí · <span id="build-stamp">244 mots · 57 points de grammaire · 50 composants · 23 à peaufiner · 2026-08-15</span></footer>
 </div>
 
 <!-- ============ SESSION ============ -->
@@ -1078,6 +1080,9 @@ function estSolide(tr) { return ["longue", "ancre"].includes(maturity(tr)); }
    n'y a que les 2 leçons déjà vues en cours. Afficher un pourcentage HSK 2 sur
    cette base laisserait croire que le niveau est presque atteint, alors que la
    grande majorité n'est pas dans l'app. On le dit au lieu de le masquer. */
+/* Le nom du thème dans les données n'est pas forcément le bon mot à l'écran :
+   « Informatique » ne dit pas qu'il s'agit de sa veille sur l'IA. */
+const THEME_LABEL = { "Informatique": "Veille IA et informatique", "Expressions": "Expressions courantes" };
 const HSK_PLAN = [
   { cle: "HSK 1", titre: "HSK 1", lecons: 15, chargees: 15 },
   { cle: "HSK 2", titre: "HSK 2", lecons: 15, chargees: 2 },
@@ -1086,6 +1091,9 @@ function barreHTML(pct, plein) {
   return `<div class="pc-rail"><div class="pc-fill${plein ? " plein" : ""}" style="width:${Math.max(0, Math.min(100, pct))}%"></div></div>`;
 }
 function renderParcours() {
+  /* Chaque bloc dit en toutes lettres ce qu'il compte. La version précédente
+     empilait « 15 / 159 » et « 12 % » sans jamais préciser douze pour cent de
+     quoi, ni ce que « solide » voulait dire. Des phrases, pas des nombres nus. */
   const niveaux = HSK_PLAN.map(n => {
     const mots = state.cards.filter(c => (c.theme || "").startsWith(n.cle));
     const gram = EMBED_GRAMMAR.filter(p => (p.theme || "").startsWith(n.cle));
@@ -1095,43 +1103,54 @@ function renderParcours() {
     const gVus = gram.filter(p => gramProg(p.id).reviews).length;
     const gSol = gram.filter(p => estSolide(gramProg(p.id))).length;
     const pct = mots.length ? Math.round(100 * vus / mots.length) : 0;
-    const partiel = n.chargees < n.lecons
-      ? `<div class="pc-note">${n.chargees} leçon${n.chargees > 1 ? "s" : ""} sur ${n.lecons} sont dans l'app pour l'instant. Le reste arrivera avec tes cours.</div>` : "";
+    const sous = n.chargees < n.lecons
+      ? `${n.chargees} leçon${n.chargees > 1 ? "s" : ""} sur ${n.lecons} dans l'app`
+      : "programme complet";
+    const phrase = vus || gVus
+      ? `Tu as déjà croisé <strong>${vus}</strong> des ${mots.length} mots et <strong>${gVus}</strong> des ${gram.length} règles.`
+      : `${mots.length} mots et ${gram.length} règles t'attendent.`;
+    const acquis = (sol || gSol)
+      ? `<div class="pc-note">Solides : ${sol} mot${sol > 1 ? "s" : ""} et ${gSol} règle${gSol > 1 ? "s" : ""}.</div>` : "";
+    const reste = n.chargees < n.lecons
+      ? `<div class="pc-note">Les ${n.lecons - n.chargees} autres leçons arriveront avec tes cours.</div>` : "";
     return `<div class="pc-niveau">
-      <div class="pc-tete"><span class="pc-nom">${esc(n.titre)}</span><span class="pc-pct">${pct}%</span></div>
+      <div class="pc-tete"><span class="pc-nom">${esc(n.titre)}</span><span class="pc-pct">${sous}</span></div>
       ${barreHTML(pct)}
-      <div class="pc-detail">
-        <span><strong>${vus}</strong> mot${vus > 1 ? "s" : ""} sur ${mots.length}${sol ? ` · ${sol} solide${sol > 1 ? "s" : ""}` : ""}</span>
-        <span><strong>${gVus}</strong> règle${gVus > 1 ? "s" : ""} sur ${gram.length}${gSol ? ` · ${gSol} solide${gSol > 1 ? "s" : ""}` : ""}</span>
-      </div>
-      ${partiel}
+      <div class="pc-phrase">${phrase}</div>
+      ${acquis}${reste}
     </div>`;
   }).join("");
 
-  /* Le vocabulaire hors programme (veille IA, expressions) a son propre bloc :
-     le mêler au décompte HSK fausserait le pourcentage du niveau. */
+  /* Le vocabulaire ajouté à côté du manuel : il ne compte pas dans le niveau,
+     mais il compte pour elle. « Hors programme » sonnait comme une mise à
+     l'écart de ce qu'elle a justement choisi d'apprendre en plus. */
   const hors = [...new Set(state.cards.map(c => c.theme).filter(t => t && !t.startsWith("HSK")))];
   const autres = hors.map(t => {
     const mots = state.cards.filter(c => c.theme === t);
     const vus = mots.filter(c => c.son.reviews || c.zi.reviews).length;
-    return `<div class="pc-ligne"><span>${esc(t)}</span><span><strong>${vus}</strong> / ${mots.length}</span></div>`;
+    return `<div class="pc-ligne"><span>${esc(THEME_LABEL[t] || t)}</span><span><strong>${vus}</strong> croisé${vus > 1 ? "s" : ""} sur ${mots.length}</span></div>`;
   }).join("");
-  $("pc-niveaux").innerHTML = niveaux +
-    (autres ? `<div class="pc-niveau"><div class="pc-tete"><span class="pc-nom">Hors programme</span></div>${autres}</div>` : "");
+  $("pc-niveaux").innerHTML = niveaux + (autres
+    ? `<div class="pc-niveau"><div class="pc-tete"><span class="pc-nom">En plus du programme</span></div>
+       <div class="pc-note">Ce que tu apprends à côté du manuel, pour ta veille et pour parler.</div>${autres}</div>`
+    : "");
 
-  /* Les deux pistes séparées : elle a demandé à voir le son et les caractères
-     distinctement, parce qu'ils ne progressent pas au même rythme. */
-  $("pc-pistes").innerHTML = TRACKS.map(t => {
-    const vus = state.cards.filter(c => c[t] && c[t].reviews).length;
-    const sol = state.cards.filter(c => c[t] && estSolide(c[t])).length;
-    const pct = state.cards.length ? Math.round(100 * vus / state.cards.length) : 0;
-    return `<div class="pc-piste">
-      <div class="pc-tete"><span class="pc-nom">${TRACK_ICON[t]} ${esc(TRACK_LABEL[t])}</span>
-        <span class="pc-pct">${vus} / ${state.cards.length}</span></div>
-      ${barreHTML(pct)}
-      <div class="pc-note">${sol ? `${sol} en mémoire longue` : "Aucun encore en mémoire longue, c'est normal les trois premières semaines."}</div>
-    </div>`;
-  }).join("");
+  /* Un mot se connaît de deux façons indépendantes. Les intituler explicitement
+     évite d'avoir à deviner ce que « Son » recouvre. */
+  const total = state.cards.length;
+  const DESC = { son: "reconnaître à l'oreille et dire le pinyin", zi: "lire et écrire les caractères" };
+  $("pc-pistes").innerHTML = `<div class="pc-nom" style="margin-bottom:.5rem">Deux façons de connaître un mot</div>` +
+    TRACKS.map(t => {
+      const vus = state.cards.filter(c => c[t] && c[t].reviews).length;
+      const sol = state.cards.filter(c => c[t] && estSolide(c[t])).length;
+      const pct = total ? Math.round(100 * vus / total) : 0;
+      return `<div class="pc-piste">
+        <div class="pc-tete"><span class="pc-nom">${TRACK_ICON[t]} ${esc(TRACK_LABEL[t])}</span></div>
+        <div class="pc-note">${DESC[t]}</div>
+        ${barreHTML(pct)}
+        <div class="pc-phrase"><strong>${vus}</strong> mot${vus > 1 ? "s" : ""} travaillé${vus > 1 ? "s" : ""} sur ${total}${sol ? `, dont <strong>${sol}</strong> solide${sol > 1 ? "s" : ""}` : ""}.</div>
+      </div>`;
+    }).join("");
 
   const r = moyenneParJour(14);
   $("st-rythme").textContent = r ? (Math.round(r.moy * 10) / 10).toString().replace(".", ",") : "—";
@@ -1141,9 +1160,11 @@ function renderParcours() {
     d.setDate(d.getDate() - 1);
   }
   $("st-semaine").textContent = semaine.reduce((s, k) => s + (state.days[k] || 0), 0);
-  $("st-hint").textContent = r
-    ? `Moyenne sur tes ${r.jours} dernier${r.jours > 1 ? "s" : ""} jour${r.jours > 1 ? "s" : ""} de travail. Un mot compte comme solide quand tu le retrouves après trois semaines sans l'avoir vu.`
-    : "Ton rythme s'affichera après ta première session.";
+  /* La définition de « solide » est donnée une fois, en bas, plutôt que répétée
+     ou sous-entendue : c'est la seule notion du tableau qui ne va pas de soi. */
+  $("st-hint").innerHTML = "<strong>Solide</strong> veut dire retrouvé après trois semaines sans l'avoir revu. C'est le seul chiffre qui prouve que ça tient."
+    + (r ? (r.jours === 1 ? " Ton rythme porte sur ta seule journée de travail à ce jour."
+                          : ` Ton rythme est calculé sur tes ${r.jours} derniers jours de travail.`) : "");
 }
 
 function render() {
