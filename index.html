@@ -418,6 +418,17 @@
   .cl-ex { font-size: 1.15rem; margin-left: .5rem; color: var(--muted); }
   .cl-note { font-size: 1rem; margin-top: .35rem; text-align: left; }
   .usage-note.construction { border-left-color: var(--muted); }
+  .trace-wrap { display: flex; justify-content: center; margin: .6rem 0; }
+  #trace-zone { position: relative; touch-action: none; }
+  #trace-zone svg { display: block; }
+  .trace-grille { position: absolute; inset: 0; pointer-events: none;
+    border: 1px solid var(--line); border-radius: .4rem;
+    background:
+      linear-gradient(to right, transparent calc(50% - .5px), var(--line) calc(50% - .5px), var(--line) calc(50% + .5px), transparent calc(50% + .5px)),
+      linear-gradient(to bottom, transparent calc(50% - .5px), var(--line) calc(50% - .5px), var(--line) calc(50% + .5px), transparent calc(50% + .5px)); }
+  .trace-attente { color: var(--muted); padding: 3rem 1rem; font-size: 1.02rem; }
+  .trace-actions { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; }
+  .trace-actions .btn { flex: 0 1 auto; min-height: 44px; }
   .cy-cars { display: flex; gap: .5rem; flex-wrap: wrap; margin: .5rem 0; }
   .cy-car { flex: 1 1 4.5rem; text-align: center; border: 1px solid var(--line);
             border-radius: .5rem; padding: .5rem .3rem; }
@@ -2580,7 +2591,123 @@ function nextCard() {
     if (e.key === "Enter" && !e.isComposing && /[一-鿿]/.test(inp.value)) checkWriting();
   });
   $("session").scrollTop = 0;
+  if (mode === "ecriture") lancerTrace(card);
   if (mode === "ecoute") speak(card.hanzi);
+}
+
+/* ---------- Tracé au doigt ----------
+   La bibliothèque et les 866 Ko de données de tracé ne sont téléchargées qu'au
+   premier usage réel du mode, et le navigateur les garde ensuite. Charger tout
+   au démarrage aurait alourdi chaque ouverture de l'app pour un mode qui ne
+   revient qu'une carte sur deux dans la piste Caractères. */
+let HW = null, STROKES = null, hwPromise = null;
+function chargerTrace() {
+  if (hwPromise) return hwPromise;
+  const script = () => new Promise((ok, ko) => {
+    const el = document.createElement("script");
+    el.src = "hanzi-writer.min.js";
+    el.onload = ok; el.onerror = () => ko(new Error("bibliothèque de tracé indisponible"));
+    document.head.appendChild(el);
+  });
+  hwPromise = Promise.all([script(), fetch("strokes.json").then(r => {
+    if (!r.ok) throw new Error("données de tracé indisponibles");
+    return r.json();
+  })]).then(([, data]) => { HW = window.HanziWriter; STROKES = data; });
+  return hwPromise;
+}
+
+let traceEtat = null;
+function lancerTrace(card) {
+  const zone = $("trace-zone");
+  if (!zone) return;
+  zone.innerHTML = `<div class="trace-attente">Chargement du tracé…</div>`;
+  chargerTrace().then(() => {
+    const lettres = [...card.hanzi].filter(ch => STROKES[ch]);
+    if (!lettres.length) throw new Error("aucun tracé pour ce mot");
+    traceEtat = { card: card, lettres: lettres, i: 0, fautes: 0 };
+    traceCaractere();
+  }).catch(err => replierSurClavier(card, err));
+}
+function traceCaractere() {
+  const e = traceEtat, zone = $("trace-zone");
+  if (!zone || !e) return;
+  zone.innerHTML = "";
+  const cote = Math.min(300, Math.max(220, Math.floor(window.innerWidth * 0.72)));
+  $("trace-consigne").textContent = e.lettres.length > 1
+    ? `Trace de mémoire, caractère ${e.i + 1} sur ${e.lettres.length}`
+    : "Trace-le de mémoire";
+  const w = HW.create(zone, e.lettres[e.i], {
+    width: cote, height: cote, padding: 6,
+    showCharacter: false, showOutline: false, showHintAfterMisses: 3,
+    strokeColor: getComputedStyle(document.body).getPropertyValue("--ink").trim() || "#222",
+    drawingColor: getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#c33",
+    drawingWidth: 26, radicalColor: null,
+    charDataLoader: (ch, onComplete) => onComplete({ strokes: STROKES[ch].s, medians: STROKES[ch].m }),
+  });
+  /* Le repère du quadrillage aide à placer les traits, comme sur un cahier. */
+  zone.insertAdjacentHTML("afterbegin", `<div class="trace-grille" style="width:${cote}px;height:${cote}px"></div>`);
+  w.quiz({
+    onMistake: () => { e.fautes++; },
+    onComplete: () => {
+      e.i++;
+      if (e.i < e.lettres.length) setTimeout(traceCaractere, 350);
+      else setTimeout(finTrace, 350);
+    },
+  });
+  /* Deux sorties possibles, jamais bloquantes : revoir le tracé, ou renoncer.
+     Renoncer compte comme un échec, ce qui est la stricte vérité. */
+  $("trace-actions").innerHTML =
+    `<button class="btn ghost" onclick="revoirTrace()">Montre-moi</button>
+     <button class="btn ghost" onclick="abandonTrace()">Je ne sais pas</button>`;
+  traceEtat.writer = w;
+}
+function revoirTrace() {
+  const e = traceEtat;
+  if (!e || !e.writer) return;
+  e.fautes += 3; // voir le modèle n'est pas le retrouver
+  e.writer.animateCharacter({ onComplete: () => e.writer.quiz({
+    onMistake: () => { e.fautes++; },
+    onComplete: () => { e.i++; (e.i < e.lettres.length ? traceCaractere : finTrace)(); },
+  }) });
+}
+function abandonTrace() {
+  if (!traceEtat) return;
+  traceEtat.fautes += 99;
+  finTrace();
+}
+function finTrace() {
+  const e = traceEtat;
+  if (!e) return;
+  const card = e.card;
+  /* Deux fautes tolérées sur l'ensemble du mot : au delà, la forme n'est pas
+     retrouvée, elle est reconstituée à l'aide des indices. */
+  const ok = e.fautes <= 2;
+  $("trace-actions").innerHTML = "";
+  $("trace-consigne").textContent = "";
+  $("answer-zone").innerHTML =
+    `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "Retrouvé de mémoire" : "À revoir"}</div>
+     <div class="q-hanzi small hanzi">${esc(card.hanzi)}</div>
+     <div class="q-pinyin">${renderPinyin(card.pinyin)}</div>
+     ${decompHTML(card.hanzi)}
+     <div><button class="audio-btn" onclick="speak(${jsattr(card.hanzi)})">🔊 Écouter</button></div>`;
+  $("answer-zone").classList.remove("hidden");
+  autoGrade(ok);
+  $("grades-slot").innerHTML = nextOnlyHTML();
+  traceEtat = null;
+}
+/* Repli : sans données de tracé (caractère absent, réseau coupé), on revient à
+   la saisie au clavier plutôt que de bloquer la carte. */
+function replierSurClavier(card, err) {
+  const zone = $("trace-zone");
+  if (!zone) return;
+  zone.innerHTML = "";
+  $("trace-consigne").textContent = "Écris-le";
+  $("trace-actions").innerHTML =
+    `<p class="hint">Tracé indisponible ${err && err.message ? "(" + esc(err.message) + ")" : ""}. Écris au clavier pour cette fois.</p>
+     <input class="answer" id="write-input" lang="zh-CN" autocomplete="off"
+            autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done">`;
+  $("reveal-zone").classList.remove("hidden");
+  $("reveal-zone").innerHTML = `<button class="btn secondary" onclick="checkWriting()">Vérifier</button>`;
 }
 
 function phraseHTML(c) {
@@ -2677,13 +2804,18 @@ function cardHTML(c, mode) {
 
   /* Le pinyin est donné : on teste les caractères seuls, pas le rappel du son.
      La carte n'est pas « tappable » ici, un tap parasite fermerait le clavier. */
+  /* Écriture : elle trace au doigt, de mémoire. Le pinyin et le sens sont
+     donnés, le caractère non. L'ancienne version faisait taper au clavier
+     chinois, qui est un IME pinyin : on tapait le son (déjà affiché) et on
+     choisissait le caractère dans une liste. C'était de la reconnaissance
+     assistée, jamais du rappel de la forme. */
   if (mode === "ecriture") return `<div class="qcard">
       <div class="q-pinyin">${renderPinyin(c.pinyin)}</div>
       <div class="q-fr">« ${esc(c.fr)} »</div>
-      <div class="q-prompt">Écris-le</div>
-      <input class="answer" id="write-input" lang="zh-CN" autocomplete="off"
-             autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
-      <div id="reveal-zone"><button class="btn secondary" onclick="checkWriting()">Vérifier</button></div>
+      <div class="q-prompt" id="trace-consigne">Trace-le de mémoire</div>
+      <div class="trace-wrap"><div id="trace-zone"></div></div>
+      <div class="trace-actions" id="trace-actions"></div>
+      <div id="reveal-zone" class="hidden"></div>
       <div id="answer-zone" class="hidden"></div>
     </div><div id="grades-slot"></div>`;
 
