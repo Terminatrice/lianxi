@@ -2638,7 +2638,13 @@ function traceCaractere() {
     : "Trace-le de mémoire";
   const w = HW.create(zone, e.lettres[e.i], {
     width: cote, height: cote, padding: 6,
-    showCharacter: false, showOutline: false, showHintAfterMisses: 3,
+    showCharacter: false, showOutline: false, showHintAfterMisses: 2,
+    /* Tolérance du tracé. La valeur par défaut de la bibliothèque est 1, calibrée
+       pour une souris ; au doigt sur un téléphone, elle rejette des traits
+       pourtant justes. 1.8 accepte l'à-peu-près de position et de courbure sans
+       rien céder sur l'ORDRE ni sur le SENS des traits, qui sont le vrai contenu
+       de l'exercice. */
+    leniency: 1.8,
     strokeColor: getComputedStyle(document.body).getPropertyValue("--ink").trim() || "#222",
     drawingColor: getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#c33",
     drawingWidth: 26, radicalColor: null,
@@ -2664,7 +2670,7 @@ function traceCaractere() {
 function revoirTrace() {
   const e = traceEtat;
   if (!e || !e.writer) return;
-  e.fautes += 3; // voir le modèle n'est pas le retrouver
+  e.fautes += 2; // voir le modèle n'est pas le retrouver, mais ne condamne plus la carte
   e.writer.animateCharacter({ onComplete: () => e.writer.quiz({
     onMistake: () => { e.fautes++; },
     onComplete: () => { e.i++; (e.i < e.lettres.length ? traceCaractere : finTrace)(); },
@@ -2679,9 +2685,10 @@ function finTrace() {
   const e = traceEtat;
   if (!e) return;
   const card = e.card;
-  /* Deux fautes tolérées sur l'ensemble du mot : au delà, la forme n'est pas
-     retrouvée, elle est reconstituée à l'aide des indices. */
-  const ok = e.fautes <= 2;
+  /* Quatre fautes tolérées sur l'ensemble du mot. Le seuil précédent (deux)
+     sanctionnait des hésitations de geste plutôt qu'un défaut de mémoire, et
+     mieux vaut être exigeant sur le tracé qu'expéditif sur le verdict. */
+  const ok = e.fautes <= 4;
   $("trace-actions").innerHTML = "";
   $("trace-consigne").textContent = "";
   $("answer-zone").innerHTML =
