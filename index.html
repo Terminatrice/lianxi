@@ -381,6 +381,20 @@
     border-radius: 999px; overflow: hidden; }
   .pc-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .4s; }
   @media (prefers-reduced-motion: reduce) { .pc-fill { transition: none; } }
+  /* Barre en trois tons pour la part connue : même couleur, trois densités.
+     Trois teintes différentes se lisaient comme trois catégories sans rapport,
+     alors que c'est un seul continuum de solidité. */
+  .pc-seg { display: flex; height: .7rem; background: var(--paper); border: 1px solid var(--line);
+    border-radius: 999px; overflow: hidden; }
+  .pc-seg i { height: 100%; background: var(--accent); display: block; }
+  .pc-seg i.moyen { opacity: .5; }
+  .pc-seg i.faible { opacity: .22; }
+  .pc-parts { display: flex; flex-wrap: wrap; gap: .15rem .9rem; margin-top: .4rem;
+              font-size: 1rem; color: var(--muted); }
+  .pc-parts b { color: var(--ink); font-weight: 600; }
+  .pc-puce { display: inline-block; width: .62rem; height: .62rem; border-radius: 999px;
+             background: var(--accent); margin-right: .3rem; vertical-align: baseline; }
+  .pc-puce.moyen { opacity: .5; } .pc-puce.faible { opacity: .22; }
   .pc-legend { font-size: 1.02rem; color: var(--muted); margin-top: .5rem; }
   .pc-legend strong { color: var(--ink); font-size: 1.15rem; }
   .pc-niveau, .pc-piste { margin: 0 0 1rem; }
@@ -988,17 +1002,23 @@ function showTab(t) {
    remonter 芯片 au milieu d'une révision de la leçon 7. On révise l'un ou
    l'autre, jamais les deux ensemble. */
 let curVolet = "cours";
-/* Trois volets étanches, pour séparer ce qui se révise de ce qui s'apprend :
-   ce qu'elle a vu en cours, le HSK 2 pris en avance sur son prof, et sa veille
-   sur l'IA. Sans cette séparation, 126 mots jamais abordés en cours venaient se
-   mêler aux révisions et brouillaient la lecture de son avancement. */
+/* Quatre volets étanches, pour séparer ce qui se révise de ce qui s'apprend :
+   ce qu'elle a vu en cours, les expressions de la conversation courante, le
+   HSK 2 pris en avance sur son prof, et sa veille sur l'IA. Sans cette
+   séparation, 126 mots jamais abordés en cours venaient se mêler aux révisions
+   et brouillaient la lecture de son avancement.
+   Les expressions ont quitté « Vu en cours » le 2026-08-17 : elles ne viennent
+   pas du programme, elles s'emploient et se révisent autrement, et noyées dans
+   la file du cours elles ne remontaient presque jamais. */
 const VOLETS = [
   { cle: "cours", nom: "Vu en cours" },
+  { cle: "expr", nom: "Expressions" },
   { cle: "avance", nom: "HSK 2 en avance" },
   { cle: "info", nom: "Veille IA" },
 ];
 function voletDe(c) {
   if (c.theme === "Informatique") return "info";
+  if (c.theme === "Expressions") return "expr";
   if ((c.theme || "").indexOf("à venir") >= 0) return "avance";
   return "cours";
 }
@@ -1146,6 +1166,38 @@ const HSK_PLAN = [
 function barreHTML(pct, plein) {
   return `<div class="pc-rail"><div class="pc-fill${plein ? " plein" : ""}" style="width:${Math.max(0, Math.min(100, pct))}%"></div></div>`;
 }
+/* Part connue, parmi les mots DÉJÀ travaillés (demande de Daphnée, 2026-08-17).
+   La barre précédente rapportait les mots travaillés au catalogue entier, ce qui
+   ne dit rien de ce qu'elle en retient. Le dénominateur est donc ici ce qu'elle
+   a réellement commencé, et la répartition se lit sur `bestGap` : « solide » =
+   retrouvé après trois semaines, « en cours » = retrouvé après quelques jours,
+   « premiers passages » = pas encore reposé assez longtemps pour prouver quoi
+   que ce soit. Ce dernier tiers n'est pas un échec, d'où son nom : c'est du
+   travail récent, il n'a pas encore eu le temps de mûrir. */
+function partConnueHTML(trav, t) {
+  if (!trav.length) return "";
+  let sol = 0, cours = 0, frais = 0, rev = 0, err = 0;
+  trav.forEach(c => {
+    const m = maturity(c[t]);
+    if (m === "longue" || m === "ancre") sol++;
+    else if (m === "encours") cours++;
+    else frais++;
+    rev += c[t].reviews; err += c[t].errors;
+  });
+  const p = n => Math.round(1000 * n / trav.length) / 10;
+  const taux = rev ? Math.round(100 * (rev - err) / rev) : null;
+  return `<div class="pc-seg" role="img"
+       aria-label="${sol} solides, ${cours} en cours, ${frais} aux premiers passages">
+      <i style="width:${p(sol)}%"></i><i class="moyen" style="width:${p(cours)}%"></i>
+      <i class="faible" style="width:${p(frais)}%"></i>
+    </div>
+    <div class="pc-parts">
+      <span><span class="pc-puce"></span><b>${sol}</b> solide${sol > 1 ? "s" : ""}</span>
+      <span><span class="pc-puce moyen"></span><b>${cours}</b> en cours</span>
+      <span><span class="pc-puce faible"></span><b>${frais}</b> aux premiers passages</span>
+    </div>
+    ${taux === null ? "" : `<div class="pc-note">Tu réponds juste ${taux} % du temps sur ces mots.</div>`}`;
+}
 function renderParcours() {
   /* Chaque bloc dit en toutes lettres ce qu'il compte. La version précédente
      empilait « 15 / 159 » et « 12 % » sans jamais préciser douze pour cent de
@@ -1209,14 +1261,15 @@ function renderParcours() {
   const DESC = { son: "reconnaître à l'oreille et dire le pinyin", zi: "lire et écrire les caractères" };
   $("pc-pistes").innerHTML = `<div class="pc-nom" style="margin-bottom:.5rem">Deux façons de connaître un mot</div>` +
     TRACKS.map(t => {
-      const vus = state.cards.filter(c => c[t] && c[t].reviews).length;
-      const sol = state.cards.filter(c => c[t] && estSolide(c[t])).length;
+      const trav = state.cards.filter(c => c[t] && c[t].reviews);
+      const vus = trav.length;
       const pct = total ? Math.round(100 * vus / total) : 0;
       return `<div class="pc-piste">
         <div class="pc-tete"><span class="pc-nom">${TRACK_ICON[t]} ${esc(TRACK_LABEL[t])}</span></div>
         <div class="pc-note">${DESC[t]}</div>
         ${barreHTML(pct)}
-        <div class="pc-phrase"><strong>${vus}</strong> mot${vus > 1 ? "s" : ""} travaillé${vus > 1 ? "s" : ""} sur ${total}${sol ? `, dont <strong>${sol}</strong> solide${sol > 1 ? "s" : ""}` : ""}.</div>
+        <div class="pc-phrase"><strong>${vus}</strong> mot${vus > 1 ? "s" : ""} travaillé${vus > 1 ? "s" : ""} sur ${total}.</div>
+        ${partConnueHTML(trav, t)}
       </div>`;
     }).join("");
 
@@ -1257,7 +1310,8 @@ function render() {
     .map(x => `<button class="chip" aria-pressed="${curVolet === x.cle}" onclick="setVolet(${jsattr(x.cle)})">${esc(x.nom)}</button>`).join("");
 
   const NOTE_VOLET = {
-    cours: "Ce que tu as vu avec ta prof, plus les expressions courantes. C'est ta révision.",
+    cours: "Ce que tu as vu avec ta prof. C'est ta révision.",
+    expr: "Les tournures de la conversation courante, avec leur note d'usage : quand les dire, à qui, sur quel ton.",
     avance: "Les mots du HSK 2 que ta prof n'a pas encore abordés. C'est de l'apprentissage neuf, à faire quand tu en as envie.",
     info: "Le vocabulaire de ta veille sur l'IA, à part du programme.",
   };
