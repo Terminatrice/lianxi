@@ -829,6 +829,19 @@ function migrateTrack(tr, kind) {
   /* La rétention démontrée n'était pas mesurée avant : on la déduit prudemment
      de l'intervalle déjà atteint, en le divisant par deux pour ne pas créditer
      une maturité qui n'a jamais été prouvée. */
+  /* Rattrapage du raccourci de calibrage mal appliqué. Jusqu'au 2026-08-21, une
+     règle, une brique ou une phrase reprise en cours réussie du premier coup
+     partait à 30 jours comme un mot du vocabulaire. Ces points-là sont ramenés
+     à l'échelle normale : ils reviennent dans les prochains jours au lieu du
+     mois prochain. Rien n'est effacé, seule l'échéance avance, et le drapeau
+     évite de refaire le rattrapage à chaque chargement. */
+  if (TRACKS.indexOf(kind) < 0 && !tr.calibCorrige) {
+    tr.calibCorrige = 1;
+    if (tr.reviews === 1 && tr.inter >= CALIB_OK && !tr.bestGap) {
+      tr.inter = STEP_1;
+      tr.due = Math.min(tr.due || 0, Date.now() + STEP_1 * 864e5);
+    }
+  }
   if (typeof tr.bestGap !== "number") tr.bestGap = Math.floor((tr.inter || 0) / 2);
   if (typeof tr.last !== "number") tr.last = 0;
   if (typeof tr.ease !== "number") tr.ease = EASE_START[kind] || 2.2;
@@ -1345,8 +1358,11 @@ function estSolide(tr) { return ["longue", "ancre"].includes(maturity(tr)); }
    SOLIDE  = retrouvé après trois semaines sans révision (bestGap ≥ 21 j).
    « Connu » se déduit de ce qui est déjà enregistré, sans nouveau compteur :
    une piste dont les passages dépassent les ratés a forcément été réussie. */
-function estCroise(tr) { return !!(tr && tr.reviews); }
-function estConnu(tr) { return !!(tr && tr.reviews > tr.errors); }
+/* `connu` est posé par le bouton « Acquis » : elle déclare savoir le mot sans
+   passer par une carte. C'est une rencontre et une réussite, au même titre
+   qu'une réponse juste, et les deux paliers doivent le refléter. */
+function estCroise(tr) { return !!(tr && (tr.reviews || tr.connu)); }
+function estConnu(tr) { return !!(tr && (tr.connu || tr.reviews > tr.errors)); }
 /* Au niveau du MOT, les deux pistes comptent ensemble : savoir dire 红 sans
    savoir l'écrire, c'est déjà le connaître. */
 function motCroise(c) { return estCroise(c.son) || estCroise(c.zi); }
@@ -2414,8 +2430,7 @@ function autoGradeGram(ok) {
   noteGramPassage(pr, curExo());
   noteType(pr, curExo().type, ok);
   schedule(pr, ok, "gram");
-  state.reviews++;
-  state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
+  compterPassage();
   if (ok) gramOk++;
   else if (!gramErrors.includes(p)) gramErrors.push(p);
   noterMix(ok, p.titre);
@@ -2452,8 +2467,7 @@ function gradeGram(g) {
   noteGramPassage(pr, curExo());
   noteType(pr, curExo().type, g !== 0);
   schedule(pr, g !== 0, "gram");
-  state.reviews++;
-  state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
+  compterPassage();
   if (g !== 0) gramOk++;
   else if (!gramErrors.includes(p)) gramErrors.push(p);
   noterMix(g !== 0, p.titre);
@@ -2559,8 +2573,7 @@ function answerErr(choix) {
   const pr = errProg(e.id);
   pr.vue = true;
   schedule(pr, ok, "gram");
-  state.reviews++;
-  state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
+  compterPassage();
   if (ok) errOk++;
   else if (!errErrors.includes(e)) errErrors.push(e);
   noterMix(ok, e.correct + " « " + e.fr + " »");
@@ -2851,8 +2864,7 @@ function answerComp(choix) {
   const pr = compProg(c.id);
   pr.vue = true;
   schedule(pr, ok, "gram");
-  state.reviews++;
-  state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
+  compterPassage();
   if (ok) compOk++;
   else if (!compErrors.includes(c)) compErrors.push(c);
   noterMix(ok, c.forme + " " + c.sens);
@@ -3109,7 +3121,7 @@ function sessionMixte() {
   return entrelacer(shuffle(parts));
 }
 /* Compteurs d'ensemble : un seul écran de fin, un seul score. */
-function nouveauBilan() { return { ok: 0, total: 0, rates: [] }; }
+function nouveauBilan() { return { ok: 0, total: 0, rates: [], items: [] }; }
 function majProgres(i, total) {
   const a = mixOn ? mixPos : i, b = mixOn ? mix.length : total;
   $("prog-bar").style.width = Math.round(100 * a / Math.max(1, b)) + "%";
@@ -3121,6 +3133,12 @@ function startMix() {
   if (!mix.length) return;
   mixOn = true; mixPos = 0; mixBilan = nouveauBilan();
   mixEcrit = 0; mixEcritDern = -99;
+  /* Ces listes servent aux écrans de fin des entraînements par onglet. En
+     session mixte, chaque format reçoit une file d'un élément et ne les remet
+     donc jamais à zéro : sans cette ligne, elles gardaient les ratés de la
+     session précédente. */
+  sessErrors = []; sessSkipped = []; sessOk = 0;
+  gramErrors = []; gramOk = 0; compErrors = []; compOk = 0; errErrors = []; errOk = 0;
   plan = []; planPos = 0;
   sessPractice = false; sessCalib = false;
   speak(" "); // amorce iOS
@@ -3153,10 +3171,49 @@ function avancerMix() { mixPos++; lancerMix(); }
 function noterMix(ok, libelle) {
   if (!mixOn || !mixBilan) return;
   mixBilan.total++;
-  if (ok) mixBilan.ok++;
-  else if (libelle) mixBilan.rates.push(libelle);
+  if (ok) { mixBilan.ok++; return; }
+  if (libelle) mixBilan.rates.push(libelle);
+  /* On retient aussi l'élément lui-même, pas seulement son libellé : c'est ce
+     qui permet de le rejouer en fin de session. */
+  const e = mix[mixPos];
+  if (e && mixBilan.items.indexOf(e) < 0) mixBilan.items.push(e);
+}
+/* Repasser en fin de session ce qui a coincé, tous formats confondus. Le
+   repassage ne compte pas : `sessPractice` coupe la planification et les
+   compteurs du jour (voir `schedule` et `compterPassage`).
+   Cette possibilité existait avant l'unification des sessions du 2026-08-21 et
+   avait disparu avec elle : `endSession` la portait, et en session mixte
+   `endSession` rend la main à `avancerMix` avant de l'afficher. */
+function rejouerMix() {
+  const encore = (mixBilan && mixBilan.items) ? mixBilan.items.slice() : [];
+  if (!encore.length) { quitSession(); return; }
+  sessPractice = true;
+  mix = shuffle(encore); mixPos = 0; mixOn = true;
+  mixBilan = nouveauBilan();
+  mixEcrit = 0; mixEcritDern = -99;
+  lancerMix();
+}
+/* Bilan copiable, à coller dans une session Claude Code ou à montrer au prof. */
+function copierBilanMix(rates) {
+  const text = `Bilan de ma session Liànxí du ${todayKey()}. À retravailler :\n`
+    + rates.map(x => "- " + x).join("\n");
+  copyText(text, $("sess-msg"), "Copié. Colle-le dans ta session Claude Code.");
 }
 function endMix() {
+  /* Fin d'un repassage : rien n'a été planifié, il n'y a pas de score à donner. */
+  if (sessPractice) {
+    sessPractice = false; mixOn = false; sessEnCours = false;
+    $("prog-bar").style.width = "100%";
+    $("prog-txt").textContent = "";
+    $("card-zone").innerHTML = `<div class="qcard">
+        <div class="q-hanzi hanzi">加油</div>
+        <div class="q-pinyin">${renderPinyin("jiā yóu")}</div>
+        <div class="q-fr">Repassage terminé.</div>
+        <p class="q-prompt">Ces points reviendront d'eux-mêmes dans une prochaine session.</p>
+        <button class="btn" onclick="quitSession()">Terminer</button>
+      </div>`;
+    return;
+  }
   sessEnCours = false; mixOn = false;
   /* La session du jour couvre tous les formats : la terminer met les compteurs
      du jour à zéro partout (accueil, grammaire, briques). */
@@ -3175,6 +3232,9 @@ function endMix() {
       <div class="q-pinyin">${renderPinyin("jiā yóu")}</div>
       <div class="q-fr">Session terminée : ${b.ok} / ${b.total}.</div>
       ${liste}
+      ${b.items.length ? `<button class="btn secondary" onclick="rejouerMix()">Repasser ces ${b.items.length} point(s) sans compter</button>
+       <button class="btn ghost" onclick="copierBilanMix(${jsattr(b.rates)})">Copier le bilan</button>
+       <div class="msg" id="sess-msg"></div>` : ""}
       <button class="btn" onclick="quitSession()">Terminer</button>
     </div>`;
 }
@@ -3302,7 +3362,11 @@ function quitSession() {
     save();
   }
   sessEnCours = false;
-  plan = []; planPos = 0; sessCalib = false; mixOn = false; mix = []; mixPos = 0;
+  /* sessPractice doit retomber ici. Quitter en plein repassage le laissait à
+     true, et l'entraînement lancé juste après depuis un onglet ne planifiait
+     plus rien : les réponses étaient prises et aucune échéance ne bougeait. */
+  plan = []; planPos = 0; sessCalib = false; sessPractice = false;
+  mixOn = false; mix = []; mixPos = 0;
   if (toneTimer) { clearTimeout(toneTimer); toneTimer = null; }
   if (window.speechSynthesis) speechSynthesis.cancel();
   stopRecog();
@@ -3704,8 +3768,7 @@ function autoGrade(ok) {
   const tr = it.card[it.track];
   noteDecouverte(it.card);
   schedule(tr, ok, it.track);
-  state.reviews++;
-  state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
+  compterPassage();
   if (ok) sessOk++;
   else { if (!sessErrors.includes(it)) sessErrors.push(it); noteFaibleJour(it.card.hanzi); }
   noterMix(ok, it.card.hanzi + " " + it.card.pinyin + " « " + it.card.fr + " »");
@@ -3726,6 +3789,12 @@ function markKnown() {
   tr.ease = Math.max(tr.ease || 2.2, 2.5);
   tr.due = Date.now() + tr.inter * 864e5;
   tr.connu = true;
+  /* Le mot est rencontré, et déclaré su : les deux doivent être enregistrés.
+     Sans cet appel, un mot jamais vu poussé à 60 jours par « Acquis » gardait
+     `reviews` à zéro : il restait « à découvrir » dans le parcours, ne comptait
+     ni comme croisé ni comme connu, ne consommait pas le quota de nouveautés du
+     jour, et reparaissait indéfiniment dans « Faire le point » (2026-08-21). */
+  noteDecouverte(it.card);
   save();
   advance();
 }
@@ -4008,8 +4077,7 @@ function answerTone(t, btn) {
   const it = toneQueue[toneIndex];
   const opts = $("tone-opts");
   [...opts.children].forEach(b => b.disabled = true);
-  state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
-  state.reviews++;
+  compterPassage();
   const ok = t === it.tone;
   if (ok) {
     toneScore++;
@@ -4065,7 +4133,21 @@ function endToneQuiz() {
    facilité basse et reste durablement en révision rapprochée, même après une bonne
    réponse ponctuelle. C'est ce qui empêche la mémoire de court terme de faire
    passer un mot pour acquis. */
+/* Compteurs d'activité du jour. Muets pendant un repassage, qui ne doit pas
+   gonfler « cartes cette semaine » avec des cartes déjà comptées. */
+function compterPassage() {
+  if (sessPractice) return;
+  state.reviews++;
+  state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
+}
 function schedule(tr, ok, kind) {
+  /* Repassage de fin de session : on ne touche à rien. Réussir maintenant un
+     point raté il y a deux minutes n'engage que la mémoire de travail.
+     La garde est ici plutôt qu'aux appelants : `grade` et `autoGrade` la
+     faisaient déjà pour le vocabulaire, mais la grammaire, les briques, les
+     tons et les phrases reprises en cours planifiaient pendant le repassage.
+     Tant qu'aucun repassage mixte n'existait, le cas ne se présentait pas. */
+  if (sessPractice) return;
   const k = kind || "son";
   tr.reviews++;
   if (typeof tr.ease !== "number") tr.ease = EASE_START[k];
@@ -4077,11 +4159,17 @@ function schedule(tr, ok, kind) {
   if (ok) {
     tr.bestGap = Math.max(tr.bestGap || 0, gap);
     const step2 = STEP_2[k] || 3;
-    /* Premier contact réussi : elle connaissait déjà. Lui refaire monter
-       l'échelle 1 jour → 3 jours → 8 jours reviendrait à lui réapprendre ce
-       qu'elle sait, quatre fois. On vérifie une fois, à un mois. Si elle tient,
-       l'échelle normale prend le relais et le mot part vers l'ancrage. */
-    if (tr.reviews === 1 && !tr.inter) tr.inter = CALIB_OK;
+    /* Premier contact réussi sur un MOT : elle le connaissait déjà. Lui refaire
+       monter l'échelle 1 jour → 3 jours → 8 jours reviendrait à lui réapprendre
+       ce qu'elle sait, quatre fois. On vérifie une fois, à un mois.
+       Ce raccourci ne vaut QUE pour le vocabulaire (corrigé le 2026-08-21).
+       Appliqué à une règle de grammaire, à une brique ou à une phrase reprise
+       en cours, il faisait disparaître le point pour un mois sur une seule bonne
+       réponse, puis le déclarait « solide » sur ce seul écart : trois semaines
+       de rétention créditées sans avoir jamais été démontrées. Reconnaître une
+       structure une fois n'est pas la maîtriser, et c'est précisément ce que
+       « solide » prétend prouver. */
+    if (tr.reviews === 1 && !tr.inter && TRACKS.indexOf(k) >= 0) tr.inter = CALIB_OK;
     else if (tr.inter < STEP_1) tr.inter = STEP_1;
     else if (tr.inter < step2) tr.inter = step2;
     else tr.inter = Math.min(MAX_INTER, Math.round(tr.inter * tr.ease));
@@ -4123,8 +4211,7 @@ function grade(g) {
   const tr = it.card[it.track], ok = g !== 0;
   noteDecouverte(it.card);
   schedule(tr, ok, it.track);
-  state.reviews++;
-  state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
+  compterPassage();
   if (ok) sessOk++;
   else { if (!sessErrors.includes(it)) sessErrors.push(it); noteFaibleJour(it.card.hanzi); }
   noterMix(ok, it.card.hanzi + " " + it.card.pinyin + " « " + it.card.fr + " »");
