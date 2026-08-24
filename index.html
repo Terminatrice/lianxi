@@ -550,7 +550,9 @@
         <div class="stat"><div class="n" id="st-rythme">—</div><div class="l">nouveaux mots par jour</div></div>
         <div class="stat"><div class="n" id="st-semaine">0</div><div class="l">cartes cette semaine</div></div>
       </div>
-      <p class="hint" id="st-hint"></p>
+      <details class="gram-plus"><summary>C'est quoi croisé, su, solide ?</summary>
+        <p class="hint" id="st-hint" style="margin-top:0"></p>
+      </details>
     </div>
 
     <div class="panel">
@@ -667,7 +669,7 @@
     </div>
   </section>
 
-  <footer class="build">Liànxí · <span id="build-stamp">715 mots · 67 points de grammaire · 50 composants · 32 à peaufiner · 2026-08-22</span></footer>
+  <footer class="build">Liànxí · <span id="build-stamp">715 mots · 67 points de grammaire · 50 composants · 32 à peaufiner · 2026-08-24</span></footer>
 </div>
 
 <!-- ============ SESSION ============ -->
@@ -1420,37 +1422,34 @@ const HSK_PLAN = [
 function barreHTML(pct, plein) {
   return `<div class="pc-rail"><div class="pc-fill${plein ? " plein" : ""}" style="width:${Math.max(0, Math.min(100, pct))}%"></div></div>`;
 }
-/* Part connue, parmi les mots DÉJÀ travaillés (demande de Daphnée, 2026-08-17).
-   La barre précédente rapportait les mots travaillés au catalogue entier, ce qui
-   ne dit rien de ce qu'elle en retient. Le dénominateur est donc ici ce qu'elle
-   a réellement commencé, et la répartition se lit sur `bestGap` : « solide » =
-   retrouvé après trois semaines, « en cours » = retrouvé après quelques jours,
-   « premiers passages » = pas encore reposé assez longtemps pour prouver quoi
-   que ce soit. Ce dernier tiers n'est pas un échec, d'où son nom : c'est du
-   travail récent, il n'a pas encore eu le temps de mûrir. */
+/* Part connue, parmi les mots DÉJÀ travaillés. Refonte du 2026-08-24 (retour de
+   Daphnée) : la répartition se lit sur le statut SU, pas sur la maturité. Un mot
+   réussi dès le premier passage est un mot su ; il ne redescend que si les
+   répétitions à long terme le prennent en défaut (errors rejoint reviews, et
+   estConnu bascule tout seul). L'ancien découpage bestGap (« en cours », « aux
+   premiers passages ») classait en travail récent des mots pourtant réussis, et
+   personne ne comprenait la différence avec « connu ». Le taux de bonnes
+   réponses cumulé a été retiré : invérifiable à l'œil, donc pas digne de
+   confiance. */
 function partConnueHTML(trav, t) {
   if (!trav.length) return "";
-  let sol = 0, cours = 0, frais = 0, rev = 0, err = 0;
+  let sol = 0, sus = 0, rep = 0;
   trav.forEach(c => {
-    const m = maturity(c[t]);
-    if (m === "longue" || m === "ancre") sol++;
-    else if (m === "encours") cours++;
-    else frais++;
-    rev += c[t].reviews; err += c[t].errors;
+    if (estSolide(c[t])) sol++;
+    else if (estConnu(c[t])) sus++;
+    else rep++;
   });
   const p = n => Math.round(1000 * n / trav.length) / 10;
-  const taux = rev ? Math.round(100 * (rev - err) / rev) : null;
   return `<div class="pc-seg" role="img"
-       aria-label="${sol} solides, ${cours} en cours, ${frais} aux premiers passages">
-      <i style="width:${p(sol)}%"></i><i class="moyen" style="width:${p(cours)}%"></i>
-      <i class="faible" style="width:${p(frais)}%"></i>
+       aria-label="${sol} solides, ${sus} sus, ${rep} à reprendre">
+      <i style="width:${p(sol)}%"></i><i class="moyen" style="width:${p(sus)}%"></i>
+      <i class="faible" style="width:${p(rep)}%"></i>
     </div>
     <div class="pc-parts">
       <span><span class="pc-puce"></span><b>${sol}</b> solide${sol > 1 ? "s" : ""}</span>
-      <span><span class="pc-puce moyen"></span><b>${cours}</b> en cours</span>
-      <span><span class="pc-puce faible"></span><b>${frais}</b> aux premiers passages</span>
-    </div>
-    ${taux === null ? "" : `<div class="pc-note">Tu réponds juste ${taux} % du temps sur ces mots.</div>`}`;
+      <span><span class="pc-puce moyen"></span><b>${sus}</b> su${sus > 1 ? "s" : ""}</span>
+      <span><span class="pc-puce faible"></span><b>${rep}</b> à reprendre</span>
+    </div>`;
 }
 /* Combien de temps avant ce niveau, au rythme actuel (demande de Daphnée,
    2026-08-20). Le niveau est atteint quand tous ses mots présents dans l'app ont
@@ -1507,14 +1506,20 @@ function echeanceHTML(motsRestants, reglesRestantes) {
 const OBJECTIF_CONV = 1500;
 const OBJECTIF_SERIES = 3000;
 function seriesHTML() {
-  const croises = state.cards.filter(motCroise).length;
-  const restant = Math.max(0, OBJECTIF_CONV - croises);
-  const pct = Math.min(100, Math.round(100 * croises / OBJECTIF_CONV));
+  /* Le cap se compte en mots SUS, plus en mots croisés (demande de Daphnée,
+     2026-08-24) : croiser un mot ne prouve rien, le savoir se constate. Un mot
+     su peut redescendre si les répétitions à long terme le prennent en défaut :
+     le compteur suit, sans rien lui demander. Le rythme projeté reste celui
+     des découvertes : c'est le débit d'entrée du tunnel, et presque tout mot
+     découvert devient su dans la foulée. */
+  const sus = state.cards.filter(motConnu).length;
+  const restant = Math.max(0, OBJECTIF_CONV - sus);
+  const pct = Math.min(100, Math.round(100 * sus / OBJECTIF_CONV));
   const rm = rythmeCalendaire(state.decouvertes, 14);
   const p = projection(restant, rm ? rm.moy : 0);
   const JALONS = [600, 1000, OBJECTIF_CONV];
-  const jalon = JALONS.find(j => j > croises);
-  const rj = jalon ? projection(jalon - croises, rm ? rm.moy : 0) : { fini: true };
+  const jalon = JALONS.find(j => j > sus);
+  const rj = jalon ? projection(jalon - sus, rm ? rm.moy : 0) : { fini: true };
   let eta;
   if (p.fini) {
     eta = `<div class="pc-eta fini">Le stock de mots de la conversation pro est là. Place à l'oral. 加油 !</div>`;
@@ -1529,9 +1534,9 @@ function seriesHTML() {
        une durée de cap sans étiquette se lisaient comme une contradiction
        (retour de Daphnée, 2026-08-21 : « fin août et trois mois en même temps ? »). */
     const ligneJalon = jalon && jalon < OBJECTIF_CONV && !rj.fini && !rj.arret
-      ? ` En chemin, premier jalon à ${jalon} mots croisés (${jalon - croises} de plus) : vers ${rj.jours < 400 ? "le " : ""}${esc(dateDansTexte(rj.jours))}.`
+      ? ` En chemin, premier jalon à ${jalon} mots sus (${jalon - sus} de plus) : vers ${rj.jours < 400 ? "le " : ""}${esc(dateDansTexte(rj.jours))}.`
       : "";
-    eta = `<div class="pc-eta">Cap complet, ${OBJECTIF_CONV} mots croisés :
+    eta = `<div class="pc-eta">Cap complet, ${OBJECTIF_CONV} mots sus :
       <span class="pc-eta-big">encore ${esc(dureeLongueTexte(p.jours))}</span>
       <span class="pc-eta-note">soit vers ${p.jours < 400 ? "le " : ""}${esc(dateDansTexte(p.jours))}, au rythme réel de ta
         quinzaine (${rythme} mots/jour, jours sans session compris).${ligneJalon}
@@ -1542,8 +1547,8 @@ function seriesHTML() {
     <div class="pc-tete"><span class="pc-nom">Conversation pro</span><span class="pc-pct">cap long terme</span></div>
     ${barreHTML(pct)}
     <div class="pc-phrase">Tenir une conversation professionnelle simple demande environ
-      ${OBJECTIF_CONV} mots et les structures des niveaux HSK 3 et 4. Tu en as déjà croisé
-      <strong>${croises}</strong>, tous volets confondus, et chaque session en ajoute.</div>
+      ${OBJECTIF_CONV} mots et les structures des niveaux HSK 3 et 4. Tu en sais déjà
+      <strong>${sus}</strong>, tous volets confondus.</div>
     <div class="pc-note">L'app contient ${state.cards.length} mots (HSK 3 complet inclus) : le
       catalogue grandit avec toi, il ne te limitera pas. L'étape d'après, les séries sans
       sous-titres, demande environ ${OBJECTIF_SERIES} mots : tout ce que tu fais ici y mène déjà.</div>
@@ -1570,12 +1575,12 @@ function renderParcours() {
     /* Le verbe compte : « croisé » n'est pas « connu ». Écrire « tu connais 59
        mots » alors que le chiffre ne mesurait qu'une rencontre était faux. */
     const phrase = vus
-      ? `Tu as croisé <strong>${vus}</strong> des ${officiel.length} mots du niveau, et tu en connais <strong>${con}</strong>.`
+      ? `Tu as croisé <strong>${vus}</strong> des ${officiel.length} mots du niveau, et tu en sais <strong>${con}</strong>.`
       : `${officiel.length} mots composent ce niveau.`;
     const acquis = (sol || gSol)
       ? `<div class="pc-note">Solides : ${sol} mot${sol > 1 ? "s" : ""} et ${gSol} règle${gSol > 1 ? "s" : ""}.</div>` : "";
     const gramLigne = gram.length
-      ? `<div class="pc-note">Grammaire : ${gVus} règle${gVus > 1 ? "s" : ""} abordée${gVus > 1 ? "s" : ""} sur les ${gram.length} de tes cours, ${gCon} connue${gCon > 1 ? "s" : ""}.</div>` : "";
+      ? `<div class="pc-note">Grammaire : ${gVus} règle${gVus > 1 ? "s" : ""} abordée${gVus > 1 ? "s" : ""} sur les ${gram.length} de tes cours, ${gCon} sue${gCon > 1 ? "s" : ""}.</div>` : "";
     /* Deux choses distinctes qu'il ne faut jamais confondre : ce qu'elle a appris,
        et ce que l'app contient. Un mot du niveau absent de l'app n'est pas un mot
        qu'elle a raté, c'est du contenu qui manque ici. */
@@ -1596,7 +1601,7 @@ function renderParcours() {
      l'écart de ce qu'elle a justement choisi d'apprendre en plus. */
   const ligne = (nom, mots) => {
     const vus = mots.filter(motCroise).length, con = mots.filter(motConnu).length;
-    return `<div class="pc-ligne"><span>${esc(nom)}</span><span><strong>${vus}</strong> croisé${vus > 1 ? "s" : ""} sur ${mots.length}${con ? ` · ${con} connu${con > 1 ? "s" : ""}` : ""}</span></div>`;
+    return `<div class="pc-ligne"><span>${esc(nom)}</span><span><strong>${vus}</strong> croisé${vus > 1 ? "s" : ""} sur ${mots.length}${con ? ` · ${con} su${con > 1 ? "s" : ""}` : ""}</span></div>`;
   };
   /* Trois lignes au plus (demande de Daphnée, 2026-08-21) : la veille IA, les
      expressions, et TOUT le reste fusionné en une ligne. Une ligne par petit
@@ -1631,7 +1636,7 @@ function renderParcours() {
         <div class="pc-tete"><span class="pc-nom">${TRACK_ICON[t]} ${esc(TRACK_LABEL[t])}</span></div>
         <div class="pc-note">${DESC[t]}</div>
         ${barreHTML(pct)}
-        <div class="pc-phrase"><strong>${vus}</strong> mot${vus > 1 ? "s" : ""} croisé${vus > 1 ? "s" : ""} sur ${total}, dont <strong>${trav.filter(c => estConnu(c[t])).length}</strong> connu${trav.filter(c => estConnu(c[t])).length > 1 ? "s" : ""}.</div>
+        <div class="pc-phrase"><strong>${vus}</strong> mot${vus > 1 ? "s" : ""} croisé${vus > 1 ? "s" : ""} sur ${total}, dont <strong>${trav.filter(c => estConnu(c[t])).length}</strong> su${trav.filter(c => estConnu(c[t])).length > 1 ? "s" : ""}.</div>
         ${partConnueHTML(trav, t)}
       </div>`;
     }).join("");
@@ -1646,9 +1651,10 @@ function renderParcours() {
   const d = new Date(), semaine = [];
   for (let k = 0; k < 7; k++) { semaine.push(cleDate(d)); d.setDate(d.getDate() - 1); }
   $("st-semaine").textContent = semaine.reduce((s, k) => s + (state.days[k] || 0), 0);
-  /* La définition de « solide » est donnée une fois, en bas, plutôt que répétée
-     ou sous-entendue : c'est la seule notion du tableau qui ne va pas de soi. */
-  $("st-hint").innerHTML = "<strong>Croisé</strong> veut dire rencontré au moins une fois, <strong>connu</strong> que tu as répondu « Su » au moins une fois, <strong>solide</strong> que tu l'as retrouvé après trois semaines sans le revoir. C'est le dernier qui prouve que ça tient."
+  /* Les définitions se lisent sur demande (repliées sous « C'est quoi croisé,
+     su, solide ? ») : affichées en permanence, elles encombraient le tableau
+     pour une information qu'on ne relit pas (retour de Daphnée, 2026-08-24). */
+  $("st-hint").innerHTML = "<strong>Croisé</strong> : rencontré au moins une fois, ce qui ne prouve rien. <strong>Su</strong> : tu as répondu « Su » plus souvent que « Pas su », y compris dès le premier passage ; un mot su redescend tout seul si les répétitions à long terme le prennent en défaut. <strong>Solide</strong> : retrouvé après trois semaines sans le revoir. C'est le dernier qui prouve que ça tient. <strong>À reprendre</strong> : croisé, mais les « Pas su » dominent encore."
     + (rc ? ` Ton rythme porte sur les ${rc.jours} derniers jours, jours sans session compris.` : "");
 }
 
@@ -1724,8 +1730,11 @@ function render() {
      tous les sens (écoute, pinyin, lecture, écriture, phrase complète). Ce
      repassage ne touche pas à la planification. */
   $("conso-btn").classList.toggle("hidden", !(fait && faibles.length));
-  if (faibles.length) $("conso-btn").textContent =
-    `Consolider mes ${faibles.length} mot${faibles.length > 1 ? "s" : ""} du jour`;
+  /* Le bouton annonce exactement la fournée : au plus 12 mots par session, le
+     reste attend la suivante. « 48 mots » pour 96 cartes, plus jamais. */
+  if (faibles.length) $("conso-btn").textContent = faibles.length > CONSO_MOTS_MAX
+    ? `Consolider mes mots du jour (${CONSO_MOTS_MAX} sur ${faibles.length})`
+    : `Consolider mes ${faibles.length} mot${faibles.length > 1 ? "s" : ""} du jour`;
   const programme = morceaux.length ? "Au programme : " + morceaux.join(", ") + "." : "";
   /* Quitter en cours de route n'efface rien : chaque réponse est écrite au
      moment où elle est donnée. Le dire explicitement, sinon la croix en haut à
@@ -3461,15 +3470,23 @@ function startCalibrage() {
    repassage ne touche JAMAIS à la planification (sessPractice) : réussir un mot
    quelques heures après l'avoir raté n'engage que la mémoire de travail. */
 const CONSO_MODES = ["ecoute", "pinyin", "lecture", "ecriture", "phrase"];
-const CONSO_MAX = 30;
+const CONSO_MAX = 30;       // plafond FERME de cartes par session
+const CONSO_MOTS_MAX = 12;  // mots par session : le reste attend la suivante
+/* Les mots servis par la session en cours : consommés de la liste du jour à la
+   FIN de la session seulement. Quitter en route ne consomme rien. */
+let consoMots = null;
 function startConsolidation() {
-  const cartes = shuffle(faiblesJour());
-  if (!cartes.length) return;
+  const tous = faiblesJour();
+  if (!tous.length) return;
+  /* Une session reste courte : 12 mots au plus, 30 cartes au plus. Avant, 48
+     mots donnaient 96 cartes sous un bouton qui annonçait 48 (bug relevé par
+     Daphnée le 2026-08-24). Les mots non servis restent dans la liste : le
+     bouton propose la fournée suivante dès la fin de celle-ci. */
+  const cartes = shuffle(tous).slice(0, CONSO_MOTS_MAX);
+  consoMots = cartes.map(c => c.hanzi);
   sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
   sessMode = "srs"; sessPractice = true; sessCalib = false;
   plan = []; planPos = 0;
-  /* Autant de sens que la place le permet : tous les mots passent, et chacun
-     reçoit le même nombre de formats, tirés au sort. */
   const parMot = Math.max(2, Math.min(CONSO_MODES.length, Math.floor(CONSO_MAX / cartes.length)));
   const items = [];
   cartes.forEach(c => {
@@ -3480,11 +3497,19 @@ function startConsolidation() {
     })).slice(0, parMot);
     modes.forEach(m => items.push({ card: c, track: m === "lecture" || m === "ecriture" ? "zi" : "son", mode: m }));
   });
-  runQueue(spread(shuffle(items)));
+  runQueue(spread(shuffle(items)).slice(0, CONSO_MAX));
   speak(" ");
   $("session").classList.remove("hidden");
   document.body.style.overflow = "hidden";
   nextCard();
+}
+/* Fin de consolidation : les mots servis sortent de la liste du jour. Appelée
+   par l'écran de fin (endSession, branche repassage). */
+function consommerConso() {
+  if (!consoMots || !state.faibles) { consoMots = null; return; }
+  state.faibles.mots = (state.faibles.mots || []).filter(h => !consoMots.includes(h));
+  consoMots = null;
+  save();
 }
 
 /* ---------- Révision par brique ----------
@@ -3557,6 +3582,7 @@ function quitSession() {
   plan = []; planPos = 0; sessCalib = false; sessPractice = false;
   mixOn = false; mix = []; mixPos = 0;
   drillExos = null; exoImpose = null;
+  consoMots = null; // quitter une consolidation en route ne consomme rien
   if (toneTimer) { clearTimeout(toneTimer); toneTimer = null; }
   if (window.speechSynthesis) speechSynthesis.cancel();
   stopRecog();
@@ -4215,6 +4241,10 @@ function skipCard() {
   stopRecog();
   const it = queue[qIndex];
   if (it && !sessSkipped.includes(it)) sessSkipped.push(it);
+  /* Un mot passé est un mot esquivé : il rejoint les mots du jour à consolider,
+     au même titre qu'un mot manqué (demande de Daphnée, 2026-08-24). Ni le
+     calibrage (jamais travaillé) ni les repassages libres ne comptent. */
+  if (it && !sessPractice && !sessCalib) noteFaibleJour(it.card.hanzi);
   qIndex++;
   nextCard();
 }
@@ -4471,11 +4501,18 @@ function endSession() {
   $("prog-bar").style.width = "100%";
   $("prog-txt").textContent = "";
   if (sessPractice) {
+    /* Une consolidation menée au bout consomme ses mots : le bouton de
+       l'accueil propose alors la fournée suivante. */
+    const etaitConso = !!consoMots;
+    consommerConso();
+    const restent = faiblesJour().length;
     $("card-zone").innerHTML = `<div class="qcard">
       <div class="q-hanzi hanzi">加油</div>
       <div class="q-pinyin">${renderPinyin("jiā yóu")}</div>
       <div class="q-fr">Repassage terminé sur ${sessTotal} carte(s).</div>
-      <p class="q-prompt">Ces mots reviendront d'eux-mêmes dans une prochaine session.</p>
+      ${etaitConso && restent
+        ? `<p class="q-prompt">Il reste ${restent} mot${restent > 1 ? "s" : ""} du jour à consolider : la fournée suivante t'attend sur l'accueil.</p>`
+        : `<p class="q-prompt">Ces mots reviendront d'eux-mêmes dans une prochaine session.</p>`}
       ${boutonFin()}
     </div>`;
     return;
