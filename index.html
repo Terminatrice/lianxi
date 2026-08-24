@@ -1539,20 +1539,22 @@ function seriesHTML() {
     eta = `<div class="pc-eta">Cap complet, ${OBJECTIF_CONV} mots sus :
       <span class="pc-eta-big">encore ${esc(dureeLongueTexte(p.jours))}</span>
       <span class="pc-eta-note">soit vers ${p.jours < 400 ? "le " : ""}${esc(dateDansTexte(p.jours))}, au rythme réel de ta
-        quinzaine (${rythme} mots/jour, jours sans session compris).${ligneJalon}
-        Ces dates valent pour le vocabulaire ; la conversation elle-même se
-        construit avec le mode Oral, tes cours et les dialogues avec Claude.</span></div>`;
+        quinzaine (${rythme} mots/jour, jours sans session compris).${ligneJalon}</span></div>`;
   }
+  /* Le contexte du cap (stock de l'app, étape des séries) se lit sur demande :
+     affiché en permanence, il se relisait à chaque visite (2026-08-24). */
   return `<div class="pc-niveau">
     <div class="pc-tete"><span class="pc-nom">Conversation pro</span><span class="pc-pct">cap long terme</span></div>
     ${barreHTML(pct)}
     <div class="pc-phrase">Tenir une conversation professionnelle simple demande environ
       ${OBJECTIF_CONV} mots et les structures des niveaux HSK 3 et 4. Tu en sais déjà
       <strong>${sus}</strong>, tous volets confondus.</div>
-    <div class="pc-note">L'app contient ${state.cards.length} mots (HSK 3 complet inclus) : le
-      catalogue grandit avec toi, il ne te limitera pas. L'étape d'après, les séries sans
-      sous-titres, demande environ ${OBJECTIF_SERIES} mots : tout ce que tu fais ici y mène déjà.</div>
     ${eta}
+    <details class="gram-plus"><summary>Explications</summary>
+      <div class="pc-note">L'app contient ${state.cards.length} mots (HSK 3 complet inclus) : le
+        catalogue grandit avec toi, il ne te limitera pas. L'étape d'après, les séries sans
+        sous-titres, demande environ ${OBJECTIF_SERIES} mots : tout ce que tu fais ici y mène déjà.</div>
+    </details>
   </div>`;
 }
 function renderParcours() {
@@ -1618,9 +1620,11 @@ function renderParcours() {
   const autres = grands.filter(t => state.cards.some(c => c.theme === t))
     .map(t => ligne(THEME_LABEL[t] || t, state.cards.filter(c => c.theme === t))).join("")
     + (restes.length ? ligne("Autres mots (couleurs, assemblés, divers)", restes) : "");
+  /* « En plus du programme » se consulte sur demande (2026-08-24) : c'est du
+     contexte, pas du pilotage, et il allongeait le parcours à chaque visite. */
   $("pc-niveaux").innerHTML = niveaux + (autres
-    ? `<div class="pc-niveau"><div class="pc-tete"><span class="pc-nom">En plus du programme</span></div>
-       <div class="pc-note">Ce que tu apprends à côté du manuel, pour ta veille et pour parler.</div>${autres}</div>`
+    ? `<details class="gram-plus"><summary>En plus du programme</summary>
+       <div class="pc-note" style="margin-top:0">Ce que tu apprends à côté du manuel, pour ta veille et pour parler.</div>${autres}</details>`
     : "") + seriesHTML();
 
   /* Un mot se connaît de deux façons indépendantes. Les intituler explicitement
