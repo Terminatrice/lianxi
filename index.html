@@ -778,6 +778,7 @@ const MATURE = 21, ANCRE = 90;     // paliers de rétention démontrée, en jour
    figé à zéro, progression bloquée sans que rien ne le signale). */
 const NEW_WORDS_PER_DAY = 6;       // mots jamais rencontrés introduits par jour
 const NEW_RESERVE = 6;             // places gardées aux nouveautés dans une session
+const NEW_DAY_CAP = 12;            // plafond du jour, ciblages de niveau cumulés
 /* Mise à jour : le premier passage sert de test de niveau. Réussi du premier
    coup, le mot est réputé déjà acquis et n'est revérifié qu'un mois plus tard.
    Raté, il entre dans l'échelle normale et revient dès le lendemain. */
@@ -1518,6 +1519,9 @@ function niveauDe(c) {
   return m ? m[1] : "autre";
 }
 function niveauMatch(c) { return curNiveau === "all" || niveauDe(c) === curNiveau; }
+/* Les mots que le ciblage d'un niveau propose réellement. Sert à la fois à la
+   puce et au bloc de parcours, pour que les deux ne puissent plus diverger. */
+function motsDuNiveau(cle) { return state.cards.filter(c => niveauDe(c) === cle); }
 function setNiveau(n) { curNiveau = n; render(); }
 function themeMatch(c) { return niveauMatch(c) && voletMatch(c) && (curTheme === "all" || (c.theme || "Général") === curTheme); }
 /* Pistes jamais testées, pour le passage de mise à jour. Elles ne passent pas
@@ -1550,6 +1554,13 @@ function noteDecouverte(card) {
   if (!state.decouvertes) state.decouvertes = {};
   const k = todayKey();
   state.decouvertes[k] = (state.decouvertes[k] || 0) + 1;
+  /* Second compteur, par niveau, qui sert de base au quota d'un ciblage
+     explicite. Le compteur global reste seul à alimenter le rythme affiché et
+     les projections : c'est lui qui mesure ce qu'elle découvre réellement. */
+  if (!state.decNiveau) state.decNiveau = {};
+  if (!state.decNiveau[k]) state.decNiveau[k] = {};
+  const n = niveauDe(card);
+  state.decNiveau[k][n] = (state.decNiveau[k][n] || 0) + 1;
 }
 /* Rythme CALENDAIRE : ce qui a été découvert sur les N derniers jours, jours
    creux compris. C'est le seul rythme affiché depuis le 2026-08-21, et le seul
@@ -1607,8 +1618,20 @@ function projection(restant, moy) {
   const j = Math.ceil(restant / moy);
   return { fini: false, jours: j, duree: dureeTexte(j), date: dateDansTexte(j) };
 }
+/* Quota de nouveautés. Sans ciblage, six mots par jour toutes origines
+   confondues. Avec un ciblage de niveau, ces six places se comptent sur le
+   NIVEAU VISÉ : jusqu'au 2026-08-25 le quota était global, si bien que viser le
+   HSK 2 après avoir découvert six mots ailleurs ne laissait aucune place et la
+   session ne contenait plus un seul mot, sans rien dire. Un plafond du jour
+   empêche d'enchaîner les niveaux pour multiplier les nouveautés et de recréer
+   la dette que ce quota existe pour éviter. */
+function decouvertesJour() { return (state.decouvertes || {})[todayKey()] || 0; }
+function decouvertesNiveau(n) { return (((state.decNiveau || {})[todayKey()]) || {})[n] || 0; }
 function newQuotaLeft() {
-  return Math.max(0, NEW_WORDS_PER_DAY - ((state.decouvertes || {})[todayKey()] || 0));
+  const total = decouvertesJour();
+  if (curNiveau === "all") return Math.max(0, NEW_WORDS_PER_DAY - total);
+  return Math.max(0, Math.min(NEW_WORDS_PER_DAY - decouvertesNiveau(curNiveau),
+                              NEW_DAY_CAP - total));
 }
 function duePartage() {
   const now = Date.now(), revus = [], neufs = [];
@@ -2001,11 +2024,25 @@ function renderParcours() {
     const trou = officiel.length - dansApp.length;
     const manque = trou
       ? `<div class="pc-note">${trou} mot${trou > 1 ? "s" : ""} du niveau ne ${trou > 1 ? "sont" : "est"} pas encore dans l'app.</div>` : "";
+    /* Le dénominateur ci-dessus est le référentiel officiel, celui de l'examen.
+       La puce de ciblage, elle, propose tous les mots que `niveauDe` rattache au
+       niveau, référentiel ou repli par thème. Les deux nombres diffèrent, et
+       les lire comme un seul rendait le tableau incompréhensible (retour de
+       Daphnée, 2026-08-25). On écrit donc l'écart au lieu de le taire. */
+    const cible = motsDuNiveau(n.cle);
+    const horsProgramme = cible.filter(c => !dansApp.includes(c.hanzi)).length;
+    const ailleurs = dansApp.filter(hz => niveauDe(parHanzi.get(hz)) !== n.cle).length;
+    const morceaux = [];
+    if (horsProgramme) morceaux.push(`${horsProgramme} rattaché${horsProgramme > 1 ? "s" : ""} à ce niveau hors programme officiel`);
+    if (ailleurs) morceaux.push(`${ailleurs} du référentiel rangé${ailleurs > 1 ? "s" : ""} à un autre niveau, ${ailleurs > 1 ? "ils figurent" : "il figure"} dans deux listes`);
+    const ciblage = morceaux.length
+      ? `<div class="pc-note">Le ciblage « ${esc(n.titre)} » te propose ${cible.length} mots : les ${dansApp.length - ailleurs} du référentiel présents ici, plus ${morceaux.join(", et ")}.</div>`
+      : "";
     return `<div class="pc-niveau">
       <div class="pc-tete"><span class="pc-nom">${esc(n.titre)}</span><span class="pc-pct">référentiel officiel</span></div>
       ${barreHTML(pct)}
       <div class="pc-phrase">${phrase}</div>
-      ${acquis}${gramLigne}${manque}
+      ${acquis}${gramLigne}${manque}${ciblage}
       ${echeanceHTML(dansApp.length - vus, gram.length - gVus)}
     </div>`;
   }).join("");
@@ -2102,7 +2139,7 @@ function render() {
   $("niveau-chips").innerHTML =
     `<button class="chip" aria-pressed="${curNiveau === "all"}" onclick="setNiveau('all')">Tous niveaux</button>` +
     HSK_PLAN.filter(n => state.cards.some(c => niveauDe(c) === n.cle))
-      .map(n => `<button class="chip" aria-pressed="${curNiveau === n.cle}" onclick="setNiveau(${jsattr(n.cle)})">${esc(n.titre)}</button>`).join("");
+      .map(n => `<button class="chip" aria-pressed="${curNiveau === n.cle}" onclick="setNiveau(${jsattr(n.cle)})">${esc(n.titre)} (${motsDuNiveau(n.cle).length})</button>`).join("");
 
   const NOTE_VOLET = {
     all: "Ta session mélange tout : mots, grammaire, briques, tons et phrases reprises en cours.",
@@ -2152,6 +2189,16 @@ function render() {
     ? `Consolider mes mots du jour (${CONSO_MOTS_MAX} sur ${faibles.length})`
     : `Consolider mes ${faibles.length} mot${faibles.length > 1 ? "s" : ""} du jour`;
   const programme = morceaux.length ? "Au programme : " + morceaux.join(", ") + "." : "";
+  /* Une session ciblée qui ne contient aucun mot alors qu'il en reste à
+     découvrir doit dire pourquoi. C'est ce silence, et non le quota lui-même,
+     qui donnait l'impression que le ciblage ne marchait pas. */
+  const resteAvoir = curNiveau !== "all" && !nSrs && !newQuotaLeft()
+    && motsDuNiveau(curNiveau).some(c => TRACKS.some(t => c[t] && !c[t].reviews));
+  const motQuota = resteAvoir
+    ? ` Aucun mot neuf du HSK ${curNiveau} aujourd'hui : ${decouvertesNiveau(curNiveau) >= NEW_WORDS_PER_DAY
+        ? `tu en as déjà découvert ${decouvertesNiveau(curNiveau)} à ce niveau`
+        : `le plafond de ${NEW_DAY_CAP} nouveautés du jour est atteint`}. Le panneau « mots jamais testés » ci-dessous n'est pas soumis à ce quota.`
+    : "";
   /* Quitter en cours de route n'efface rien : chaque réponse est écrite au
      moment où elle est donnée. Le dire explicitement, sinon la croix en haut à
      gauche ressemble à un bouton qui annule la session. */
@@ -2160,8 +2207,8 @@ function render() {
         ? "Bien joué. Si tu veux en faire plus, commence par consolider les mots qui ont coincé aujourd'hui."
         : "Bien joué, et rien n'a coincé aujourd'hui. Reviens demain.")
     : rep
-    ? `<strong>${rep.faites} carte${rep.faites > 1 ? "s" : ""} déjà faite${rep.faites > 1 ? "s" : ""} aujourd'hui, c'est enregistré.</strong><br>${programme}`
-    : programme;
+    ? `<strong>${rep.faites} carte${rep.faites > 1 ? "s" : ""} déjà faite${rep.faites > 1 ? "s" : ""} aujourd'hui, c'est enregistré.</strong><br>${programme}${esc(motQuota)}`
+    : programme + esc(motQuota);
   $("taille-chips").innerHTML = TAILLES.map(n =>
     `<button class="chip" aria-pressed="${mixMax() === n}" onclick="setTaille(${n})">${n} cartes</button>`).join("");
   $("no-due-hint").style.display = total === 0 && !fait ? "" : "none";
