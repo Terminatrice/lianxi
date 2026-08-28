@@ -67,9 +67,11 @@
     box-shadow: var(--shadow);
   }
 
-  nav.tabs { display: flex; gap: .3rem; margin-bottom: 1.1rem; }
+  nav.tabs { display: flex; gap: .25rem; margin-bottom: 1.1rem;
+             overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  nav.tabs::-webkit-scrollbar { display: none; }
   nav.tabs button {
-    flex: 1 1 auto; white-space: nowrap; padding: .6rem .4rem; font-size: .98rem; font-weight: 600;
+    flex: 1 1 auto; white-space: nowrap; padding: .72rem .3rem; font-size: .96rem; font-weight: 600;
     font-family: inherit; border: 1px solid var(--line); border-radius: .6rem;
     background: var(--card); color: var(--muted); cursor: pointer;
   }
@@ -505,6 +507,38 @@
   .tone-opts button.good { background: var(--good-soft); border-color: var(--good); color: var(--good); }
   .tone-opts button.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
 
+  /* ---- Prononciation : oreille, voix, écho ---- */
+  .paire-opts { display: grid; gap: .55rem; margin-top: 1rem; }
+  .paire-opts button {
+    display: flex; align-items: center; gap: .7rem; text-align: left;
+    padding: .75rem .9rem; min-height: 56px; font-family: inherit; cursor: pointer;
+    border: 1px solid var(--line); border-radius: .7rem; background: var(--card); color: inherit;
+  }
+  .paire-opts button:disabled { cursor: default; }
+  .paire-opts .p-zh { font-size: 1.9rem; line-height: 1; flex: 0 0 auto; }
+  .paire-opts .p-py { font-size: 1.15rem; font-weight: 700; }
+  .paire-opts .p-fr { font-size: .98rem; color: var(--muted); }
+  .paire-opts button.good { background: var(--good-soft); border-color: var(--good); }
+  .paire-opts button.bad { background: var(--bad-soft); border-color: var(--bad); }
+  .ecoute-note { font-size: 1.04rem; line-height: 1.5; text-align: left; margin: .8rem 0 0;
+                 padding: .6rem .7rem; border-left: 3px solid var(--accent);
+                 background: var(--paper); border-radius: .3rem; }
+  .cmp-sons { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; margin-top: .7rem; }
+  .voix-cible { text-align: center; margin: .4rem 0 .8rem; }
+  .voix-cible .v-zh { font-size: 3.4rem; line-height: 1.1; }
+  .voix-cible .v-py { font-size: 1.5rem; font-weight: 700; }
+  .voix-cible .v-fr { font-size: 1.04rem; color: var(--muted); }
+  .voix-canvas { width: 100%; height: 190px; display: block; margin: .6rem 0;
+                 border: 1px solid var(--line); border-radius: .6rem; background: var(--paper); }
+  .voix-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+  .voix-actions .btn { flex: 1 1 8rem; min-height: 48px; }
+  .niveau-mic { height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; margin: .5rem 0; }
+  .niveau-mic > div { height: 100%; width: 0%; background: var(--accent); transition: width .08s linear; }
+  .verdict-voix { font-size: 1.15rem; font-weight: 700; text-align: center; margin: .3rem 0; }
+  .verdict-voix.ok { color: var(--good); }
+  .verdict-voix.ko { color: var(--bad); }
+  .mesure { font-size: 1.02rem; color: var(--muted); text-align: center; }
+
   .hidden { display: none !important; }
 </style>
 </head>
@@ -524,6 +558,7 @@
     <button role="tab" id="tab-home" aria-selected="true" onclick="showTab('home')">Réviser</button>
     <button role="tab" id="tab-comp" aria-selected="false" onclick="showTab('comp')">Briques</button>
     <button role="tab" id="tab-gram" aria-selected="false" onclick="showTab('gram')">Grammaire</button>
+    <button role="tab" id="tab-voix" aria-selected="false" onclick="showTab('voix')">Voix</button>
     <button role="tab" id="tab-dico" aria-selected="false" onclick="showTab('dico')">Dico</button>
     <button role="tab" id="tab-words" aria-selected="false" onclick="showTab('words')">Mots</button>
   </nav>
@@ -647,6 +682,64 @@
     </div>
   </section>
 
+  <!-- ============ PRONONCIATION ============ -->
+  <!-- Trois entraînements distincts, parce que les erreurs de prononciation ne
+       sont pas d'une seule nature. Le diagnostic du cours du 2026-08-28 : 4e ton
+       aplati (6 fois), consonnes aspirées sans souffle (4), finales n/ng (2),
+       rétroflexes (2). L'oreille attaque la cause commune (on ne produit pas un
+       contraste qu'on n'entend pas), l'analyseur mesure objectivement les tons,
+       l'écho met le modèle et sa voix bout à bout. -->
+  <section id="view-voix" class="hidden">
+
+    <div class="panel">
+      <h2>Mon oreille</h2>
+      <p class="hint" id="oreille-etat"></p>
+      <button class="btn" onclick="startOreille()">M'entraîner à distinguer</button>
+      <p class="hint">L'app prononce un mot, tu choisis lequel tu as entendu. On ne produit
+        pas un son qu'on ne distingue pas encore : c'est par là qu'il faut commencer.</p>
+      <div class="chips" id="oreille-chips"></div>
+      <ul class="words" id="oreille-weak"></ul>
+    </div>
+
+    <div class="panel">
+      <h2>Ma voix</h2>
+      <div class="voix-cible" id="voix-cible"></div>
+      <div class="voix-actions">
+        <button class="btn secondary" onclick="voixModele()">🔊 Le modèle</button>
+        <button class="btn" id="voix-rec" onclick="voixEnregistrer()">🎤 M'écouter</button>
+      </div>
+      <div class="niveau-mic" id="voix-niveau" aria-hidden="true"><div></div></div>
+      <canvas class="voix-canvas" id="voix-canvas" width="640" height="380"
+              aria-label="Courbe de la hauteur de ta voix comparée au ton attendu"></canvas>
+      <div class="verdict-voix" id="voix-verdict"></div>
+      <p class="mesure" id="voix-mesure"></p>
+      <div class="voix-actions">
+        <button class="btn secondary" onclick="voixAutre()">Une autre syllabe</button>
+        <button class="btn secondary" onclick="voixCiblee()">Viser mes tons fragiles</button>
+      </div>
+      <p class="hint">Ceci mesure la hauteur de ta voix, rien d'autre. Fiable sur une syllabe
+        isolée dans un endroit calme, et muet sur le souffle des consonnes comme sur le n/ng.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Écho</h2>
+      <div class="voix-cible" id="echo-cible"></div>
+      <div class="voix-actions">
+        <button class="btn secondary" onclick="echoModele()">🔊 Le modèle</button>
+        <button class="btn" id="echo-rec" onclick="echoEnregistrer()">🎤 M'enregistrer</button>
+      </div>
+      <div class="niveau-mic" id="echo-niveau" aria-hidden="true"><div></div></div>
+      <div class="voix-actions">
+        <button class="btn" id="echo-cmp" onclick="echoComparer()" disabled>▶︎ Modèle, ma voix, modèle</button>
+        <button class="btn secondary" onclick="echoAutre()">Un autre mot</button>
+      </div>
+      <p class="hint" id="echo-etat">S'entendre juste après le modèle rend audible ce qu'on
+        n'entend pas en parlant. C'est toi qui juges ici, l'app ne fait que mettre les deux
+        versions bout à bout.</p>
+    </div>
+
+  </section>
+
   <!-- ============ DICTIONNAIRE ============ -->
   <section id="view-dico" class="hidden">
     <div class="panel">
@@ -718,7 +811,7 @@
     </div>
   </section>
 
-  <footer class="build">Liànxí · <span id="build-stamp">846 mots · 71 points de grammaire · 50 composants · 49 à peaufiner · 2026-08-28</span></footer>
+  <footer class="build">Liànxí · <span id="build-stamp">846 mots · 71 points de grammaire · 50 composants · 49 à peaufiner · 38 paires · 2026-08-28</span></footer>
 </div>
 
 <!-- ============ SESSION ============ -->
@@ -823,6 +916,7 @@ const EMBED_PY_EXTRA = {"丁":"dīng","丂":"kǎo","下":"xià","与":"yǔ","东
 /* ERREURS:BEGIN — généré par tools/update_vocab.py, ne pas éditer à la main */
 const EMBED_ERREURS = [{"id":"e-20260804-01","date":"2026-08-04","fiche":"shui-na","dit":"这是那个人？","dit_pinyin":"zhè shì nà ge rén","correct":"这是哪个人？","correct_pinyin":"zhè shì nǎ ge rén","fr":"C'est laquelle de ces personnes ?","nature":"那 (nà, celui-là) et 哪 (nǎ, lequel) s'écrivent presque pareil. Seul le ton les sépare à l'oral : 哪 est au 3ᵉ ton et pose une question."},{"id":"e-20260804-02","date":"2026-08-04","fiche":"kou-famille","dit":"大家有四个人。","dit_pinyin":"dàjiā yǒu sì ge rén","correct":"他家有四口人。","correct_pinyin":"tā jiā yǒu sì kǒu rén","fr":"Ils sont quatre dans sa famille.","nature":"Deux choses à ajuster : 他家 (sa famille) et non 大家 (tout le monde), et le classificateur des membres d'une famille est 口, pas 个."},{"id":"e-20260804-03","date":"2026-08-04","fiche":"le-changement","dit":"今年我三十八岁了。","dit_pinyin":"jīnnián wǒ sānshíbā suì le","correct":"今年我三十八岁。","correct_pinyin":"jīnnián wǒ sānshíbā suì","fr":"Cette année j'ai trente-huit ans.","nature":"了 marque un changement d'état. Avec 今年 qui donne déjà le cadre, il fait doublon et devient superflu."},{"id":"e-20260804-04","date":"2026-08-04","fiche":"kou-famille","dit":"你家有几个口？","dit_pinyin":"nǐ jiā yǒu jǐ ge kǒu","correct":"你家有几口人？","correct_pinyin":"nǐ jiā yǒu jǐ kǒu rén","fr":"Combien êtes-vous dans ta famille ?","nature":"口 est le classificateur, pas le nom. La formule est 几 + 口 + 人, jamais 几个口."},{"id":"e-20260804-05","date":"2026-08-04","fiche":"de-possessif","dit":"你的名字有一个字。","dit_pinyin":"nǐ de míngzi yǒu yí ge zì","correct":"你的名字是三个字。","correct_pinyin":"nǐ de míngzi shì sān ge zì","fr":"Ton nom fait trois caractères.","nature":"Pour dire de quoi une chose est faite, c'est 是 et non 有. 有 dirait qu'il possède un caractère."},{"id":"e-20260804-06","date":"2026-08-04","fiche":"date-expression","dit":"明天二零二六八月五号。","dit_pinyin":"míngtiān èr líng èr liù bā yuè wǔ hào","correct":"明天二零二六年八月五号。","correct_pinyin":"míngtiān èr líng èr liù nián bā yuè wǔ hào","fr":"Demain, le 5 août 2026.","nature":"年 est obligatoire après l'année. Les chiffres seuls ne suffisent pas, contrairement au français."},{"id":"e-20260804-07","date":"2026-08-04","fiche":"ma-shenme","dit":"你什么时候看书吗？","dit_pinyin":"nǐ shénme shíhòu kàn shū ma","correct":"你什么时候看书？","correct_pinyin":"nǐ shénme shíhòu kàn shū","fr":"Quand est-ce que tu lis ?","nature":"吗 transforme une affirmation en question. Quand la phrase contient déjà 什么时候, la question est posée : 吗 devient fautif. C'est le point qui revient le plus souvent chez toi."},{"id":"e-20260804-08","date":"2026-08-04","fiche":"moyens-transport","dit":"明天上午我上火车站。","dit_pinyin":"míngtiān shàngwǔ wǒ shàng huǒchēzhàn","correct":"明天上午我坐火车。","correct_pinyin":"míngtiān shàngwǔ wǒ zuò huǒchē","fr":"Demain matin je prends le train.","nature":"Prendre un moyen de transport se dit 坐 (s'asseoir dans). 上 monterait sur la gare elle-même."},{"id":"e-20260804-09","date":"2026-08-04","fiche":"verbes-serie","dit":"我不能做我们的中文课。","dit_pinyin":"wǒ bù néng zuò wǒmen de Zhōngwén kè","correct":"我不能上我们的中文课。","correct_pinyin":"wǒ bù néng shàng wǒmen de Zhōngwén kè","fr":"Je ne peux pas assister à notre cours de chinois.","nature":"Assister à un cours se dit 上课. 做 voudrait dire fabriquer le cours."},{"id":"e-20260804-10","date":"2026-08-04","fiche":"zhe-na-liangci","dit":"我想买一百椅子。","dit_pinyin":"wǒ xiǎng mǎi yìbǎi yǐzi","correct":"我想买一把椅子。","correct_pinyin":"wǒ xiǎng mǎi yì bǎ yǐzi","fr":"Je voudrais acheter une chaise.","nature":"把 est le classificateur des objets qu'on saisit par une poignée, dont les chaises. 百 veut dire cent : tu en commandais cent."},{"id":"e-20260804-11","date":"2026-08-04","fiche":"you-existence","dit":"桌下面有一把椅子。","dit_pinyin":"zhuō xiàmiàn yǒu yì bǎ yǐzi","correct":"桌子下面有一把椅子。","correct_pinyin":"zhuōzi xiàmiàn yǒu yì bǎ yǐzi","fr":"Il y a une chaise sous la table.","nature":"桌子 ne se coupe pas : le suffixe 子 fait partie du mot. 桌 seul ne s'emploie pas ainsi."},{"id":"e-20260804-12","date":"2026-08-04","fiche":"zai-verbe","dit":"我朋友在图书。","dit_pinyin":"wǒ péngyou zài túshū","correct":"我朋友在宿舍。","correct_pinyin":"wǒ péngyou zài sùshè","fr":"Mon amie est à la résidence.","nature":"图书 veut dire les livres. La bibliothèque est 图书馆, et la résidence étudiante 宿舍."},{"id":"e-20260804-13","date":"2026-08-04","fiche":"zai-preposition","dit":"我坐椅子下面。","dit_pinyin":"wǒ zuò yǐzi xiàmiàn","correct":"我坐在椅子上面。","correct_pinyin":"wǒ zuò zài yǐzi shàngmiàn","fr":"Je suis assise sur la chaise.","nature":"在 est obligatoire pour situer l'action, et tu étais sous la chaise plutôt que dessus."},{"id":"e-20260804-14","date":"2026-08-04","fiche":"ma-shenme","dit":"你想一起吃午饭。","dit_pinyin":"nǐ xiǎng yìqǐ chī wǔfàn","correct":"你想一起吃午饭吗？","correct_pinyin":"nǐ xiǎng yìqǐ chī wǔfàn ma","fr":"Tu veux qu'on déjeune ensemble ?","nature":"L'inverse du cas précédent : ici aucun mot interrogatif, donc 吗 est indispensable pour que ce soit une question."},{"id":"e-20260804-15","date":"2026-08-04","fiche":"qian-avant","dit":"你能三天前回家吗？","dit_pinyin":"nǐ néng sān tiān qián huí jiā ma","correct":"你能三点前回家吗？","correct_pinyin":"nǐ néng sān diǎn qián huí jiā ma","fr":"Tu peux rentrer avant trois heures ?","nature":"点 donne l'heure, 天 donne les jours. 三天前 voudrait dire il y a trois jours."},{"id":"e-20260804-16","date":"2026-08-04","fiche":"zenmeyang","dit":"美国的天气是什么？","dit_pinyin":"Měiguó de tiānqì shì shénme","correct":"美国的天气怎么样？","correct_pinyin":"Měiguó de tiānqì zěnmeyàng","fr":"Quel temps fait-il aux États-Unis ?","nature":"是什么 demande l'identité d'une chose. Pour demander un état ou une impression, c'est 怎么样."},{"id":"e-20260804-17","date":"2026-08-04","fiche":"temps-adverbial","dit":"北京天气明天下雨。","dit_pinyin":"Běijīng tiānqì míngtiān xià yǔ","correct":"明天北京下雨。","correct_pinyin":"míngtiān Běijīng xià yǔ","fr":"Demain il pleut à Pékin.","nature":"下雨 dit déjà qu'il s'agit du temps : 天气 fait doublon. Et le moment ouvre la phrase."},{"id":"e-20260804-18","date":"2026-08-04","fiche":"hui-futur","dit":"医生八点前会来家吗？","dit_pinyin":"yīshēng bā diǎn qián huì lái jiā ma","correct":"医生八点前会来我家吗？","correct_pinyin":"yīshēng bā diǎn qián huì lái wǒ jiā ma","fr":"Le médecin viendra chez moi avant huit heures ?","nature":"家 seul veut dire la maison en général. Pour dire chez moi, il faut 我家."},{"id":"e-20260804-19","date":"2026-08-04","fiche":"gei-ye","dit":"明天我给爸爸讲话。","dit_pinyin":"míngtiān wǒ gěi bàba jiǎnghuà","correct":"明天我给爸爸打电话。","correct_pinyin":"míngtiān wǒ gěi bàba dǎ diànhuà","fr":"Demain j'appelle mon père.","nature":"Téléphoner se dit 打电话, littéralement frapper le téléphone. 讲话 veut dire prendre la parole."},{"id":"e-20260804-20","date":"2026-08-04","fiche":"hou-apres","dit":"爸爸什么时候能回来家？","dit_pinyin":"bàba shénme shíhòu néng huílái jiā","correct":"爸爸什么时候能回家？","correct_pinyin":"bàba shénme shíhòu néng huí jiā","fr":"Quand est-ce que papa peut rentrer à la maison ?","nature":"回家 est un bloc. 回来 signifie revenir ici, et ne peut pas prendre 家 derrière lui."},{"id":"e-20260804-21","date":"2026-08-04","fiche":"le-deux-verbes","dit":"你们去了看书。","dit_pinyin":"nǐmen qù le kàn shū","correct":"你们去看书了。","correct_pinyin":"nǐmen qù kàn shū le","fr":"Vous êtes allés lire.","nature":"Avec deux verbes, 了 se colle au second, celui qui porte l'action. C'est exactement le point que le prof a expliqué en fin de séance."},{"id":"e-20260804-22","date":"2026-08-04","fiche":"shi-de","dit":"他是明天做饭的。","dit_pinyin":"tā shì míngtiān zuò fàn de","correct":"他是昨天做饭的。","correct_pinyin":"tā shì zuótiān zuò fàn de","fr":"C'est hier qu'il a cuisiné.","nature":"是…的 insiste sur les circonstances d'une action déjà faite. Un futur comme 明天 est incompatible avec cette structure."},{"id":"e-20260804-23","date":"2026-08-04","fiche":"shi-de","dit":"你们不是在饭店开车的。","dit_pinyin":"nǐmen bú shì zài fàndiàn kāichē de","correct":"你们不是开车来饭店的。","correct_pinyin":"nǐmen bú shì kāichē lái fàndiàn de","fr":"Ce n'est pas en voiture que vous êtes venus au restaurant.","nature":"Le moyen de transport se place avant le verbe de déplacement, et le lieu derrière : 开车 + 来 + 饭店."},{"id":"e-20260821-01","date":"2026-08-21","dit":"我今天早上八点起床，妈妈在做早饭。","dit_pinyin":"wǒ jīntiān zǎoshang bā diǎn qǐchuáng, māma zài zuò zǎofàn.","correct":"我今天早上八点起床的时候，妈妈在做早饭。","correct_pinyin":"wǒ jīntiān zǎoshang bā diǎn qǐchuáng de shíhou, māma zài zuò zǎofàn.","fr":"Quand je me suis levée à huit heures ce matin, maman préparait le petit déjeuner.","nature":"Avec deux sujets (moi, maman), le lien « au moment où » doit être dit : le bloc du moment se ferme par 的时候 avant l'autre action.","fiche":"de-shihou"},{"id":"e-20260821-02","date":"2026-08-21","dit":"晚上就做你最好吃鱼的。","dit_pinyin":"wǎnshang jiù zuò nǐ zuì hǎochī yú de.","correct":"晚上就做你爱吃的鱼吧。","correct_pinyin":"wǎnshang jiù zuò nǐ ài chī de yú ba.","fr":"Ce soir, je te fais le poisson que tu aimes.","nature":"Ce qui décrit le nom se place AVANT lui, avec 的 entre les deux : 爱吃的鱼, le poisson que tu aimes manger. Le 的 rejeté après 鱼 casse la construction.","fiche":"de-nominalisation"},{"id":"e-20260821-03","date":"2026-08-21","dit":"这两天有点儿累，不去打球。","dit_pinyin":"zhè liǎng tiān yǒudiǎnr lèi, bú qù dǎ qiú.","correct":"这两天有点儿累，不去打球了。","correct_pinyin":"zhè liǎng tiān yǒudiǎnr lèi, bú qù dǎ qiú le.","fr":"Je suis un peu fatiguée ces jours-ci, je ne vais pas aller jouer.","nature":"La décision nouvelle porte un 了 final : 不去打球了, « finalement je n'y vais pas ». Sans lui, la phrase constate au lieu de trancher.","fiche":"jiu-decision"},{"id":"e-20260822-01","date":"2026-08-22","dit":"今天不可以看电视，就我想看书。","dit_pinyin":"jīntiān bù kěyǐ kàn diànshì, jiù wǒ xiǎng kànshū.","correct":"今天我不看电视了，就看书吧。","correct_pinyin":"jīntiān wǒ bú kàn diànshì le, jiù kànshū ba.","fr":"Aujourd'hui je ne regarde pas la télé : bon, je vais lire.","nature":"就 se place directement devant le verbe de la décision, jamais en tête de proposition devant le sujet.","fiche":"jiu-decision"},{"id":"e-20260822-02","date":"2026-08-22","dit":"我的咖啡有点儿糖。","dit_pinyin":"wǒ de kāfēi yǒudiǎnr táng.","correct":"我的咖啡有点儿甜。","correct_pinyin":"wǒ de kāfēi yǒudiǎnr tián.","fr":"Mon café est un peu (trop) sucré.","nature":"有点儿 appelle un ADJECTIF (甜, sucré), pas un nom (糖, le sucre). Pour le nom : 咖啡里有一点儿糖.","fiche":"youdianr-nuance"},{"id":"e-20260822-03","date":"2026-08-22","dit":"他的汉语是最好的说。","dit_pinyin":"tā de Hànyǔ shì zuì hǎo de shuō.","correct":"他的汉语说得最好。","correct_pinyin":"tā de Hànyǔ shuō de zuì hǎo.","fr":"C'est lui qui parle le mieux chinois.","nature":"Le jugement sur une action passe par 得 après le verbe : 说得最好. L'appréciation ne se construit pas avec 是…的.","fiche":"de-appreciation"},{"id":"e-20260822-04","date":"2026-08-22","dit":"我喜欢吃米饭的最。","dit_pinyin":"wǒ xǐhuan chī mǐfàn de zuì.","correct":"我最喜欢吃米饭。","correct_pinyin":"wǒ zuì xǐhuan chī mǐfàn.","fr":"Ce que je préfère manger, c'est le riz.","nature":"最 se place DEVANT le verbe de sentiment (最喜欢), jamais en fin de phrase.","fiche":"zui-de"},{"id":"e-20260822-05","date":"2026-08-22","dit":"我问老师一下。","dit_pinyin":"wǒ wèn lǎoshī yíxià.","correct":"我问一下老师。","correct_pinyin":"wǒ wèn yíxià lǎoshī.","fr":"Je vais demander au professeur, vite fait.","nature":"一下 se colle au verbe, AVANT la personne : 问一下老师, jamais après l'objet.","fiche":"yixia"},{"id":"e-20260822-06","date":"2026-08-22","dit":"这是早上报纸吗？","dit_pinyin":"zhè shì zǎoshang bàozhǐ ma?","correct":"这是今天早上的报纸吗？","correct_pinyin":"zhè shì jīntiān zǎoshang de bàozhǐ ma?","fr":"C'est le journal de ce matin ?","nature":"Le moment qui détermine un nom s'y relie par 的 : 今天早上的报纸, le journal de ce matin.","fiche":"de-possessif"},{"id":"e-20260825-01","date":"2026-08-25","dit":"他的两个儿子很听好。","dit_pinyin":"tā de liǎng gè érzi hěn tīng hǎo.","correct":"他的两个儿子很听话。","correct_pinyin":"tā de liǎng gè érzi hěn tīnghuà.","fr":"Ses deux fils sont très obéissants.","nature":"Obéissant se dit 听话 (tīnghuà), littéralement écouter la parole. 听好 n'existe pas, et 挺好 (tǐng hǎo) veut dire plutôt bien.","fiche":""},{"id":"e-20260825-02","date":"2026-08-25","dit":"他看书。","dit_pinyin":"tā kàn shū.","correct":"他认真看书。","correct_pinyin":"tā rènzhēn kàn shū.","fr":"Il lit avec sérieux.","nature":"L'adverbe de manière se place devant le verbe, jamais après : 认真看书. Le mot 认真 avait été oublié.","fiche":"temps-adverbial"},{"id":"e-20260825-03","date":"2026-08-25","dit":"这个工作是他帮我监事的。","dit_pinyin":"zhè ge gōngzuò shì tā bāng wǒ jiānshì de.","correct":"这个工作是他帮我介绍的。","correct_pinyin":"zhè ge gōngzuò shì tā bāng wǒ jièshào de.","fr":"C'est lui qui m'a fait avoir ce travail.","nature":"介绍 se lit jièshào : la première syllabe attaque en jiè et la seconde est shào. Prononcé jiānshì, le mot devient méconnaissable.","fiche":"shi-de-agent"},{"id":"e-20260825-04","date":"2026-08-25","dit":"打电话是谁打的？","dit_pinyin":"dǎ diànhuà shì shéi dǎ de?","correct":"电话是谁打的？","correct_pinyin":"diànhuà shì shéi dǎ de?","fr":"Qui a passé ce coup de fil ?","nature":"Dans 是……的, le verbe ne paraît qu'une fois, après 是. Le sujet reste le nom seul, 电话, sans son verbe.","fiche":"shi-de-agent"},{"id":"e-20260825-05","date":"2026-08-25","dit":"那喝牛奶是我昨天喝的。","dit_pinyin":"nà hē niúnǎi shì wǒ zuótiān hē de.","correct":"那盒牛奶是我昨天喝的。","correct_pinyin":"nà hé niúnǎi shì wǒ zuótiān hē de.","fr":"Cette brique de lait, c'est moi qui l'ai bue hier.","nature":"盒 (hé) est le classificateur de la boîte et de la brique. Il ne se distingue de 喝 (hē, boire) que par le ton, d'où la confusion.","fiche":"zhe-na-liangci"},{"id":"e-20260825-06","date":"2026-08-25","dit":"杯子不是我坏的。","dit_pinyin":"bēizi bú shì wǒ huài de.","correct":"杯子不是我打碎的。","correct_pinyin":"bēizi bú shì wǒ dǎsuì de.","fr":"Ce n'est pas moi qui ai cassé la tasse.","nature":"坏 (huài) décrit un état, abîmé. Casser en morceaux est une action, 打碎 (dǎsuì), et 是……的 réclame un verbe d'action.","fiche":"shi-de-agent"},{"id":"e-20260825-07","date":"2026-08-25","dit":"我早上八点的时候已经睡觉。","dit_pinyin":"wǒ zǎoshang bā diǎn de shíhou yǐjīng shuìjiào.","correct":"我早上八点的时候还在睡觉。","correct_pinyin":"wǒ zǎoshang bā diǎn de shíhou hái zài shuìjiào.","fr":"À huit heures du matin, je dormais encore.","nature":"已经 marque ce qui est achevé, 还在 ce qui durait encore au moment dont on parle. Ici l'action se poursuivait.","fiche":"zai-progressif"},{"id":"e-20260825-08","date":"2026-08-25","dit":"他四岁的时候开始学。","dit_pinyin":"tā sì suì de shíhou kāishǐ xué.","correct":"他四岁的时候开始学弹钢琴。","correct_pinyin":"tā sì suì de shíhou kāishǐ xué tán gāngqín.","fr":"Il a commencé le piano à quatre ans.","nature":"Jouer d'un instrument à touches ou à cordes se dit 弹 (tán) : 弹钢琴. Sans ce verbe, la phrase reste en suspens.","fiche":"de-shihou"},{"id":"e-20260825-09","date":"2026-08-25","dit":"她十八岁的时候一起去北京。","dit_pinyin":"tā shíbā suì de shíhou yìqǐ qù Běijīng.","correct":"她十八岁的时候一个人去北京。","correct_pinyin":"tā shíbā suì de shíhou yí gè rén qù Běijīng.","fr":"À dix-huit ans, elle est partie seule à Pékin.","nature":"一起 (yìqǐ) veut dire ensemble, l'inverse du sens visé. Seul se dit 一个人 (yí gè rén), littéralement une personne.","fiche":"gen-yiqi"},{"id":"e-20260825-10","date":"2026-08-25","dit":"妈妈已经工作。","dit_pinyin":"māma yǐjīng gōngzuò.","correct":"妈妈已经下班了。","correct_pinyin":"māma yǐjīng xiàbān le.","fr":"Maman a déjà fini sa journée.","nature":"Finir le travail est un mot à part, 下班 (xiàbān). Avec 已经, la phrase se ferme toujours sur 了.","fiche":"yijing-le"},{"id":"e-20260825-11","date":"2026-08-25","dit":"上午有你一个打。","dit_pinyin":"shàngwǔ yǒu nǐ yí gè dǎ.","correct":"上午有你一个电话。","correct_pinyin":"shàngwǔ yǒu nǐ yí gè diànhuà.","fr":"Il y a eu un appel pour toi ce matin.","nature":"La phrase d'existence en 有 se termine par le nom compté : 一个电话. Le verbe 打 n'a pas de place à la fin.","fiche":"you-existence"},{"id":"e-20260825-12","date":"2026-08-25","dit":"你在这儿工作脱长时间了？","dit_pinyin":"nǐ zài zhèr gōngzuò tuō cháng shíjiān le?","correct":"你在这儿工作多长时间了？","correct_pinyin":"nǐ zài zhèr gōngzuò duō cháng shíjiān le?","fr":"Depuis combien de temps travailles-tu ici ?","nature":"多 se prononce duō, attaque en d-. La durée écoulée se demande avec 多长时间 et la phrase se ferme sur 了.","fiche":"duree-le"},{"id":"e-20260825-13","date":"2026-08-25","dit":"已经两个年了。","dit_pinyin":"yǐjīng liǎng gè nián le.","correct":"已经两年多了。","correct_pinyin":"yǐjīng liǎng nián duō le.","fr":"Cela fait déjà plus de deux ans.","nature":"年 est sa propre unité de mesure : jamais de 个 devant. Et 多 se place après l'unité pour dire et quelques : 两年多.","fiche":"duo-ji-approximation"},{"id":"e-20260825-14","date":"2026-08-25","dit":"我们是大学生。","dit_pinyin":"wǒmen shì dàxuéshēng.","correct":"我们是大学同学。","correct_pinyin":"wǒmen shì dàxué tóngxué.","fr":"Nous sommes camarades d'université.","nature":"大学生 (dàxuéshēng) désigne un étudiant, pas une relation. Le camarade de promotion est 大学同学 (dàxué tóngxué).","fiche":""},{"id":"e-20260825-15","date":"2026-08-25","dit":"早晚休息。","dit_pinyin":"zǎowǎn xiūxi.","correct":"早点休息。","correct_pinyin":"zǎodiǎn xiūxi.","fr":"Repose-toi tôt.","nature":"早点 (zǎodiǎn) veut dire plus tôt et sert à conseiller. 早晚 (zǎowǎn) veut dire tôt ou tard, ou matin et soir.","fiche":""},{"id":"e-20260825-16","date":"2026-08-25","dit":"明天的考试怎么样？","dit_pinyin":"míngtiān de kǎoshì zěnmeyàng?","correct":"昨天的考试怎么样？","correct_pinyin":"zuótiān de kǎoshì zěnmeyàng?","fr":"Comment s'est passé l'examen d'hier ?","nature":"明天 c'est demain, 昨天 c'est hier. On ne demande pas comment s'est passé un examen qui n'a pas eu lieu.","fiche":"zenmeyang"},{"id":"e-20260825-17","date":"2026-08-25","dit":"这两天有点儿累。","dit_pinyin":"zhè liǎng tiān yǒudiǎnr lèi.","correct":"这两天有点儿累，所以不想去打球了。","correct_pinyin":"zhè liǎng tiān yǒudiǎnr lèi, suǒyǐ bù xiǎng qù dǎqiú le.","fr":"Ces deux jours j'étais un peu fatiguée, donc je n'ai plus envie d'aller jouer au ballon.","nature":"La conséquence s'introduit par 所以 (suǒyǐ), donc. Sans elle, les deux moitiés de la phrase restent juxtaposées sans lien.","fiche":"youdianr-nuance"}];
 const EMBED_CHENGYU = [{"hanzi":"画蛇添足","pinyin":"huà shé tiān zú","litteral":"dessiner un serpent et lui ajouter des pattes","sens":"en faire trop et tout gâcher","caracteres":[["画","huà","dessiner"],["蛇","shé","le serpent"],["添","tiān","ajouter"],["足","zú","les pattes"]],"histoire":"Des serviteurs reçoivent une coupe de vin, mais elle est trop petite pour être partagée. Ils décident que le premier à dessiner un serpent la boira. L'un termine largement en tête et, pour faire admirer son avance, il rajoute des pattes à sa bête. Un autre finit son dessin, saisit la coupe et lui dit qu'un serpent n'a pas de pattes, donc que ce qu'il a dessiné n'est plus un serpent.","quand":"Se dit d'un ajout superflu qui abîme un travail déjà réussi. Très courant, à l'oral comme à l'écrit, y compris au bureau pour une présentation qu'on a trop chargée."},{"hanzi":"守株待兔","pinyin":"shǒu zhū dài tù","litteral":"monter la garde près de la souche en attendant le lièvre","sens":"compter sur un coup de chance au lieu de travailler","caracteres":[["守","shǒu","garder, surveiller"],["株","zhū","la souche d'arbre"],["待","dài","attendre"],["兔","tù","le lièvre"]],"histoire":"Un paysan laboure son champ quand un lièvre déboule à pleine vitesse, heurte une souche et se tue net. Le paysan ramasse l'animal et dîne comme un roi. Le lendemain, il abandonne sa charrue et s'assoit près de la souche pour attendre le prochain lièvre. Il attend si longtemps que son champ retourne en friche, et tout le pays se moque de lui.","quand":"Se dit de quelqu'un qui refait passivement ce qui a marché une fois par hasard, ou qui attend que la chance revienne. Courant à l'oral, souvent sur un ton moqueur."},{"hanzi":"亡羊补牢","pinyin":"wáng yáng bǔ láo","litteral":"réparer l'enclos après avoir perdu un mouton","sens":"il n'est jamais trop tard pour corriger le tir","caracteres":[["亡","wáng","perdre"],["羊","yáng","le mouton"],["补","bǔ","réparer"],["牢","láo","l'enclos"]],"histoire":"Un berger découvre un matin qu'il lui manque une bête : l'enclos est troué et le loup est passé. Les voisins lui conseillent de boucher le trou, il répond que le mouton est déjà perdu. La nuit suivante, il en perd un second. Il répare enfin l'enclos, et il ne perdra plus rien.","quand":"Formule d'encouragement après un échec : le mal est fait, mais colmater maintenant évite la suite. Très courant, souvent avec la seconde moitié du proverbe, 为时不晚 (wéi shí bù wǎn), il n'est pas trop tard."},{"hanzi":"刻舟求剑","pinyin":"kè zhōu qiú jiàn","litteral":"entailler la barque pour retrouver l'épée","sens":"raisonner sans tenir compte de ce qui a changé","caracteres":[["刻","kè","graver, entailler"],["舟","zhōu","la barque"],["求","qiú","chercher à obtenir"],["剑","jiàn","l'épée"]],"histoire":"Un homme traverse une rivière en barque et laisse tomber son épée par-dessus bord. Sans se presser, il fait une encoche sur le plat-bord, à l'endroit exact de la chute. Arrivé sur l'autre rive, il plonge sous l'encoche pour récupérer son arme. L'épée, elle, est restée au milieu de la rivière : c'est la barque qui a bougé.","quand":"Se dit d'une méthode ou d'une règle qu'on applique encore alors que la situation a changé. Plutôt écrit et un peu littéraire, fréquent dans la presse et les discours."},{"hanzi":"掩耳盗铃","pinyin":"yǎn ěr dào líng","litteral":"se boucher les oreilles pour voler la cloche","sens":"se mentir à soi-même en croyant tromper les autres","caracteres":[["掩","yǎn","couvrir"],["耳","ěr","l'oreille"],["盗","dào","voler"],["铃","líng","la clochette"]],"histoire":"Un voleur repère une grosse cloche de bronze, bien trop lourde pour être emportée. Il tente de la briser à coups de marteau : le vacarme résonne dans tout le quartier. Terrifié, il se plaque les mains sur les oreilles et, comme il n'entend plus rien, il reprend tranquillement ses coups. Les voisins accourent et l'attrapent.","quand":"Se dit d'un déni évident, d'un maquillage grossier que personne ne croit sauf celui qui le fait. Courant, y compris en politique et en entreprise."},{"hanzi":"井底之蛙","pinyin":"jǐng dǐ zhī wā","litteral":"la grenouille au fond du puits","sens":"quelqu'un dont l'horizon est minuscule","caracteres":[["井","jǐng","le puits"],["底","dǐ","le fond"],["之","zhī","particule de liaison, de"],["蛙","wā","la grenouille"]],"histoire":"Une grenouille vit au fond d'un puits et se vante auprès d'une tortue venue de la mer de l'Est : elle a l'eau à volonté, la boue tiède, et le ciel rien que pour elle. La tortue essaie de descendre, mais sa patte reste coincée dans la margelle. Elle décrit alors la mer, si vaste que ni les sécheresses ni les déluges n'y changent le niveau. La grenouille reste muette, incapable de se représenter une telle chose.","quand":"Se dit d'un esprit borné qui prend son petit monde pour le monde entier. Assez direct comme reproche, souvent employé au sujet de soi par modestie : 我是井底之蛙."},{"hanzi":"塞翁失马","pinyin":"sài wēng shī mǎ","litteral":"le vieil homme de la frontière perd son cheval","sens":"un malheur peut se retourner en chance, et l'inverse","caracteres":[["塞","sài","la place forte, la frontière"],["翁","wēng","le vieil homme"],["失","shī","perdre"],["马","mǎ","le cheval"]],"histoire":"Un vieil homme vivant près de la frontière perd son cheval, qui passe chez les nomades. Les voisins le plaignent, il répond que c'est peut-être une chance. Le cheval revient quelques mois plus tard accompagné d'un superbe étalon. On le félicite, il répond que c'est peut-être un malheur : son fils monte le nouveau cheval, tombe et se casse la jambe. L'année suivante, l'armée lève tous les jeunes hommes valides du village, presque aucun ne revient, et le fils boiteux est resté à la maison.","quand":"Se dit pour relativiser un coup dur, ou pour se méfier d'une bonne nouvelle. On l'entend surtout dans sa forme longue, 塞翁失马，焉知非福 (yān zhī fēi fú), qui sait si ce n'est pas un bienfait."},{"hanzi":"对牛弹琴","pinyin":"duì niú tán qín","litteral":"jouer de la cithare devant un boeuf","sens":"parler à quelqu'un qui ne peut pas comprendre","caracteres":[["对","duì","face à"],["牛","niú","le boeuf"],["弹","tán","jouer d'un instrument à cordes"],["琴","qín","la cithare"]],"histoire":"Un musicien réputé joue un morceau savant devant un boeuf, qui continue à brouter sans lever la tête. Il change alors de registre et imite le bourdonnement d'un moustique, puis le meuglement d'un veau perdu. Cette fois le boeuf dresse les oreilles, s'arrête et écoute. Le problème n'était pas l'animal, mais le morceau choisi.","quand":"Se dit d'une explication perdue pour son auditoire. Courant à l'oral, mais un peu vexant pour la personne visée, donc souvent employé sur soi : je parlais dans le vide."},{"hanzi":"自相矛盾","pinyin":"zì xiāng máo dùn","litteral":"sa lance contre son propre bouclier","sens":"se contredire soi-même","caracteres":[["自","zì","soi-même"],["相","xiāng","mutuellement"],["矛","máo","la lance"],["盾","dùn","le bouclier"]],"histoire":"Un marchand vend des lances et des boucliers sur la place. Son bouclier, dit-il, est si solide que rien ne le transperce. Sa lance, ajoute-t-il, est si acérée qu'elle transperce tout. Un passant lui demande ce qui arrive quand on lance sa lance sur son bouclier. Le marchand n'a rien à répondre et remballe.","quand":"Se dit d'un discours, d'un texte ou d'une règle qui se contredit. Très courant, y compris à l'écrit administratif. Le mot moderne pour contradiction, 矛盾 (máodùn), vient directement de cette histoire."},{"hanzi":"杯弓蛇影","pinyin":"bēi gōng shé yǐng","litteral":"l'arc dans la coupe, l'ombre du serpent","sens":"se rendre malade de peur pour une illusion","caracteres":[["杯","bēi","la coupe, le verre"],["弓","gōng","l'arc"],["蛇","shé","le serpent"],["影","yǐng","l'ombre, le reflet"]],"histoire":"Un homme boit chez un ami et voit un petit serpent onduler dans sa coupe. Par politesse il vide quand même le verre, rentre chez lui et tombe malade, persuadé d'avoir avalé la bête. Son hôte, inquiet, le fait revenir et le rassoit exactement à la même place. Un arc rouge est accroché au mur : c'est son reflet dans le vin qui ondulait. L'homme guérit sur-le-champ.","quand":"Se dit d'une angoisse nourrie par une fausse alerte, ou de quelqu'un devenu soupçonneux après une frayeur. Plutôt écrit et littéraire, mais reconnu de tous."},{"hanzi":"愚公移山","pinyin":"yú gōng yí shān","litteral":"le vieux Yugong déplace les montagnes","sens":"venir à bout de l'impossible par la persévérance","caracteres":[["愚","yú","sot"],["公","gōng","le vieil homme, le patriarche"],["移","yí","déplacer"],["山","shān","la montagne"]],"histoire":"Deux montagnes barrent la sortie du village du vieux Yugong, qui a près de quatre-vingt-dix ans. Il réunit sa famille et entreprend de les déblayer, panier par panier, jusqu'à la mer, un aller-retour par saison. Un voisin se moque de lui : il mourra bien avant d'avoir entamé la pente. Yugong répond qu'après lui il y aura ses fils, puis ses petits-fils, sans fin, alors que la montagne, elle, ne grandira pas. Le Ciel, ému, envoie deux esprits emporter les montagnes.","quand":"Éloge de la ténacité sur le très long terme. Registre plutôt soutenu et volontiers politique : Mao en a fait un texte célèbre, ce qui a beaucoup ancré l'expression."},{"hanzi":"画龙点睛","pinyin":"huà lóng diǎn jīng","litteral":"peindre le dragon et lui poser la pupille","sens":"la touche finale qui donne vie à l'ensemble","caracteres":[["画","huà","peindre"],["龙","lóng","le dragon"],["点","diǎn","poser un point"],["睛","jīng","la pupille"]],"histoire":"Un peintre célèbre couvre le mur d'un temple de quatre dragons, tous sans yeux. Interrogé, il répond que s'il peint les yeux, les dragons s'envoleront. On le prend pour un vantard et on insiste. Il pose la pupille de deux d'entre eux : le tonnerre éclate, le mur se fend et les deux dragons partent dans le ciel. Les deux autres, aveugles, sont restés sur la paroi.","quand":"Compliment courant pour le détail final qui fait décoller un texte, un discours ou un design. S'emploie aussi à l'oral, avec une nuance très positive."},{"hanzi":"一举两得","pinyin":"yì jǔ liǎng dé","litteral":"d'un seul geste, deux gains","sens":"faire d'une pierre deux coups","caracteres":[["一","yì","un, un seul"],["举","jǔ","le geste, l'action"],["两","liǎng","deux"],["得","dé","obtenir"]],"histoire":"L'expression est rattachée à l'histoire de Bian Zhuangzi, qui veut tuer deux tigres occupés à dévorer un boeuf. On le retient : les tigres vont se battre pour la viande, le plus faible mourra, le plus fort sortira blessé, et il n'aura plus qu'un coup à donner pour deux bêtes. C'est ce qui arrive. La formule elle-même est surtout descriptive et se lit dans plusieurs textes anciens sans qu'une seule scène d'origine fasse autorité.","quand":"Extrêmement courant, à l'oral comme à l'écrit, dès qu'une décision règle deux choses en même temps. Registre neutre, sans aucune connotation littéraire."},{"hanzi":"熟能生巧","pinyin":"shú néng shēng qiǎo","litteral":"la familiarité engendre l'habileté","sens":"c'est en pratiquant qu'on devient bon","caracteres":[["熟","shú","familier, rodé"],["能","néng","pouvoir"],["生","shēng","engendrer"],["巧","qiǎo","l'adresse, l'habileté"]],"histoire":"La formule est descriptive et n'a pas de légende propre, mais on la raconte avec l'histoire du vieux vendeur d'huile de Ouyang Xiu. Un archer virtuose s'attend à des applaudissements, le vieil homme se contente de hocher la tête. Pour se justifier, il pose une gourde au sol, couvre le goulot d'une pièce trouée et y verse son huile en un filet parfait, sans mouiller le cuivre. Puis il conclut : rien de magique, seulement la main faite au geste.","quand":"Encouragement très courant à quelqu'un qui débute, exactement comme le français c'est en forgeant qu'on devient forgeron. Registre parlé, chaleureux."},{"hanzi":"入乡随俗","pinyin":"rù xiāng suí sú","litteral":"entrer au village, suivre ses usages","sens":"faire comme les gens du lieu","caracteres":[["入","rù","entrer"],["乡","xiāng","le village, le pays natal"],["随","suí","suivre"],["俗","sú","la coutume"]],"histoire":"Pas de scène d'origine à raconter ici : la formule est un précepte, pas une fable. Elle circule dans les recueils bouddhiques et les textes de sagesse depuis les Song, et sa force tient à sa symétrie, deux verbes de mouvement suivis de deux noms. C'est l'équivalent exact du proverbe à Rome, fais comme les Romains.","quand":"Très courant en voyage, à table, en séjour à l'étranger, souvent dit en riant avant de goûter un plat inconnu. Registre parlé, neutre et sympathique."},{"hanzi":"马马虎虎","pinyin":"mǎ mǎ hū hū","litteral":"cheval cheval tigre tigre","sens":"bof, comme ci comme ça, fait à la va-vite","caracteres":[["马","mǎ","le cheval"],["马","mǎ","redoublement du même caractère"],["虎","hū","le tigre, prononcé sans ton ici"],["虎","hū","redoublement du même caractère"]],"histoire":"Une histoire populaire circule pour l'expliquer : un peintre négligent aurait commencé une tête de tigre puis fini l'animal en cheval, et sa réponse à qui l'interrogeait aurait coûté la vie à ses fils, l'un tuant un cheval qu'il prenait pour un tigre, l'autre fuyant un tigre qu'il prenait pour un cheval. Cette légende est tardive et sert surtout de moyen mnémotechnique, elle n'est pas l'origine attestée. Le sens vient plus probablement du redoublement expressif de deux grosses bêtes qu'on confond de loin.","quand":"Un des mots les plus utilisés du chinois parlé. Sert de réponse modeste à comment ça va ou tu parles bien chinois, et qualifie aussi un travail bâclé. Jamais à l'écrit formel."}];
+const EMBED_PAIRES = [{"id":"ton-ban","contraste":"ton","mots":[{"hanzi":"搬","pinyin":"bān","fr":"déménager, déplacer"},{"hanzi":"半","pinyin":"bàn","fr":"demi"},{"hanzi":"帮","pinyin":"bāng","fr":"aider"}]},{"id":"ton-bao","contraste":"ton","mots":[{"hanzi":"包","pinyin":"bāo","fr":"sac"},{"hanzi":"饱","pinyin":"bǎo","fr":"rassasié"},{"hanzi":"跑","pinyin":"pǎo","fr":"courir"}]},{"id":"ton-bei","contraste":"ton","mots":[{"hanzi":"杯","pinyin":"bēi","fr":"tasse, verre (classificateur)"},{"hanzi":"北","pinyin":"běi","fr":"nord (point cardinal)"},{"hanzi":"被","pinyin":"bèi","fr":"particule du passif"}]},{"id":"ton-cai","contraste":"ton","mots":[{"hanzi":"才","pinyin":"cái","fr":"seulement alors, pas avant"},{"hanzi":"菜","pinyin":"cài","fr":"plat, cuisine, légume"},{"hanzi":"在","pinyin":"zài","fr":"se trouver à ; en train de"}]},{"id":"ton-da","contraste":"ton","mots":[{"hanzi":"打","pinyin":"dǎ","fr":"jouer (à la main)"},{"hanzi":"大","pinyin":"dà","fr":"grand"},{"hanzi":"他","pinyin":"tā","fr":"il, lui"}]},{"id":"ton-deng","contraste":"ton","mots":[{"hanzi":"灯","pinyin":"dēng","fr":"lampe, lumière"},{"hanzi":"等","pinyin":"děng","fr":"attendre"},{"hanzi":"疼","pinyin":"téng","fr":"avoir mal"}]},{"id":"ton-dian","contraste":"ton","mots":[{"hanzi":"点","pinyin":"diǎn","fr":"heure"},{"hanzi":"店","pinyin":"diàn","fr":"boutique, commerce"},{"hanzi":"甜","pinyin":"tián","fr":"sucré"}]},{"id":"ton-ji","contraste":"ton","mots":[{"hanzi":"极","pinyin":"jí","fr":"extrêmement (après l'adjectif)"},{"hanzi":"几","pinyin":"jǐ","fr":"combien (moins de dix)"},{"hanzi":"七","pinyin":"qī","fr":"sept"}]},{"id":"ton-jiao","contraste":"ton","mots":[{"hanzi":"教","pinyin":"jiāo","fr":"enseigner"},{"hanzi":"脚","pinyin":"jiǎo","fr":"pied"},{"hanzi":"叫","pinyin":"jiào","fr":"s'appeler"}]},{"id":"ton-jiu","contraste":"ton","mots":[{"hanzi":"九","pinyin":"jiǔ","fr":"neuf"},{"hanzi":"就","pinyin":"jiù","fr":"alors, tout de suite (souligne que c'est immédiat ou plus tôt que prévu ; pas d'équivalent en français)"},{"hanzi":"秋","pinyin":"qiū","fr":"automne"}]},{"id":"ton-ke","contraste":"ton","mots":[{"hanzi":"渴","pinyin":"kě","fr":"avoir soif"},{"hanzi":"课","pinyin":"kè","fr":"cours, leçon"},{"hanzi":"个","pinyin":"gè","fr":"classificateur passe-partout"}]},{"id":"ton-liang","contraste":"ton","mots":[{"hanzi":"两","pinyin":"liǎng","fr":"deux (devant un classificateur, pour compter des objets)"},{"hanzi":"辆","pinyin":"liàng","fr":"classificateur des véhicules"},{"hanzi":"脸","pinyin":"liǎn","fr":"visage"}]},{"id":"ton-na","contraste":"ton","mots":[{"hanzi":"拿","pinyin":"ná","fr":"prendre, tenir (en main)"},{"hanzi":"哪","pinyin":"nǎ","fr":"lequel, quel"},{"hanzi":"那","pinyin":"nà","fr":"cela, ce… là"}]},{"id":"ton-qi","contraste":"ton","mots":[{"hanzi":"七","pinyin":"qī","fr":"sept"},{"hanzi":"骑","pinyin":"qí","fr":"monter (vélo, cheval)"},{"hanzi":"几","pinyin":"jǐ","fr":"combien (moins de dix)"}]},{"id":"ton-qian","contraste":"ton","mots":[{"hanzi":"千","pinyin":"qiān","fr":"mille"},{"hanzi":"钱","pinyin":"qián","fr":"argent"},{"hanzi":"件","pinyin":"jiàn","fr":"(classificateur pour les vêtements, les affaires, les choses à régler)"}]},{"id":"ton-shi","contraste":"ton","mots":[{"hanzi":"十","pinyin":"shí","fr":"dix"},{"hanzi":"使","pinyin":"shǐ","fr":"faire que, rendre"},{"hanzi":"是","pinyin":"shì","fr":"être"}]},{"id":"ton-shui","contraste":"ton","mots":[{"hanzi":"谁","pinyin":"shuí","fr":"qui"},{"hanzi":"水","pinyin":"shuǐ","fr":"eau"},{"hanzi":"岁","pinyin":"suì","fr":"an(s) (âge)"}]},{"id":"ton-ti","contraste":"ton","mots":[{"hanzi":"踢","pinyin":"tī","fr":"donner un coup de pied, jouer (au football)"},{"hanzi":"题","pinyin":"tí","fr":"question, exercice (d'un devoir, d'un examen)"},{"hanzi":"低","pinyin":"dī","fr":"bas"}]},{"id":"ton-tian","contraste":"ton","mots":[{"hanzi":"天","pinyin":"tiān","fr":"jour (aussi : ciel)"},{"hanzi":"甜","pinyin":"tián","fr":"sucré"},{"hanzi":"点","pinyin":"diǎn","fr":"heure"}]},{"id":"ton-wan","contraste":"ton","mots":[{"hanzi":"完","pinyin":"wán","fr":"finir, terminer (fin d'une action)"},{"hanzi":"碗","pinyin":"wǎn","fr":"bol"},{"hanzi":"万","pinyin":"wàn","fr":"dix mille"}]},{"id":"ton-wang","contraste":"ton","mots":[{"hanzi":"王","pinyin":"Wáng","fr":"Wang"},{"hanzi":"往","pinyin":"wǎng","fr":"vers, en direction de"},{"hanzi":"完","pinyin":"wán","fr":"finir, terminer (fin d'une action)"}]},{"id":"ton-xiang","contraste":"ton","mots":[{"hanzi":"想","pinyin":"xiǎng","fr":"avoir envie de, penser"},{"hanzi":"像","pinyin":"xiàng","fr":"ressembler à"},{"hanzi":"先","pinyin":"xiān","fr":"d'abord"}]},{"id":"ton-xie","contraste":"ton","mots":[{"hanzi":"些","pinyin":"xiē","fr":"quelques, un peu de"},{"hanzi":"鞋","pinyin":"xié","fr":"chaussure"},{"hanzi":"写","pinyin":"xiě","fr":"écrire"}]},{"id":"ton-xin","contraste":"ton","mots":[{"hanzi":"新","pinyin":"xīn","fr":"nouveau, neuf"},{"hanzi":"信","pinyin":"xìn","fr":"lettre ; croire"},{"hanzi":"姓","pinyin":"xìng","fr":"s'appeler (de son nom de famille), nom de famille"}]},{"id":"aspiration-次-字","contraste":"aspiration","mots":[{"hanzi":"次","pinyin":"cì","fr":"fois (classificateur des occurrences)"},{"hanzi":"字","pinyin":"zì","fr":"caractère"},{"hanzi":"吃","pinyin":"chī","fr":"manger"}]},{"id":"aspiration-草-早","contraste":"aspiration","mots":[{"hanzi":"草","pinyin":"cǎo","fr":"herbe"},{"hanzi":"早","pinyin":"zǎo","fr":"tôt"},{"hanzi":"找","pinyin":"zhǎo","fr":"chercher, rendre la monnaie"}]},{"id":"aspiration-菜-在","contraste":"aspiration","mots":[{"hanzi":"菜","pinyin":"cài","fr":"plat, cuisine, légume"},{"hanzi":"在","pinyin":"zài","fr":"se trouver à ; en train de"},{"hanzi":"才","pinyin":"cái","fr":"seulement alors, pas avant"}]},{"id":"aspiration-课-个","contraste":"aspiration","mots":[{"hanzi":"课","pinyin":"kè","fr":"cours, leçon"},{"hanzi":"个","pinyin":"gè","fr":"classificateur passe-partout"},{"hanzi":"渴","pinyin":"kě","fr":"avoir soif"}]},{"id":"aspiration-跑-饱","contraste":"aspiration","mots":[{"hanzi":"跑","pinyin":"pǎo","fr":"courir"},{"hanzi":"饱","pinyin":"bǎo","fr":"rassasié"},{"hanzi":"包","pinyin":"bāo","fr":"sac"}]},{"id":"aspiration-踢-低","contraste":"aspiration","mots":[{"hanzi":"踢","pinyin":"tī","fr":"donner un coup de pied, jouer (au football)"},{"hanzi":"低","pinyin":"dī","fr":"bas"},{"hanzi":"题","pinyin":"tí","fr":"question, exercice (d'un devoir, d'un examen)"}]},{"id":"aspiration-骑-极","contraste":"aspiration","mots":[{"hanzi":"骑","pinyin":"qí","fr":"monter (vélo, cheval)"},{"hanzi":"极","pinyin":"jí","fr":"extrêmement (après l'adjectif)"},{"hanzi":"七","pinyin":"qī","fr":"sept"}]},{"id":"nasale-信-姓","contraste":"nasale","mots":[{"hanzi":"信","pinyin":"xìn","fr":"lettre ; croire"},{"hanzi":"姓","pinyin":"xìng","fr":"s'appeler (de son nom de famille), nom de famille"},{"hanzi":"新","pinyin":"xīn","fr":"nouveau, neuf"}]},{"id":"nasale-完-王","contraste":"nasale","mots":[{"hanzi":"完","pinyin":"wán","fr":"finir, terminer (fin d'une action)"},{"hanzi":"王","pinyin":"Wáng","fr":"Wang"},{"hanzi":"碗","pinyin":"wǎn","fr":"bol"}]},{"id":"nasale-搬-帮","contraste":"nasale","mots":[{"hanzi":"搬","pinyin":"bān","fr":"déménager, déplacer"},{"hanzi":"帮","pinyin":"bāng","fr":"aider"},{"hanzi":"半","pinyin":"bàn","fr":"demi"}]},{"id":"nasale-碗-往","contraste":"nasale","mots":[{"hanzi":"碗","pinyin":"wǎn","fr":"bol"},{"hanzi":"往","pinyin":"wǎng","fr":"vers, en direction de"},{"hanzi":"完","pinyin":"wán","fr":"finir, terminer (fin d'une action)"}]},{"id":"nasale-脸-两","contraste":"nasale","mots":[{"hanzi":"脸","pinyin":"liǎn","fr":"visage"},{"hanzi":"两","pinyin":"liǎng","fr":"deux (devant un classificateur, pour compter des objets)"},{"hanzi":"辆","pinyin":"liàng","fr":"classificateur des véhicules"}]},{"id":"retroflexe-找-早","contraste":"retroflexe","mots":[{"hanzi":"找","pinyin":"zhǎo","fr":"chercher, rendre la monnaie"},{"hanzi":"早","pinyin":"zǎo","fr":"tôt"},{"hanzi":"草","pinyin":"cǎo","fr":"herbe"}]},{"id":"retroflexe-是-四","contraste":"retroflexe","mots":[{"hanzi":"是","pinyin":"shì","fr":"être"},{"hanzi":"四","pinyin":"sì","fr":"quatre"},{"hanzi":"十","pinyin":"shí","fr":"dix"}]}];
 const EMBED_HSK = {"1":["爱","八","爸爸","杯子","北京","本","不客气","不","菜","茶","吃","出租车","打电话","大","的","点","电脑","电视","电影","东西","都","读","对不起","多","多少","儿子","二","饭店","飞机","分钟","高兴","个","工作","狗","汉语","好","号","喝","和","很","后面","回","会","几","家","叫","今天","九","开","看","看见","块","来","老师","了","冷","里","六","妈妈","吗","买","猫","没关系","没有","米饭","明天","名字","哪","哪儿","那","呢","能","你","年","女儿","朋友","漂亮","苹果","七","钱","前面","请","去","热","人","认识","三","商店","上","上午","少","谁","什么","十","时候","是","书","水","水果","睡觉","说","四","岁","他","她","太","天气","听","同学","喂","我","我们","五","喜欢","下","下午","下雨","先生","现在","想","小","小姐","些","写","谢谢","星期","学生","学习","学校","一","衣服","医生","医院","椅子","一点儿","有","月","在","再见","怎么","怎么样","这","中国","中午","住","桌子","字","昨天","做","坐"],"2":["吧","白","百","帮助","报纸","比","别","宾馆","长","唱歌","出","穿","次","从","错","打篮球","大家","到","得","等","弟弟","第一","懂","对","房间","非常","服务员","高","告诉","哥哥","给","公共汽车","公司","贵","过","还","孩子","好吃","黑","红","火车站","机场","鸡蛋","件","教室","姐姐","介绍","进","近","就","觉得","咖啡","开始","考试","可能","可以","课","快","快乐","累","离","两","零","路","旅游","卖","慢","忙","每","妹妹","门","面条","男","您","牛奶","女","旁边","跑步","便宜","票","妻子","起床","千","铅笔","晴","去年","让","日","上班","身体","生病","生日","时间","事情","手表","手机","说话","送","虽然","但是","它","踢足球","题","跳舞","外","完","玩","晚上","往","为什么","问","问题","西瓜","希望","洗","小时","笑","新","姓","休息","雪","颜色","眼睛","羊肉","药","要","也","一起","一下","已经","意思","因为","所以","阴","游泳","右边","鱼","远","运动","再","早上","丈夫","找","着","真","正在","知道","准备","走","最","左边"],"3":["阿姨","啊","矮","爱好","安静","把","搬","班","半","办法","办公室","帮忙","包","饱","北方","被","鼻子","比较","比赛","必须","变化","表示","表演","别人","宾馆","冰箱","才","菜单","参加","草","层","差","超市","衬衫","成绩","城市","迟到","出现","除了","厨房","春","词语","聪明","打扫","打算","带","担心","蛋糕","当然","地","灯","低","地方","地铁","地图","电梯","电子","冬","东","动物","短","段","锻炼","多么","饿","而且","耳朵","发烧","发现","方便","放","放心","分","附近","复习","干净","敢","感冒","刚才","根据","跟","更","公园","故事","刮","关","关系","关心","关于","国家","果汁","过去","还是","害怕","河","黑板","护照","花","花园","画","坏","环境","换","黄","会议","或者","机会","几乎","极","记得","季节","检查","简单","见面","健康","讲","教","脚","角","接","街道","节目","节日","结婚","结束","解决","借","经常","经过","经理","久","旧","举行","句子","决定","渴","可爱","刻","客人","空调","口","哭","裤子","筷子","蓝","老","离开","礼物","历史","脸","练习","辆","了解","邻居","楼","绿","马","马上","满意","帽子","米","面包","面条","明白","拿","奶奶","南","难","难过","年级","年轻","鸟","努力","爬山","盘子","胖","啤酒","葡萄","普通话","骑","其实","其他","奇怪","铅笔","清楚","秋","裙子","然后","热情","认为","认真","容易","如果","伞","上网","生气","声音","使","世界","瘦","舒服","叔叔","树","数学","刷","双","水平","司机","虽然","太阳","糖","特别","疼","提高","体育","甜","条","同事","同意","头发","突然","图书馆","腿","完成","碗","万","忘记","为了","为什么","位","文化","西","习惯","洗手间","洗澡","夏","先","香蕉","相同","相信","像","小心","校长","鞋","新闻","新鲜","信","行李箱","兴趣","熊猫","需要","选择","眼镜","要求","爷爷","一定","一共","一会儿","一样","以后","以前","以为","一般","一边","一直","音乐","银行","应该","影响","用","游戏","有名","又","遇到","愿意","越","月亮","云","站","着急","照顾","照片","照相机","只","终于","中间","种","重要","周末","主要","祝","注意","字典","自己","总是","最近","作业","作用"]};
 /* ERREURS:END */
 
@@ -1458,11 +1552,12 @@ function speak(text, rate) {
 let curTab = "home";
 function showTab(t) {
   curTab = t;
-  ["home", "comp", "gram", "dico", "words"].forEach(k => {
+  ["home", "comp", "gram", "voix", "dico", "words"].forEach(k => {
     $("view-" + k).classList.toggle("hidden", t !== k);
     $("tab-" + k).setAttribute("aria-selected", t === k);
   });
   if (t === "dico") { renderDico(); renderChengyu(); }
+  else if (t === "voix") renderVoix();
   else if (t === "gram") renderGram();
   else if (t === "comp") renderComp();
   else render();
@@ -3738,6 +3833,7 @@ const MIX_PARTS = [
   { kind: "gram", max: 6 },
   { kind: "comp", max: 3 },
   { kind: "ton",  max: 3 },
+  { kind: "oreille", max: 2 },
 ];
 /* Les formats s'alternent : deux cartes du même type peuvent se suivre, jamais
    trois. Un bloc de six points de grammaire d'affilée, c'est la session par
@@ -3762,6 +3858,7 @@ function sessionMixte() {
     const due = x.kind === "err" ? errDue()
       : x.kind === "gram" ? gramSelection()
       : x.kind === "comp" ? compDue()
+      : x.kind === "oreille" ? pairesDue()
       : tonsDue();
     due.slice(0, Math.max(1, Math.round(x.max * echelle))).forEach(v => parts.push({ kind: x.kind, v: v }));
   });
@@ -3818,6 +3915,8 @@ function lancerMix() {
     sessMode = "comp"; compQueue = [e.v]; cIndex = 0; compTotal = 1; nextComp();
   } else if (e.kind === "err") {
     sessMode = "err"; errQueue = [e.v]; eIndex = 0; errTotal = 1; nextErr();
+  } else if (e.kind === "oreille") {
+    sessMode = "oreille"; oreilleQueue = [e.v]; oIndex = 0; nextOreille();
   } else {
     sessMode = "tones"; toneQueue = [e.v]; toneIndex = 0; nextTone();
   }
@@ -4696,6 +4795,7 @@ function skipCard() {
   if (sessMode === "gram") { gIndex++; nextGram(); return; }
   if (sessMode === "comp") { cIndex++; nextComp(); return; }
   if (sessMode === "err") { eIndex++; nextErr(); return; }
+  if (sessMode === "oreille") { oIndex++; nextOreille(); return; }
   stopRecog();
   const it = queue[qIndex];
   if (it && !sessSkipped.includes(it)) sessSkipped.push(it);
@@ -4851,6 +4951,588 @@ function endToneQuiz() {
       ${boutonFin()}
     </div>`;
 }
+
+
+/* ============================================================
+   PRONONCIATION — trois entraînements, trois natures d'erreur
+   ------------------------------------------------------------
+   Diagnostic du cours du 2026-08-28 : 4ᵉ ton aplati en 2ᵉ ou 3ᵉ (6 fois),
+   consonnes aspirées prononcées sans souffle (4), finales n/ng confondues (2),
+   rétroflexes zh/z (2). Aucun de ces défauts n'était visible dans l'app :
+   le Quiz tons teste de SAVOIR le ton, pas de le PRODUIRE, et la reconnaissance
+   vocale du mode Oral normalise vers le mot le plus probable, donc elle valide
+   un ton faux. D'où ces trois ajouts, du plus fondamental au plus fin.
+   ============================================================ */
+
+/* ---- 1. Mon oreille : discrimination de paires minimales ----
+   On ne produit pas un contraste qu'on n'entend pas. Le français n'oppose ni
+   les tons, ni l'aspiration (nos p et b se séparent par la sonorité, pas par
+   le souffle) : l'oreille doit apprendre la distinction avant que la bouche
+   puisse la faire. Toutes les familles sont tirées de SON vocabulaire, et le
+   build refuse deux options homophones, qui donneraient deux bonnes réponses. */
+const CONTRASTES = {
+  ton: {
+    label: "Tons",
+    court: "le ton",
+    note: "Même syllabe, tons différents. Écoute la hauteur : plate et haute, qui monte, qui creuse puis remonte, qui tombe d'un coup."
+  },
+  aspiration: {
+    label: "Souffle",
+    court: "le souffle",
+    note: "Écoute le souffle juste après la consonne. Avec souffle : p, t, k, q, c, ch. Sans souffle : b, d, g, j, z, zh. En français cette différence n'existe pas, d'où la difficulté."
+  },
+  nasale: {
+    label: "n / ng",
+    court: "la finale",
+    note: "Écoute la fin de la syllabe. -n se ferme langue contre les dents du haut, le son est net. -ng se ferme au fond de la gorge, bouche ouverte, le son traîne."
+  },
+  retroflexe: {
+    label: "Langue",
+    court: "la langue",
+    note: "Écoute où se place la langue. zh, ch, sh se disent pointe relevée en arrière, son sourd. z, c, s se disent langue en avant contre les dents, son sifflant."
+  },
+};
+const OREILLE_MAX = 10;
+let curContraste = "all";
+
+function pairesPool() {
+  return EMBED_PAIRES.filter(f => curContraste === "all" || f.contraste === curContraste);
+}
+function paireProg(id) {
+  if (!state.paires) state.paires = {};
+  if (!state.paires[id]) state.paires[id] = newTrack("ton");
+  migrateTrack(state.paires[id], "ton");
+  return state.paires[id];
+}
+function pairesDue() {
+  const dus = [], neufs = [];
+  /* Même précaution que pour les tons : les pistes sont créées AVANT de relever
+     l'heure, sinon une piste neuve paraît due une milliseconde trop tard. */
+  const items = pairesPool().map(f => ({ f, tr: paireProg(f.id) }));
+  const now = Date.now();
+  items.forEach(({ f, tr }) => { if (tr.due <= now) (tr.reviews ? dus : neufs).push(f); });
+  dus.sort((a, b) => paireProg(a.id).due - paireProg(b.id).due);
+  return dus.concat(shuffle(neufs));
+}
+function paireFaibles() {
+  return EMBED_PAIRES
+    .map(f => ({ f, tr: state.paires && state.paires[f.id] }))
+    .filter(x => x.tr && x.tr.errors > 0)
+    .sort((a, b) => (b.tr.errors - b.tr.reviews) - (a.tr.errors - a.tr.reviews))
+    .slice(0, 5);
+}
+
+let oreilleQueue = [], oIndex = 0, oreilleOk = 0, oreilleErrors = [];
+let oreilleCible = null, oreilleOptions = [];
+
+function startOreille() {
+  if (!EMBED_PAIRES.length) return;
+  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  sessMode = "oreille";
+  oreilleQueue = pairesDue().slice(0, OREILLE_MAX);
+  if (!oreilleQueue.length) oreilleQueue = shuffle(pairesPool().slice()).slice(0, OREILLE_MAX);
+  oIndex = 0; oreilleOk = 0; oreilleErrors = [];
+  speak(" "); // amorce iOS
+  $("session").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  nextOreille();
+}
+function nextOreille() {
+  if ($("session").classList.contains("hidden")) return;
+  if (oIndex >= oreilleQueue.length) { endOreilleSession(); return; }
+  const f = oreilleQueue[oIndex];
+  majProgres(oIndex, oreilleQueue.length);
+  oreilleCible = f.mots[Math.floor(Math.random() * f.mots.length)];
+  oreilleOptions = shuffle(f.mots.slice());
+  const c = CONTRASTES[f.contraste] || CONTRASTES.ton;
+  $("know-btn").classList.add("hidden");
+  $("card-zone").innerHTML = `<span class="mode-tag">Mon oreille · ${esc(c.label)}</span>
+    <div class="qcard">
+      <div class="q-prompt">Lequel entends-tu ?</div>
+      <div><button class="audio-btn" onclick="speak(${jsattr(oreilleCible.hanzi)})">🔊 Réécouter</button></div>
+      <div class="paire-opts" id="paire-opts">
+        ${oreilleOptions.map((m, i) => `<button onclick="answerOreille(${i},this)">
+          <span class="p-zh hanzi">${esc(m.hanzi)}</span>
+          <span><span class="p-py">${renderPinyin(m.pinyin)}</span><br>
+          <span class="p-fr">${esc(m.fr)}</span></span></button>`).join("")}
+      </div>
+      <p class="ecoute-note">${esc(c.note)}</p>
+    </div>`;
+  speak(oreilleCible.hanzi, 0.75);
+}
+function answerOreille(i, btn) {
+  const f = oreilleQueue[oIndex], choix = oreilleOptions[i];
+  const opts = $("paire-opts");
+  [...opts.children].forEach(b => b.disabled = true);
+  compterPassage();
+  const ok = choix.hanzi === oreilleCible.hanzi;
+  if (ok) { oreilleOk++; btn.classList.add("good"); }
+  else {
+    btn.classList.add("bad");
+    const bon = oreilleOptions.findIndex(m => m.hanzi === oreilleCible.hanzi);
+    if (opts.children[bon]) opts.children[bon].classList.add("good");
+    oreilleErrors.push({ f, dit: choix, vrai: oreilleCible });
+    /* Le mot mal entendu rejoint les mots du jour à consolider. */
+    const cf = state.cards.find(c => c.hanzi === oreilleCible.hanzi)
+      || state.cards.find(c => c.hanzi.includes(oreilleCible.hanzi));
+    if (cf) noteFaibleJour(cf.hanzi);
+  }
+  schedule(paireProg(f.id), ok, "ton");
+  noterMix(ok, "à l'oreille : " + oreilleCible.hanzi + " " + oreilleCible.pinyin);
+  save();
+  /* Pas d'enchaînement automatique : c'est ICI que l'apprentissage se fait, en
+     réécoutant les deux sons l'un après l'autre. Elle avance quand elle a
+     comparé, pas au bout d'une seconde et demie. */
+  /* Le pinyin garde ses tons ici. Passé par pinyinPlain, un contraste de tons
+     afficherait deux fois le même libellé (mǎi et mài donnent tous deux « mai »)
+     et le bouton de comparaison ne comparerait plus rien. */
+  const cmp = ok ? "" : `<div class="cmp-sons">
+      <button class="audio-btn" onclick="speak(${jsattr(oreilleCible.hanzi)},0.6)">🔊 ${renderPinyin(oreilleCible.pinyin)} (le bon)</button>
+      <button class="audio-btn" onclick="speak(${jsattr(choix.hanzi)},0.6)">🔊 ${renderPinyin(choix.pinyin)} (ton choix)</button>
+    </div>`;
+  opts.insertAdjacentHTML("afterend",
+    `${cmp}<div style="margin-top:.8rem">${nextOnlyOreilleHTML()}</div>`);
+}
+function nextOnlyOreilleHTML() {
+  return `<button class="btn" onclick="advanceOreille()">Suivant ›</button>`;
+}
+function advanceOreille() { oIndex++; nextOreille(); }
+function endOreilleSession() {
+  if (mixOn) { avancerMix(); return; }
+  sessEnCours = false;
+  $("prog-bar").style.width = "100%";
+  $("prog-txt").textContent = "";
+  const rates = oreilleErrors.length
+    ? `<hr class="divider"><div class="end-list"><strong>Sons à réécouter :</strong>
+       <ul class="words">${oreilleErrors.map(e =>
+         `<li><span class="w-hanzi hanzi">${esc(e.vrai.hanzi)}</span>
+          <span class="w-mid"><span class="w-pinyin">${renderPinyin(e.vrai.pinyin)}</span><br>
+          <span class="w-fr">entendu comme ${renderPinyin(e.dit.pinyin)}</span></span></li>`).join("")}
+       </ul></div>`
+    : `<p class="q-fr">Oreille juste sur toute la série. 太棒了 tài bàng le !</p>`;
+  $("card-zone").innerHTML = `<div class="qcard">
+      <div class="q-hanzi hanzi">耳朵</div>
+      <div class="q-pinyin">${renderPinyin("ěrduo")}</div>
+      <div class="q-fr">Écoute terminée : ${oreilleOk} / ${oreilleQueue.length}.</div>
+      ${rates}
+      ${boutonFin()}
+    </div>`;
+}
+
+/* ---- Micro partagé par « Ma voix » et « Écho » ----
+   Une seule prise sert aux deux : le blob part à la lecture comparée, et le PCM
+   décodé part à l'analyse de hauteur. Le flux est refermé aussitôt, pour ne pas
+   laisser le voyant du micro allumé entre deux essais. */
+function micDispo() {
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+}
+function micMime() {
+  return ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"]
+    .find(m => { try { return MediaRecorder.isTypeSupported(m); } catch (e) { return false; } }) || "";
+}
+async function micPrise(ms, elNiveau, onFin) {
+  if (!micDispo()) { onFin(null, "Le micro n'est pas disponible dans ce navigateur."); return; }
+  let flux;
+  try {
+    flux = await navigator.mediaDevices.getUserMedia({ audio: {
+      echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  } catch (e) { onFin(null, "Micro refusé. Autorise-le dans les réglages du navigateur."); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AC();
+  let raf = null;
+  try {
+    const an = ctx.createAnalyser(); an.fftSize = 1024;
+    ctx.createMediaStreamSource(flux).connect(an);
+    const buf = new Float32Array(an.fftSize);
+    const jauge = elNiveau && elNiveau.firstElementChild;
+    const tic = () => {
+      an.getFloatTimeDomainData(buf);
+      let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+      if (jauge) jauge.style.width = Math.min(100, Math.sqrt(s / buf.length) * 350) + "%";
+      raf = requestAnimationFrame(tic);
+    };
+    tic();
+  } catch (e) {}
+  const mime = micMime();
+  let rec;
+  try { rec = new MediaRecorder(flux, mime ? { mimeType: mime } : undefined); }
+  catch (e) {
+    flux.getTracks().forEach(t => t.stop()); try { ctx.close(); } catch (x) {}
+    onFin(null, "L'enregistrement n'est pas disponible ici."); return;
+  }
+  const morceaux = [];
+  rec.ondataavailable = e => { if (e.data && e.data.size) morceaux.push(e.data); };
+  rec.onstop = async () => {
+    if (raf) cancelAnimationFrame(raf);
+    if (elNiveau && elNiveau.firstElementChild) elNiveau.firstElementChild.style.width = "0%";
+    flux.getTracks().forEach(t => t.stop());
+    const blob = new Blob(morceaux, { type: (morceaux[0] && morceaux[0].type) || mime || "audio/mp4" });
+    let pcm = null, sr = 0;
+    try {
+      const ab = await blob.arrayBuffer();
+      const audio = await ctx.decodeAudioData(ab);
+      pcm = audio.getChannelData(0); sr = audio.sampleRate;
+    } catch (e) {}
+    try { ctx.close(); } catch (e) {}
+    onFin({ blob, pcm, sr }, null);
+  };
+  try { rec.start(); } catch (e) {
+    flux.getTracks().forEach(t => t.stop()); try { ctx.close(); } catch (x) {}
+    onFin(null, "L'enregistrement n'a pas pu démarrer."); return;
+  }
+  setTimeout(() => { try { if (rec.state !== "inactive") rec.stop(); } catch (e) {} }, ms);
+}
+
+/* ---- 2. Ma voix : mesure de la hauteur (F0) ----
+   Un ton mandarin EST une courbe de hauteur. Le mesurer, c'est mesurer le ton,
+   sans passer par la reconnaissance vocale, qui ne sait pas juger la prononciation
+   puisqu'elle cherche le mot le plus probable. Autocorrélation normalisée, sur un
+   signal ramené à 16 kHz : largement assez pour une voix (70 à 400 Hz) et assez
+   léger pour tourner sur un téléphone. */
+function reduireTaux(pcm, sr, cible) {
+  const f = Math.max(1, Math.round(sr / cible));
+  if (f === 1) return { pcm, sr };
+  const out = new Float32Array(Math.floor(pcm.length / f));
+  for (let i = 0; i < out.length; i++) {
+    let s = 0; for (let j = 0; j < f; j++) s += pcm[i * f + j];
+    out[i] = s / f;   // moyenne : anti-repliement sommaire, suffisant pour la F0
+  }
+  return { pcm: out, sr: sr / f };
+}
+function f0Trame(buf, sr) {
+  const lagMin = Math.floor(sr / 400), lagMax = Math.floor(sr / 70);
+  const n = buf.length;
+  if (lagMax >= n) return 0;
+  let e = 0;
+  for (let i = 0; i < n; i++) e += buf[i] * buf[i];
+  if (Math.sqrt(e / n) < 0.006) return 0;          // trop faible : pas de voix
+  const N = n - lagMax;
+  let meilleur = 0, score = 0, corr = new Float32Array(lagMax + 2);
+  for (let lag = lagMin; lag <= lagMax; lag++) {
+    let num = 0, d1 = 0, d2 = 0;
+    for (let i = 0; i < N; i++) {
+      const a = buf[i], b = buf[i + lag];
+      num += a * b; d1 += a * a; d2 += b * b;
+    }
+    /* Normalisation par l'énergie des deux fenêtres. Sans elle l'autocorrélation
+       privilégie mécaniquement les petits décalages et se trompe d'octave. */
+    const r = num / (Math.sqrt(d1 * d2) || 1);
+    corr[lag] = r;
+    if (r > score) { score = r; meilleur = lag; }
+  }
+  if (score < 0.45 || !meilleur) return 0;         // signal non périodique
+  const y1 = corr[meilleur - 1] || 0, y2 = corr[meilleur], y3 = corr[meilleur + 1] || 0;
+  const a = (y1 + y3 - 2 * y2) / 2, b = (y3 - y1) / 2;
+  const lag = a ? meilleur - b / (2 * a) : meilleur;  // interpolation parabolique
+  return sr / lag;
+}
+function contourF0(pcmBrut, srBrut) {
+  const { pcm, sr } = reduireTaux(pcmBrut, srBrut, 16000);
+  const win = Math.round(sr * 0.045), hop = Math.round(sr * 0.010);
+  const pts = [];
+  for (let d = 0; d + win < pcm.length; d += hop) {
+    pts.push({ t: d / sr, f: f0Trame(pcm.subarray(d, d + win), sr) });
+  }
+  return pts;
+}
+function nettoyerContour(pts) {
+  const voisees = pts.filter(p => p.f > 0);
+  if (voisees.length < 6) return [];
+  /* Médiane glissante : elle tue les sauts d'octave isolés sans lisser la pente,
+     ce qu'une moyenne ferait. */
+  const f = voisees.map(p => p.f);
+  const med = f.slice().sort((a, b) => a - b)[Math.floor(f.length / 2)];
+  const lisse = voisees.map((p, i) => {
+    const w = [f[i - 1], f[i], f[i + 1]].filter(x => x > 0).sort((a, b) => a - b);
+    return { t: p.t, f: w[Math.floor(w.length / 2)] };
+  }).filter(p => p.f / med < 1.7 && p.f / med > 0.58);   // reste des erreurs d'octave
+  if (lisse.length < 6) return [];
+  /* On garde la plus longue suite continue : un claquement de doigts ou un mot
+     parasite en fin de prise fabriquerait une fausse courbe. */
+  let best = [], cur = [lisse[0]];
+  for (let i = 1; i < lisse.length; i++) {
+    if (lisse[i].t - lisse[i - 1].t < 0.05) cur.push(lisse[i]);
+    else { if (cur.length > best.length) best = cur; cur = [lisse[i]]; }
+  }
+  if (cur.length > best.length) best = cur;
+  return best.length >= 6 ? best : [];
+}
+const CONTOURS = {   // t de 0 à 1, hauteur en demi-tons autour du registre moyen
+  1: [[0, 4], [1, 4]],
+  2: [[0, -1.5], [0.4, -1], [1, 4]],
+  3: [[0, -1], [0.45, -5], [1, 0.5]],
+  4: [[0, 5], [1, -5]],
+};
+function classerContour(st) {
+  const n = st.length;
+  const moy = (a, b) => { let s = 0, c = 0; for (let i = a; i < b; i++) { s += st[i]; c++; } return c ? s / c : 0; };
+  const debut = moy(0, Math.max(1, Math.round(n * 0.25)));
+  const fin = moy(Math.floor(n * 0.75), n);
+  let creux = Infinity;
+  for (let i = Math.floor(n * 0.15); i < Math.max(1, Math.floor(n * 0.85)); i++) creux = Math.min(creux, st[i]);
+  const delta = fin - debut;
+  const plongeon = Math.min(debut, fin) - creux;
+  const etendue = Math.max.apply(null, st) - Math.min.apply(null, st);
+  let ton;
+  if (plongeon >= 2 && delta > -3) ton = 3;
+  else if (delta <= -3.5) ton = 4;
+  else if (delta >= 2.5) ton = 2;
+  else ton = 1;
+  return { ton, delta, plongeon, etendue };
+}
+let voixMot = null, voixCourbe = null;
+function voixPool() {
+  const p = tonesPool().filter(x => x.tone >= 1 && x.tone <= 4);
+  return p.length ? p : [];
+}
+function voixTirer(fragilesDabord) {
+  const pool = voixPool();
+  if (!pool.length) return null;
+  if (fragilesDabord) {
+    /* Les tons déjà manqués au Quiz tons passent devant : c'est là qu'elle a
+       démontré que le souvenir ne tient pas. */
+    const faibles = pool.filter(x => {
+      const tr = state.tons && state.tons[x.hanzi];
+      return tr && tr.errors > 0;
+    });
+    if (faibles.length) return faibles[Math.floor(Math.random() * faibles.length)];
+  }
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function voixAfficher() {
+  const el = $("voix-cible");
+  if (!el) return;
+  if (!voixMot) { el.innerHTML = `<p class="hint">Ajoute quelques mots d'un seul caractère pour t'entraîner ici.</p>`; return; }
+  el.innerHTML = `<div class="v-zh hanzi">${esc(voixMot.hanzi)}</div>
+    <div class="v-py">${renderPinyin(voixMot.pinyin)}</div>
+    <div class="v-fr">${esc(voixMot.fr)} · ${esc(TONE_NOM[voixMot.tone] || "")}</div>`;
+}
+function voixAutre() { voixMot = voixTirer(false); voixCourbe = null; voixAfficher(); voixDessiner(); voixEffacerVerdict(); }
+function voixCiblee() { voixMot = voixTirer(true); voixCourbe = null; voixAfficher(); voixDessiner(); voixEffacerVerdict(); }
+function voixModele() { if (voixMot) speak(voixMot.hanzi, 0.6); }
+function voixEffacerVerdict() {
+  if ($("voix-verdict")) { $("voix-verdict").textContent = ""; $("voix-verdict").className = "verdict-voix"; }
+  if ($("voix-mesure")) $("voix-mesure").textContent = "";
+}
+function voixDessiner() {
+  const cv = $("voix-canvas");
+  if (!cv) return;
+  const g = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.round(cv.clientWidth || 320), H = Math.round(cv.clientHeight || 190);
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);   // on dessine en pixels CSS
+  const style = getComputedStyle(document.body);
+  const ligne = style.getPropertyValue("--line").trim() || "#ddd";
+  const muet = style.getPropertyValue("--muted").trim() || "#777";
+  const accent = style.getPropertyValue("--accent").trim() || "#a33";
+  const encre = style.getPropertyValue("--ink").trim() || "#222";
+  g.clearRect(0, 0, W, H);
+  const MAR = 46, ST = 8;                       // ±8 demi-tons affichés
+  const y = st => H / 2 - (st / ST) * (H / 2 - MAR / 2);
+  const x = t => MAR + t * (W - MAR - 12);
+  g.strokeStyle = ligne; g.lineWidth = 1;
+  [-8, -4, 0, 4, 8].forEach(v => {
+    g.beginPath(); g.moveTo(MAR, y(v)); g.lineTo(W - 12, y(v)); g.stroke();
+  });
+  g.fillStyle = ligne; g.font = "600 15px system-ui, sans-serif"; g.textAlign = "right";
+  g.fillText("aigu", MAR - 8, y(6)); g.fillText("grave", MAR - 8, y(-6));
+  if (voixMot) {
+    const c = CONTOURS[voixMot.tone];
+    if (c) {
+      g.strokeStyle = muet; g.globalAlpha = .6;
+      g.lineWidth = 3; g.setLineDash([7, 6]); g.beginPath();
+      c.forEach((p, i) => i ? g.lineTo(x(p[0]), y(p[1])) : g.moveTo(x(p[0]), y(p[1])));
+      g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+    }
+  }
+  if (voixCourbe && voixCourbe.length) {
+    g.strokeStyle = accent; g.lineWidth = 3.5; g.lineJoin = "round"; g.beginPath();
+    voixCourbe.forEach((v, i) => {
+      const px = x(i / Math.max(1, voixCourbe.length - 1)), py = y(Math.max(-ST, Math.min(ST, v)));
+      i ? g.lineTo(px, py) : g.moveTo(px, py);
+    });
+    g.stroke();
+  } else {
+    g.fillStyle = encre; g.globalAlpha = .45; g.textAlign = "center";
+    g.font = "500 15px system-ui, sans-serif";
+    g.fillText("En pointillé : la courbe à viser.", W / 2, H - 12);
+    g.globalAlpha = 1;
+  }
+}
+function voixEnregistrer() {
+  if (!voixMot) return;
+  const b = $("voix-rec");
+  if (b.dataset.on === "1") return;
+  b.dataset.on = "1"; b.textContent = "🎤 Parle…";
+  voixEffacerVerdict();
+  $("voix-verdict").textContent = "Dis la syllabe, une seule fois.";
+  micPrise(2200, $("voix-niveau"), (prise, err) => {
+    b.dataset.on = ""; b.textContent = "🎤 M'écouter";
+    if (err || !prise) { $("voix-verdict").className = "verdict-voix ko"; $("voix-verdict").textContent = err || "Prise ratée."; return; }
+    if (!prise.pcm) {
+      $("voix-verdict").className = "verdict-voix ko";
+      $("voix-verdict").textContent = "Je n'ai pas pu relire l'enregistrement sur ce navigateur.";
+      return;
+    }
+    voixAnalyser(prise);
+  });
+}
+function voixAnalyser(prise) {
+  const pts = nettoyerContour(contourF0(prise.pcm, prise.sr));
+  const vd = $("voix-verdict"), ms = $("voix-mesure");
+  if (!pts.length) {
+    voixCourbe = null; voixDessiner();
+    vd.className = "verdict-voix ko";
+    vd.textContent = "Je n'ai pas trouvé ta voix.";
+    ms.textContent = "Rapproche-toi du micro, dis la syllabe un peu plus fort et tiens-la une bonne seconde.";
+    return;
+  }
+  /* Normalisation par sa propre médiane : on mesure la FORME de la courbe, pas
+     la hauteur de sa voix. Une voix grave et une voix aiguë doivent recevoir le
+     même verdict sur un 4ᵉ ton réussi. */
+  const f = pts.map(p => p.f);
+  const ref = f.slice().sort((a, b) => a - b)[Math.floor(f.length / 2)];
+  voixCourbe = f.map(v => 12 * Math.log2(v / ref));
+  voixDessiner();
+  const r = classerContour(voixCourbe);
+  const attendu = voixMot.tone, un = x => x.toFixed(1).replace(".", ",");
+  const juste = r.ton === attendu;
+  vd.className = "verdict-voix " + (juste ? "ok" : "ko");
+  vd.textContent = juste
+    ? `C'est bien un ${TONE_NOM[attendu]}.`
+    : `J'entends un ${TONE_NOM[r.ton]}, il fallait un ${TONE_NOM[attendu]}.`;
+  const CONSEIL = {
+    1: "Le 1ᵉʳ ton se tient haut et plat, sans bouger, comme une note tenue.",
+    2: "Le 2ᵉ ton part bas et monte franchement, comme une question étonnée en français.",
+    3: "Le 3ᵉ ton descend au plus grave, s'y attarde, puis remonte à peine.",
+    4: "Le 4ᵉ ton part haut et tombe d'un coup, sec, comme un ordre bref.",
+  };
+  const chiffres = `Ta courbe : ${r.delta >= 0 ? "monte" : "descend"} de ${un(Math.abs(r.delta))} demi-tons`
+    + (r.plongeon >= 1 ? `, avec un creux de ${un(r.plongeon)}` : "")
+    + `, étendue totale ${un(r.etendue)}.`;
+  let visee = "";
+  if (attendu === 4 && r.delta > -3.5) visee = " Vise au moins 5 demi-tons de chute : pars plus haut et laisse tomber d'un coup.";
+  else if (attendu === 2 && r.delta < 2.5) visee = " Vise au moins 4 demi-tons de montée : pars plus bas et remonte jusqu'au bout.";
+  else if (attendu === 3 && r.plongeon < 2) visee = " Creuse davantage : descends au plus grave de ta voix avant de remonter.";
+  else if (attendu === 1 && r.etendue > 3) visee = " Tiens la note : ta voix bouge de " + un(r.etendue) + " demi-tons, il en faudrait moins de 3.";
+  ms.textContent = chiffres + " " + (CONSEIL[attendu] || "") + visee;
+}
+
+/* ---- 3. Écho : le modèle, ta voix, le modèle ----
+   Aucun jugement automatique ici, et c'est assumé : s'entendre juste après le
+   modèle rend audible ce qu'on n'entend pas en parlant. */
+let echoMot = null, echoBlob = null, echoAudio = null;
+function echoPool() {
+  const faibles = weakItems().map(it => it.card).filter(Boolean);
+  const pool = faibles.length >= 3 ? faibles : state.cards.filter(themeMatch);
+  return pool.length ? pool : state.cards;
+}
+function echoTirer() {
+  const pool = echoPool();
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+}
+function echoAfficher() {
+  const el = $("echo-cible");
+  if (!el) return;
+  if (!echoMot) { el.innerHTML = `<p class="hint">Ajoute du vocabulaire pour t'entraîner ici.</p>`; return; }
+  el.innerHTML = `<div class="v-zh hanzi">${esc(echoMot.hanzi)}</div>
+    <div class="v-py">${renderPinyin(echoMot.pinyin)}</div>
+    <div class="v-fr">${esc(echoMot.fr)}</div>`;
+}
+function echoAutre() {
+  echoMot = echoTirer(); echoBlob = null;
+  if ($("echo-cmp")) $("echo-cmp").disabled = true;
+  if ($("echo-etat")) $("echo-etat").textContent = "Écoute le modèle, puis enregistre-toi.";
+  echoAfficher();
+}
+function echoModele() { if (echoMot) speak(echoMot.hanzi, 0.7); }
+function direAsync(txt, rate) {
+  return new Promise(res => {
+    if (!window.speechSynthesis) return res();
+    let fini = false;
+    const fin = () => { if (!fini) { fini = true; res(); } };
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(txt);
+    u.lang = "zh-CN"; if (zhVoice) u.voice = zhVoice; u.rate = rate || 0.7;
+    u.onend = fin; u.onerror = fin;
+    speechSynthesis.speak(u);
+    setTimeout(fin, 6000);   // iOS n'appelle pas toujours onend
+  });
+}
+function jouerBlob(blob) {
+  return new Promise(res => {
+    try {
+      if (echoAudio) { try { echoAudio.pause(); URL.revokeObjectURL(echoAudio.src); } catch (e) {} }
+      echoAudio = new Audio(URL.createObjectURL(blob));
+      let fini = false;
+      const fin = () => { if (!fini) { fini = true; res(); } };
+      echoAudio.onended = fin; echoAudio.onerror = fin;
+      setTimeout(fin, 8000);
+      const p = echoAudio.play();
+      if (p && p.catch) p.catch(fin);
+    } catch (e) { res(); }
+  });
+}
+function echoEnregistrer() {
+  if (!echoMot) return;
+  const b = $("echo-rec");
+  if (b.dataset.on === "1") return;
+  b.dataset.on = "1"; b.textContent = "🎤 Parle…";
+  $("echo-etat").textContent = "Dis le mot, tranquillement.";
+  micPrise(3000, $("echo-niveau"), (prise, err) => {
+    b.dataset.on = ""; b.textContent = "🎤 M'enregistrer";
+    if (err || !prise) { $("echo-etat").textContent = err || "Prise ratée."; return; }
+    echoBlob = prise.blob;
+    $("echo-cmp").disabled = false;
+    $("echo-etat").textContent = "C'est enregistré. Compare, puis recommence si tu entends un écart.";
+  });
+}
+async function echoComparer() {
+  if (!echoBlob || !echoMot) return;
+  const b = $("echo-cmp");
+  b.disabled = true;
+  const pause = ms => new Promise(r => setTimeout(r, ms));
+  $("echo-etat").textContent = "Le modèle…";
+  await direAsync(echoMot.hanzi); await pause(400);
+  $("echo-etat").textContent = "Ta voix…";
+  await jouerBlob(echoBlob); await pause(400);
+  $("echo-etat").textContent = "Le modèle, à nouveau…";
+  await direAsync(echoMot.hanzi);
+  $("echo-etat").textContent = "Où est l'écart ? La hauteur, le souffle de la consonne, la fin de la syllabe ?";
+  b.disabled = false;
+}
+
+/* ---- Rendu de l'onglet ---- */
+function renderVoix() {
+  const due = pairesDue().length, total = pairesPool().length;
+  if ($("oreille-etat")) {
+    $("oreille-etat").textContent = total
+      ? `${due} son${due > 1 ? "s" : ""} à travailler sur ${total} familles.`
+      : "Aucune famille de sons pour ce filtre.";
+  }
+  if ($("oreille-chips")) {
+    const cles = ["all"].concat(Object.keys(CONTRASTES)
+      .filter(k => EMBED_PAIRES.some(f => f.contraste === k)));
+    $("oreille-chips").innerHTML = cles.map(k =>
+      `<button class="chip${curContraste === k ? " on" : ""}" onclick="setContraste(${jsattr(k)})">${
+        k === "all" ? "Tout" : esc(CONTRASTES[k].label)
+      }</button>`).join("");
+  }
+  if ($("oreille-weak")) {
+    const f = paireFaibles();
+    $("oreille-weak").innerHTML = f.map(({ f: fam, tr }) =>
+      `<li><span class="w-hanzi hanzi">${esc(fam.mots.map(m => m.hanzi).join(""))}</span>
+       <span class="w-mid"><span class="w-pinyin">${fam.mots.map(m => renderPinyin(m.pinyin)).join(" · ")}</span><br>
+       <span class="w-fr">${esc((CONTRASTES[fam.contraste] || {}).court || "")} · ${tr.errors} ratée${tr.errors > 1 ? "s" : ""}</span></span></li>`).join("");
+  }
+  if (!voixMot) voixMot = voixTirer(true);
+  if (!echoMot) echoMot = echoTirer();
+  voixAfficher(); voixDessiner(); echoAfficher();
+}
+function setContraste(k) { curContraste = k; renderVoix(); }
 
 /* ---- Notation & planification ----
    Tout se joue ici, à partir d'un seul bit d'information : su / pas su.
@@ -5018,6 +5700,7 @@ verifierSyncAuDemarrage();
    le dernier moment sûr pour pousser ce qui vient d'être révisé. */
 document.addEventListener("visibilitychange", () => { if (document.hidden) flushSync(); });
 window.addEventListener("pagehide", flushSync);
+window.addEventListener("resize", () => { if (curTab === "voix") voixDessiner(); });
 </script>
 </body>
 </html>
