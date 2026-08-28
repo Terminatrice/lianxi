@@ -683,59 +683,60 @@
   </section>
 
   <!-- ============ PRONONCIATION ============ -->
-  <!-- Trois entraînements distincts, parce que les erreurs de prononciation ne
-       sont pas d'une seule nature. Le diagnostic du cours du 2026-08-28 : 4e ton
-       aplati (6 fois), consonnes aspirées sans souffle (4), finales n/ng (2),
-       rétroflexes (2). L'oreille attaque la cause commune (on ne produit pas un
-       contraste qu'on n'entend pas), l'analyseur mesure objectivement les tons,
-       l'écho met le modèle et sa voix bout à bout. -->
+  <!-- Un seul entraînement à l'écran à la fois : les trois empilés faisaient une
+       page de prose (retour de Daphnée, 2026-08-28). Tout ce qui explique est
+       replié, tout ce qui agit est en bas. -->
   <section id="view-voix" class="hidden">
+    <div class="chips" id="voix-modes"></div>
 
-    <div class="panel">
-      <h2>Mon oreille</h2>
-      <p class="hint" id="oreille-etat"></p>
-      <button class="btn" onclick="startOreille()">M'entraîner à distinguer</button>
-      <p class="hint">L'app prononce un mot, tu choisis lequel tu as entendu. On ne produit
-        pas un son qu'on ne distingue pas encore : c'est par là qu'il faut commencer.</p>
+    <div class="panel" id="pan-oreille" style="text-align:center">
+      <div class="due-big" id="oreille-n">0</div>
+      <div class="due-label">sons à distinguer</div>
+      <button class="btn" onclick="startOreille()">Commencer</button>
       <div class="chips" id="oreille-chips"></div>
-      <ul class="words" id="oreille-weak"></ul>
+      <details class="gram-plus hidden" id="oreille-weak-box">
+        <summary id="oreille-weak-lab">À reprendre</summary>
+        <ul class="words" id="oreille-weak"></ul>
+      </details>
+      <details class="gram-plus"><summary>À quoi ça sert</summary>
+        <p class="hint">On ne produit pas un son qu'on ne distingue pas encore. Le français
+          n'oppose ni les tons ni le souffle des consonnes : l'oreille doit apprendre la
+          différence avant que la bouche puisse la faire.</p></details>
     </div>
 
-    <div class="panel">
-      <h2>Ma voix</h2>
+    <div class="panel hidden" id="pan-voix">
       <div class="voix-cible" id="voix-cible"></div>
-      <div class="voix-actions">
-        <button class="btn secondary" onclick="voixModele()">🔊 Le modèle</button>
-        <button class="btn" id="voix-rec" onclick="voixEnregistrer()">🎤 M'écouter</button>
-      </div>
-      <div class="niveau-mic" id="voix-niveau" aria-hidden="true"><div></div></div>
-      <canvas class="voix-canvas" id="voix-canvas" width="640" height="380"
+      <canvas class="voix-canvas" id="voix-canvas"
               aria-label="Courbe de la hauteur de ta voix comparée au ton attendu"></canvas>
       <div class="verdict-voix" id="voix-verdict"></div>
       <p class="mesure" id="voix-mesure"></p>
+      <div class="niveau-mic hidden" id="voix-niveau" aria-hidden="true"><div></div></div>
       <div class="voix-actions">
-        <button class="btn secondary" onclick="voixAutre()">Une autre syllabe</button>
-        <button class="btn secondary" onclick="voixCiblee()">Viser mes tons fragiles</button>
+        <button class="btn secondary" onclick="voixModele()">🔊 Modèle</button>
+        <button class="btn" id="voix-rec" onclick="voixEnregistrer()">🎤 M'écouter</button>
       </div>
-      <p class="hint">Ceci mesure la hauteur de ta voix, rien d'autre. Fiable sur une syllabe
-        isolée dans un endroit calme, et muet sur le souffle des consonnes comme sur le n/ng.</p>
+      <div class="chips">
+        <button class="chip" onclick="voixAutre()">Autre syllabe</button>
+        <button class="chip" id="voix-chip-faible" onclick="voixBasculerCible()">Mes tons fragiles</button>
+      </div>
+      <details class="gram-plus"><summary>Ce que ça mesure</summary>
+        <p class="hint">La hauteur de ta voix, rien d'autre. Fiable sur une syllabe isolée
+          dans un endroit calme. Muette sur le souffle des consonnes et sur le n/ng.</p></details>
     </div>
 
-    <div class="panel">
-      <h2>Écho</h2>
+    <div class="panel hidden" id="pan-echo">
       <div class="voix-cible" id="echo-cible"></div>
+      <p class="mesure" id="echo-etat"></p>
+      <div class="niveau-mic hidden" id="echo-niveau" aria-hidden="true"><div></div></div>
       <div class="voix-actions">
-        <button class="btn secondary" onclick="echoModele()">🔊 Le modèle</button>
+        <button class="btn secondary" onclick="echoModele()">🔊 Modèle</button>
         <button class="btn" id="echo-rec" onclick="echoEnregistrer()">🎤 M'enregistrer</button>
       </div>
-      <div class="niveau-mic" id="echo-niveau" aria-hidden="true"><div></div></div>
-      <div class="voix-actions">
-        <button class="btn" id="echo-cmp" onclick="echoComparer()" disabled>▶︎ Modèle, ma voix, modèle</button>
-        <button class="btn secondary" onclick="echoAutre()">Un autre mot</button>
-      </div>
-      <p class="hint" id="echo-etat">S'entendre juste après le modèle rend audible ce qu'on
-        n'entend pas en parlant. C'est toi qui juges ici, l'app ne fait que mettre les deux
-        versions bout à bout.</p>
+      <button class="btn hidden" id="echo-cmp" onclick="echoComparer()">▶︎ Comparer</button>
+      <div class="chips"><button class="chip" onclick="echoAutre()">Autre mot</button></div>
+      <details class="gram-plus"><summary>Comment s'en servir</summary>
+        <p class="hint">Modèle, ta voix, modèle, à la suite. Aucun jugement automatique :
+          c'est toi qui entends l'écart.</p></details>
     </div>
 
   </section>
@@ -4974,22 +4975,22 @@ const CONTRASTES = {
   ton: {
     label: "Tons",
     court: "le ton",
-    note: "Même syllabe, tons différents. Écoute la hauteur : plate et haute, qui monte, qui creuse puis remonte, qui tombe d'un coup."
+    note: "Écoute la hauteur : plate, qui monte, qui creuse, qui tombe."
   },
   aspiration: {
     label: "Souffle",
     court: "le souffle",
-    note: "Écoute le souffle juste après la consonne. Avec souffle : p, t, k, q, c, ch. Sans souffle : b, d, g, j, z, zh. En français cette différence n'existe pas, d'où la difficulté."
+    note: "Écoute le souffle : p t k q c ch soufflent, b d g j z zh non."
   },
   nasale: {
     label: "n / ng",
     court: "la finale",
-    note: "Écoute la fin de la syllabe. -n se ferme langue contre les dents du haut, le son est net. -ng se ferme au fond de la gorge, bouche ouverte, le son traîne."
+    note: "Écoute la fin : -n se ferme sur les dents, -ng au fond de la gorge."
   },
   retroflexe: {
     label: "Langue",
     court: "la langue",
-    note: "Écoute où se place la langue. zh, ch, sh se disent pointe relevée en arrière, son sourd. z, c, s se disent langue en avant contre les dents, son sifflant."
+    note: "Écoute la langue : zh ch sh en arrière, z c s contre les dents."
   },
 };
 const OREILLE_MAX = 10;
@@ -5136,7 +5137,10 @@ async function micPrise(ms, elNiveau, onFin) {
   try {
     flux = await navigator.mediaDevices.getUserMedia({ audio: {
       echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
-  } catch (e) { onFin(null, "Micro refusé. Autorise-le dans les réglages du navigateur."); return; }
+  } catch (e) {
+    if (elNiveau) elNiveau.classList.add("hidden");
+    onFin(null, "Micro refusé. Autorise-le dans les réglages du navigateur."); return;
+  }
   const AC = window.AudioContext || window.webkitAudioContext;
   const ctx = new AC();
   let raf = null;
@@ -5145,6 +5149,7 @@ async function micPrise(ms, elNiveau, onFin) {
     ctx.createMediaStreamSource(flux).connect(an);
     const buf = new Float32Array(an.fftSize);
     const jauge = elNiveau && elNiveau.firstElementChild;
+    if (elNiveau) elNiveau.classList.remove("hidden");
     const tic = () => {
       an.getFloatTimeDomainData(buf);
       let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
@@ -5164,7 +5169,10 @@ async function micPrise(ms, elNiveau, onFin) {
   rec.ondataavailable = e => { if (e.data && e.data.size) morceaux.push(e.data); };
   rec.onstop = async () => {
     if (raf) cancelAnimationFrame(raf);
-    if (elNiveau && elNiveau.firstElementChild) elNiveau.firstElementChild.style.width = "0%";
+    if (elNiveau) {
+      elNiveau.classList.add("hidden");
+      if (elNiveau.firstElementChild) elNiveau.firstElementChild.style.width = "0%";
+    }
     flux.getTracks().forEach(t => t.stop());
     const blob = new Blob(morceaux, { type: (morceaux[0] && morceaux[0].type) || mime || "audio/mp4" });
     let pcm = null, sr = 0;
@@ -5307,8 +5315,16 @@ function voixAfficher() {
     <div class="v-py">${renderPinyin(voixMot.pinyin)}</div>
     <div class="v-fr">${esc(voixMot.fr)} · ${esc(TONE_NOM[voixMot.tone] || "")}</div>`;
 }
-function voixAutre() { voixMot = voixTirer(false); voixCourbe = null; voixAfficher(); voixDessiner(); voixEffacerVerdict(); }
-function voixCiblee() { voixMot = voixTirer(true); voixCourbe = null; voixAfficher(); voixDessiner(); voixEffacerVerdict(); }
+let voixFragiles = true;   // par défaut on vise ce qu'elle a déjà manqué
+function voixAutre() {
+  voixMot = voixTirer(voixFragiles); voixCourbe = null;
+  voixAfficher(); voixDessiner(); voixEffacerVerdict();
+}
+function voixBasculerCible() { voixFragiles = !voixFragiles; voixAutre(); majChipsVoix(); }
+function majChipsVoix() {
+  const c = $("voix-chip-faible");
+  if (c) c.setAttribute("aria-pressed", voixFragiles ? "true" : "false");
+}
 function voixModele() { if (voixMot) speak(voixMot.hanzi, 0.6); }
 function voixEffacerVerdict() {
   if ($("voix-verdict")) { $("voix-verdict").textContent = ""; $("voix-verdict").className = "verdict-voix"; }
@@ -5368,7 +5384,7 @@ function voixEnregistrer() {
   if (b.dataset.on === "1") return;
   b.dataset.on = "1"; b.textContent = "🎤 Parle…";
   voixEffacerVerdict();
-  $("voix-verdict").textContent = "Dis la syllabe, une seule fois.";
+  $("voix-verdict").textContent = "Dis la syllabe.";
   micPrise(2200, $("voix-niveau"), (prise, err) => {
     b.dataset.on = ""; b.textContent = "🎤 M'écouter";
     if (err || !prise) { $("voix-verdict").className = "verdict-voix ko"; $("voix-verdict").textContent = err || "Prise ratée."; return; }
@@ -5404,21 +5420,24 @@ function voixAnalyser(prise) {
   vd.textContent = juste
     ? `C'est bien un ${TONE_NOM[attendu]}.`
     : `J'entends un ${TONE_NOM[r.ton]}, il fallait un ${TONE_NOM[attendu]}.`;
+  /* Une mesure et une consigne, pas un cours : le panneau était devenu un mur
+     de texte (retour de Daphnée). La description générale du ton ne sert que
+     lorsqu'il n'y a rien de précis à corriger. */
   const CONSEIL = {
-    1: "Le 1ᵉʳ ton se tient haut et plat, sans bouger, comme une note tenue.",
-    2: "Le 2ᵉ ton part bas et monte franchement, comme une question étonnée en français.",
-    3: "Le 3ᵉ ton descend au plus grave, s'y attarde, puis remonte à peine.",
-    4: "Le 4ᵉ ton part haut et tombe d'un coup, sec, comme un ordre bref.",
+    1: "Le 1ᵉʳ ton se tient haut et plat, sans bouger.",
+    2: "Le 2ᵉ ton part bas et monte franchement.",
+    3: "Le 3ᵉ ton descend au plus grave, puis remonte à peine.",
+    4: "Le 4ᵉ ton part haut et tombe d'un coup.",
   };
-  const chiffres = `Ta courbe : ${r.delta >= 0 ? "monte" : "descend"} de ${un(Math.abs(r.delta))} demi-tons`
-    + (r.plongeon >= 1 ? `, avec un creux de ${un(r.plongeon)}` : "")
-    + `, étendue totale ${un(r.etendue)}.`;
   let visee = "";
-  if (attendu === 4 && r.delta > -3.5) visee = " Vise au moins 5 demi-tons de chute : pars plus haut et laisse tomber d'un coup.";
-  else if (attendu === 2 && r.delta < 2.5) visee = " Vise au moins 4 demi-tons de montée : pars plus bas et remonte jusqu'au bout.";
-  else if (attendu === 3 && r.plongeon < 2) visee = " Creuse davantage : descends au plus grave de ta voix avant de remonter.";
-  else if (attendu === 1 && r.etendue > 3) visee = " Tiens la note : ta voix bouge de " + un(r.etendue) + " demi-tons, il en faudrait moins de 3.";
-  ms.textContent = chiffres + " " + (CONSEIL[attendu] || "") + visee;
+  if (attendu === 4 && r.delta > -3.5) visee = "Vise 5 demi-tons de chute : pars plus haut, laisse tomber d'un coup.";
+  else if (attendu === 2 && r.delta < 2.5) visee = "Vise 4 demi-tons de montée : pars plus bas, remonte jusqu'au bout.";
+  else if (attendu === 3 && r.plongeon < 2) visee = "Creuse davantage : descends au plus grave avant de remonter.";
+  else if (attendu === 1 && r.etendue > 3) visee = `Tiens la note : ta voix bouge de ${un(r.etendue)} demi-tons, vise moins de 3.`;
+  const mesure = r.plongeon >= 2
+    ? `Creux de ${un(r.plongeon)} demi-tons.`
+    : `${r.delta >= 0 ? "Montée" : "Chute"} de ${un(Math.abs(r.delta))} demi-tons.`;
+  ms.textContent = mesure + " " + (visee || CONSEIL[attendu] || "");
 }
 
 /* ---- 3. Écho : le modèle, ta voix, le modèle ----
@@ -5444,8 +5463,8 @@ function echoAfficher() {
 }
 function echoAutre() {
   echoMot = echoTirer(); echoBlob = null;
-  if ($("echo-cmp")) $("echo-cmp").disabled = true;
-  if ($("echo-etat")) $("echo-etat").textContent = "Écoute le modèle, puis enregistre-toi.";
+  if ($("echo-cmp")) $("echo-cmp").classList.add("hidden");
+  if ($("echo-etat")) $("echo-etat").textContent = "";
   echoAfficher();
 }
 function echoModele() { if (echoMot) speak(echoMot.hanzi, 0.7); }
@@ -5481,13 +5500,13 @@ function echoEnregistrer() {
   const b = $("echo-rec");
   if (b.dataset.on === "1") return;
   b.dataset.on = "1"; b.textContent = "🎤 Parle…";
-  $("echo-etat").textContent = "Dis le mot, tranquillement.";
+  $("echo-etat").textContent = "Dis le mot.";
   micPrise(3000, $("echo-niveau"), (prise, err) => {
     b.dataset.on = ""; b.textContent = "🎤 M'enregistrer";
     if (err || !prise) { $("echo-etat").textContent = err || "Prise ratée."; return; }
     echoBlob = prise.blob;
-    $("echo-cmp").disabled = false;
-    $("echo-etat").textContent = "C'est enregistré. Compare, puis recommence si tu entends un écart.";
+    $("echo-cmp").classList.remove("hidden");
+    $("echo-etat").textContent = "";
   });
 }
 async function echoComparer() {
@@ -5501,38 +5520,49 @@ async function echoComparer() {
   await jouerBlob(echoBlob); await pause(400);
   $("echo-etat").textContent = "Le modèle, à nouveau…";
   await direAsync(echoMot.hanzi);
-  $("echo-etat").textContent = "Où est l'écart ? La hauteur, le souffle de la consonne, la fin de la syllabe ?";
+  $("echo-etat").textContent = "Où est l'écart ? La hauteur, le souffle, la fin de la syllabe ?";
   b.disabled = false;
 }
 
-/* ---- Rendu de l'onglet ---- */
+/* ---- Rendu de l'onglet ----
+   Un seul des trois entraînements est monté à la fois. Les empiler donnait une
+   page de prose où rien ne ressortait (retour de Daphnée, 2026-08-28). */
+const VOIX_MODES = [
+  { k: "oreille", lab: "Oreille" },
+  { k: "voix",    lab: "Ma voix" },
+  { k: "echo",    lab: "Écho" },
+];
+let curVoixMode = "oreille";
+function setVoixMode(m) { curVoixMode = m; renderVoix(); }
 function renderVoix() {
-  const due = pairesDue().length, total = pairesPool().length;
-  if ($("oreille-etat")) {
-    $("oreille-etat").textContent = total
-      ? `${due} son${due > 1 ? "s" : ""} à travailler sur ${total} familles.`
-      : "Aucune famille de sons pour ce filtre.";
+  $("voix-modes").innerHTML = VOIX_MODES.map(m =>
+    `<button class="chip" aria-pressed="${curVoixMode === m.k}" onclick="setVoixMode(${jsattr(m.k)})">${esc(m.lab)}</button>`).join("");
+  VOIX_MODES.forEach(m => $("pan-" + m.k).classList.toggle("hidden", curVoixMode !== m.k));
+  if (curVoixMode === "oreille") renderOreille();
+  else if (curVoixMode === "voix") {
+    if (!voixMot) voixMot = voixTirer(voixFragiles);
+    majChipsVoix(); voixAfficher(); voixDessiner();
+  } else {
+    if (!echoMot) echoMot = echoTirer();
+    echoAfficher();
   }
-  if ($("oreille-chips")) {
-    const cles = ["all"].concat(Object.keys(CONTRASTES)
-      .filter(k => EMBED_PAIRES.some(f => f.contraste === k)));
-    $("oreille-chips").innerHTML = cles.map(k =>
-      `<button class="chip${curContraste === k ? " on" : ""}" onclick="setContraste(${jsattr(k)})">${
-        k === "all" ? "Tout" : esc(CONTRASTES[k].label)
-      }</button>`).join("");
-  }
-  if ($("oreille-weak")) {
-    const f = paireFaibles();
-    $("oreille-weak").innerHTML = f.map(({ f: fam, tr }) =>
-      `<li><span class="w-hanzi hanzi">${esc(fam.mots.map(m => m.hanzi).join(""))}</span>
-       <span class="w-mid"><span class="w-pinyin">${fam.mots.map(m => renderPinyin(m.pinyin)).join(" · ")}</span><br>
-       <span class="w-fr">${esc((CONTRASTES[fam.contraste] || {}).court || "")} · ${tr.errors} ratée${tr.errors > 1 ? "s" : ""}</span></span></li>`).join("");
-  }
-  if (!voixMot) voixMot = voixTirer(true);
-  if (!echoMot) echoMot = echoTirer();
-  voixAfficher(); voixDessiner(); echoAfficher();
 }
-function setContraste(k) { curContraste = k; renderVoix(); }
+function renderOreille() {
+  const due = pairesDue().length;
+  $("oreille-n").textContent = due;
+  $("oreille-chips").innerHTML = ["all"].concat(Object.keys(CONTRASTES)
+    .filter(k => EMBED_PAIRES.some(f => f.contraste === k)))
+    .map(k => `<button class="chip" aria-pressed="${curContraste === k}" onclick="setContraste(${jsattr(k)})">${
+      k === "all" ? "Tout" : esc(CONTRASTES[k].label)}</button>`).join("");
+  const faibles = paireFaibles();
+  $("oreille-weak-box").classList.toggle("hidden", !faibles.length);
+  $("oreille-weak-lab").textContent = `À reprendre (${faibles.length})`;
+  $("oreille-weak").innerHTML = faibles.map(({ f, tr }) =>
+    `<li><span class="w-hanzi hanzi">${esc(f.mots.map(m => m.hanzi).join(""))}</span>
+     <span class="w-mid"><span class="w-pinyin">${f.mots.map(m => renderPinyin(m.pinyin)).join(" · ")}</span><br>
+     <span class="w-fr">${esc((CONTRASTES[f.contraste] || {}).court || "")}</span></span></li>`).join("");
+}
+function setContraste(k) { curContraste = k; renderOreille(); }
 
 /* ---- Notation & planification ----
    Tout se joue ici, à partir d'un seul bit d'information : su / pas su.
