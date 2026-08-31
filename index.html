@@ -1650,13 +1650,19 @@ function noteDecouverte(card) {
   if (!state.decouvertes) state.decouvertes = {};
   const k = todayKey();
   state.decouvertes[k] = (state.decouvertes[k] || 0) + 1;
-  /* Second compteur, par niveau, qui sert de base au quota d'un ciblage
-     explicite. Le compteur global reste seul à alimenter le rythme affiché et
-     les projections : c'est lui qui mesure ce qu'elle découvre réellement. */
-  if (!state.decNiveau) state.decNiveau = {};
-  if (!state.decNiveau[k]) state.decNiveau[k] = {};
-  const n = niveauDe(card);
-  state.decNiveau[k][n] = (state.decNiveau[k][n] || 0) + 1;
+  /* Compteur par niveau, réservé au CIBLAGE explicite (2026-08-31, bug signalé
+     par Daphnée : « je suis bloquée pour le HSK 2 »). Compter TOUTE découverte
+     au niveau officiel du mot, y compris en session mixte « Tous niveaux »,
+     était le bug : le vocabulaire de cours du manuel 2 EST du HSK 2, si bien
+     que la révision quotidienne normale épuisait à elle seule le quota du jour
+     pour ce niveau, avant même qu'elle choisisse de cibler « HSK 2 » pour
+     rattraper les mots « en avance ». Seul un ciblage EXPLICITE (curNiveau
+     réglé sur ce niveau) doit consommer ce quota-là. */
+  if (curNiveau !== "all") {
+    if (!state.decCible) state.decCible = {};
+    if (!state.decCible[k]) state.decCible[k] = {};
+    state.decCible[k][curNiveau] = (state.decCible[k][curNiveau] || 0) + 1;
+  }
 }
 /* Rythme CALENDAIRE : ce qui a été découvert sur les N derniers jours, jours
    creux compris. C'est le seul rythme affiché depuis le 2026-08-21, et le seul
@@ -1722,11 +1728,16 @@ function projection(restant, moy) {
    empêche d'enchaîner les niveaux pour multiplier les nouveautés et de recréer
    la dette que ce quota existe pour éviter. */
 function decouvertesJour() { return (state.decouvertes || {})[todayKey()] || 0; }
-function decouvertesNiveau(n) { return (((state.decNiveau || {})[todayKey()]) || {})[n] || 0; }
+/* Quota consommé par le CIBLAGE explicite de ce niveau uniquement (voir
+   noteDecouverte) : une découverte faite en session mixte « Tous niveaux » n'y
+   compte pas, même si le mot appartient à ce niveau. C'est ce compteur-là qui
+   doit gater newQuotaLeft, sinon la révision normale du cours (HSK 2) épuise
+   le quota d'un ciblage HSK 2 jamais demandé (2026-08-31). */
+function decouvertesCible(n) { return (((state.decCible || {})[todayKey()]) || {})[n] || 0; }
 function newQuotaLeft() {
   const total = decouvertesJour();
   if (curNiveau === "all") return Math.max(0, NEW_WORDS_PER_DAY - total);
-  return Math.max(0, Math.min(NEW_WORDS_PER_DAY - decouvertesNiveau(curNiveau),
+  return Math.max(0, Math.min(NEW_WORDS_PER_DAY - decouvertesCible(curNiveau),
                               NEW_DAY_CAP - total));
 }
 function duePartage() {
@@ -1994,10 +2005,13 @@ function partConnueHTML(trav, t) {
    dit ce qui manque. */
 function echeanceHTML(motsRestants, reglesRestantes) {
   if (motsRestants <= 0 && reglesRestantes <= 0) {
-    return `<div class="pc-eta fini">Tout ce que l'app contient de ce niveau est croisé. 加油 !</div>`;
+    return `<div class="pc-eta fini">Tout ce que l'app contient de ce niveau est su. 加油 !</div>`;
   }
-  const rm = rythmeCalendaire(state.decouvertes, 14);
-  const rg = rythmeCalendaire(state.gramNeuves, 14);
+  /* Rythme de ce qu'elle SAIT (state.sus / state.gramSus), pas de ce qu'elle
+     croise (state.decouvertes / state.gramNeuves) : le rythme de découverte
+     gonflait la projection d'un savoir jamais démontré (2026-08-31). */
+  const rm = rythmeCalendaire(state.sus, 14);
+  const rg = rythmeCalendaire(state.gramSus, 14);
   const pm = projection(motsRestants, rm ? rm.moy : 0);
   const pg = projection(reglesRestantes, rg ? rg.moy : 0);
   const reste = [];
@@ -2010,17 +2024,17 @@ function echeanceHTML(motsRestants, reglesRestantes) {
     const quoi = pm.arret && motsRestants > 0 && pg.arret && reglesRestantes > 0 ? "aucun mot ni aucune règle"
       : pm.arret && motsRestants > 0 ? "aucun mot nouveau" : "aucune règle nouvelle";
     return `<div class="pc-eta">Il te reste ${reste.join(" et ")}.
-      <span class="pc-eta-note">Pas d'échéance : tu n'as découvert ${quoi} ces derniers jours.</span></div>`;
+      <span class="pc-eta-note">Pas d'échéance : tu n'as su ${quoi} ces derniers jours.</span></div>`;
   }
   const jours = Math.max(pm.fini ? 0 : pm.jours, pg.fini ? 0 : pg.jours);
   const frein = pm.fini || (!pg.fini && pg.jours >= pm.jours) ? "la grammaire" : "le vocabulaire";
-  const chiffre = (v, mot) => {
+  const chiffre = (v, sing, plur) => {
     const arr = Math.round(v * 10) / 10;
-    return `${arr.toString().replace(".", ",")} ${mot}${arr >= 2 ? "s" : ""}/jour`;
+    return `${arr.toString().replace(".", ",")} ${arr >= 2 ? plur : sing}/jour`;
   };
   const detail = [];
-  if (rm) detail.push(chiffre(rm.moy, "mot"));
-  if (rg) detail.push(chiffre(rg.moy, "règle"));
+  if (rm) detail.push(chiffre(rm.moy, "mot su", "mots sus"));
+  if (rg) detail.push(chiffre(rg.moy, "règle sue", "règles sues"));
   return `<div class="pc-eta">Il te reste ${reste.join(" et ")}.
     <span class="pc-eta-big">${esc(dureeTexte(jours))}</span>
     <span class="pc-eta-note">soit vers le ${esc(dateDansTexte(jours))}, au rythme réel de ta quinzaine
@@ -2040,13 +2054,13 @@ function seriesHTML() {
   /* Le cap se compte en mots SUS, plus en mots croisés (demande de Daphnée,
      2026-08-24) : croiser un mot ne prouve rien, le savoir se constate. Un mot
      su peut redescendre si les répétitions à long terme le prennent en défaut :
-     le compteur suit, sans rien lui demander. Le rythme projeté reste celui
-     des découvertes : c'est le débit d'entrée du tunnel, et presque tout mot
-     découvert devient su dans la foulée. */
+     le compteur suit, sans rien lui demander. Le rythme projeté est celui des
+     mots devenus sus (state.sus), pas celui des découvertes : le débit
+     d'entrée du tunnel ne dit rien de ce qui en ressort su (2026-08-31). */
   const sus = state.cards.filter(motConnu).length;
   const restant = Math.max(0, OBJECTIF_CONV - sus);
   const pct = Math.min(100, Math.round(100 * sus / OBJECTIF_CONV));
-  const rm = rythmeCalendaire(state.decouvertes, 14);
+  const rm = rythmeCalendaire(state.sus, 14);
   const p = projection(restant, rm ? rm.moy : 0);
   const JALONS = [600, 1000, OBJECTIF_CONV];
   const jalon = JALONS.find(j => j > sus);
@@ -2056,7 +2070,7 @@ function seriesHTML() {
     eta = `<div class="pc-eta fini">Le stock de mots de la conversation pro est là. Place à l'oral. 加油 !</div>`;
   } else if (p.arret) {
     eta = `<div class="pc-eta">
-      <span class="pc-eta-note">Pas d'échéance pour l'instant : tu n'as découvert aucun mot nouveau
+      <span class="pc-eta-note">Pas d'échéance pour l'instant : tu n'as su aucun mot nouveau
         ces derniers jours. La projection revient dès ta prochaine session.</span></div>`;
   } else {
     const rythme = (Math.round(rm.moy * 10) / 10).toString().replace(".", ",");
@@ -2070,7 +2084,7 @@ function seriesHTML() {
     eta = `<div class="pc-eta">Cap complet, ${OBJECTIF_CONV} mots sus :
       <span class="pc-eta-big">encore ${esc(dureeLongueTexte(p.jours))}</span>
       <span class="pc-eta-note">soit vers ${p.jours < 400 ? "le " : ""}${esc(dateDansTexte(p.jours))}, au rythme réel de ta
-        quinzaine (${rythme} mots/jour, jours sans session compris).${ligneJalon}</span></div>`;
+        quinzaine (${rythme} mot${rm.moy >= 2 ? "s" : ""} su${rm.moy >= 2 ? "s" : ""}/jour, jours sans session compris).${ligneJalon}</span></div>`;
   }
   /* Le contexte du cap (stock de l'app, étape des séries) se lit sur demande :
      affiché en permanence, il se relisait à chaque visite (2026-08-24). */
@@ -2104,16 +2118,18 @@ function renderParcours() {
     const gVus = gram.filter(p => estCroise(gramProg(p.id))).length;
     const gCon = gram.filter(p => estConnu(gramProg(p.id))).length;
     const gSol = gram.filter(p => estSolide(gramProg(p.id))).length;
-    const pct = Math.round(100 * vus / officiel.length);
-    /* Le verbe compte : « croisé » n'est pas « connu ». Écrire « tu connais 59
-       mots » alors que le chiffre ne mesurait qu'une rencontre était faux. */
+    /* La jauge se lit sur ce qu'elle SAIT (con), pas sur ce qu'elle a croisé
+       (vus) : croiser un mot ne prouve rien, et une barre remplie par le seul
+       croisement affichait un niveau plus avancé qu'il ne l'était vraiment
+       (demande de Daphnée, 2026-08-31). */
+    const pct = Math.round(100 * con / officiel.length);
     const phrase = vus
-      ? `Tu as croisé <strong>${vus}</strong> des ${officiel.length} mots du niveau, et tu en sais <strong>${con}</strong>.`
+      ? `Tu sais <strong>${con}</strong> des ${officiel.length} mots du niveau (et tu en as croisé <strong>${vus}</strong>).`
       : `${officiel.length} mots composent ce niveau.`;
     const acquis = (sol || gSol)
       ? `<div class="pc-note">Solides : ${sol} mot${sol > 1 ? "s" : ""} et ${gSol} règle${gSol > 1 ? "s" : ""}.</div>` : "";
     const gramLigne = gram.length
-      ? `<div class="pc-note">Grammaire : ${gVus} règle${gVus > 1 ? "s" : ""} abordée${gVus > 1 ? "s" : ""} sur les ${gram.length} de tes cours, ${gCon} sue${gCon > 1 ? "s" : ""}.</div>` : "";
+      ? `<div class="pc-note">Grammaire : ${gCon} règle${gCon > 1 ? "s" : ""} sue${gCon > 1 ? "s" : ""} sur les ${gram.length} de tes cours (${gVus} abordée${gVus > 1 ? "s" : ""}).</div>` : "";
     /* Deux choses distinctes qu'il ne faut jamais confondre : ce qu'elle a appris,
        et ce que l'app contient. Un mot du niveau absent de l'app n'est pas un mot
        qu'elle a raté, c'est du contenu qui manque ici. */
@@ -2139,7 +2155,7 @@ function renderParcours() {
       ${barreHTML(pct)}
       <div class="pc-phrase">${phrase}</div>
       ${acquis}${gramLigne}${manque}${ciblage}
-      ${echeanceHTML(dansApp.length - vus, gram.length - gVus)}
+      ${echeanceHTML(dansApp.length - con, gram.length - gCon)}
     </div>`;
   }).join("");
 
@@ -2180,12 +2196,15 @@ function renderParcours() {
     TRACKS.map(t => {
       const trav = state.cards.filter(c => c[t] && c[t].reviews);
       const vus = trav.length;
-      const pct = total ? Math.round(100 * vus / total) : 0;
+      const sus = trav.filter(c => estConnu(c[t])).length;
+      /* La jauge se lit sur ce qu'elle sait (sus), pas sur ce qu'elle a croisé
+         (vus) : mêmes raisons que le tableau par niveau HSK (2026-08-31). */
+      const pct = total ? Math.round(100 * sus / total) : 0;
       return `<div class="pc-piste">
         <div class="pc-tete"><span class="pc-nom">${TRACK_ICON[t]} ${esc(TRACK_LABEL[t])}</span></div>
         <div class="pc-note">${DESC[t]}</div>
         ${barreHTML(pct)}
-        <div class="pc-phrase"><strong>${vus}</strong> mot${vus > 1 ? "s" : ""} croisé${vus > 1 ? "s" : ""} sur ${total}, dont <strong>${trav.filter(c => estConnu(c[t])).length}</strong> su${trav.filter(c => estConnu(c[t])).length > 1 ? "s" : ""}.</div>
+        <div class="pc-phrase"><strong>${sus}</strong> mot${sus > 1 ? "s" : ""} su${sus > 1 ? "s" : ""} sur ${total} (dont <strong>${vus}</strong> croisé${vus > 1 ? "s" : ""} au total).</div>
         ${partConnueHTML(trav, t)}
       </div>`;
     }).join("");
@@ -2291,8 +2310,8 @@ function render() {
   const resteAvoir = curNiveau !== "all" && !nSrs && !newQuotaLeft()
     && motsDuNiveau(curNiveau).some(c => TRACKS.some(t => c[t] && !c[t].reviews));
   const motQuota = resteAvoir
-    ? ` Aucun mot neuf du HSK ${curNiveau} aujourd'hui : ${decouvertesNiveau(curNiveau) >= NEW_WORDS_PER_DAY
-        ? `tu en as déjà découvert ${decouvertesNiveau(curNiveau)} à ce niveau`
+    ? ` Aucun mot neuf du HSK ${curNiveau} aujourd'hui : ${decouvertesCible(curNiveau) >= NEW_WORDS_PER_DAY
+        ? `tu en as déjà découvert ${decouvertesCible(curNiveau)} en ciblant ce niveau`
         : `le plafond de ${NEW_DAY_CAP} nouveautés du jour est atteint`}. Le panneau « mots jamais testés » ci-dessous n'est pas soumis à ce quota.`
     : "";
   /* Quitter en cours de route n'efface rien : chaque réponse est écrite au
@@ -4582,6 +4601,7 @@ function markKnown() {
   tr.inter = Math.max(tr.inter, 60);
   tr.ease = Math.max(tr.ease || 2.2, 2.5);
   tr.due = Date.now() + tr.inter * 864e5;
+  const etaitConnu = estConnu(tr);
   tr.connu = true;
   /* Le mot est rencontré, et déclaré su : les deux doivent être enregistrés.
      Sans cet appel, un mot jamais vu poussé à 60 jours par « Acquis » gardait
@@ -4589,6 +4609,7 @@ function markKnown() {
      ni comme croisé ni comme connu, ne consommait pas le quota de nouveautés du
      jour, et reparaissait indéfiniment dans « Faire le point » (2026-08-21). */
   noteDecouverte(it.card);
+  if (!etaitConnu) noteSu(it.track);
   save();
   advance();
 }
@@ -5581,6 +5602,24 @@ function compterPassage() {
   state.reviews++;
   state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
 }
+/* Historique du jour où une piste devient SUE pour la première fois (bascule
+   estConnu false -> true). Sert de rythme aux jauges et aux échéances : le
+   rythme de découverte (state.decouvertes) mesurait ce qu'elle croise, pas ce
+   qu'elle sait, et gonflait les projections d'un savoir jamais démontré
+   (demande de Daphnée, 2026-08-31). Deux compteurs séparés, comme pour les
+   découvertes : les mots de vocabulaire (state.sus) et les points de
+   grammaire (state.gramSus), chacun avec son propre rythme et sa propre
+   échéance dans echeanceHTML. */
+function noteSu(kind) {
+  const j = todayKey();
+  if (TRACKS.indexOf(kind) >= 0) {
+    if (!state.sus) state.sus = {};
+    state.sus[j] = (state.sus[j] || 0) + 1;
+  } else if (kind === "gram") {
+    if (!state.gramSus) state.gramSus = {};
+    state.gramSus[j] = (state.gramSus[j] || 0) + 1;
+  }
+}
 function schedule(tr, ok, kind) {
   /* Repassage de fin de session : on ne touche à rien. Réussir maintenant un
      point raté il y a deux minutes n'engage que la mémoire de travail.
@@ -5590,6 +5629,7 @@ function schedule(tr, ok, kind) {
      Tant qu'aucun repassage mixte n'existait, le cas ne se présentait pas. */
   if (sessPractice) return;
   const k = kind || "son";
+  const etaitConnu = estConnu(tr);
   tr.reviews++;
   if (typeof tr.ease !== "number") tr.ease = EASE_START[k];
   /* Délai réellement écoulé depuis la dernière fois qu'elle a vu cette carte.
@@ -5628,6 +5668,7 @@ function schedule(tr, ok, kind) {
      tous ensemble des semaines plus tard. */
   const jitter = tr.inter >= 7 ? Math.floor(Math.random() * tr.inter * 0.15) : 0;
   tr.due = Date.now() + (tr.inter + jitter) * 864e5;
+  if (!etaitConnu && estConnu(tr)) noteSu(k);
 }
 /* Maturité d'une piste, pour les compteurs d'accueil uniquement.
    Jamais affichée pendant une révision : rien à lire, rien à décider.
