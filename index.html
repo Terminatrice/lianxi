@@ -870,8 +870,8 @@ const MATURE = 21, ANCRE = 90;     // paliers de rétention démontrée, en jour
    révisions en retard, aucun mot nouveau n'entrait plus jamais dans une session
    (bug relevé le 2026-08-20 : file qui tourne en rond, compteur de découvertes
    figé à zéro, progression bloquée sans que rien ne le signale). */
-const NEW_WORDS_PER_DAY = 6;       // mots jamais rencontrés introduits par jour
-const NEW_RESERVE = 6;             // places gardées aux nouveautés dans une session
+const NEW_WORDS_PER_DAY = 8;       // mots jamais rencontrés introduits par jour (6 -> 8 le 2026-09-20, « j'ai l'impression de stagner »)
+const NEW_RESERVE = 8;             // places gardées aux nouveautés dans une session
 const NEW_DAY_CAP = 16;            // plafond du jour, ciblages de niveau cumulés (12 -> 16 le 2026-08-25)
 /* Mise à jour : le premier passage sert de test de niveau. Réussi du premier
    coup, le mot est réputé déjà acquis et n'est revérifié qu'un mois plus tard.
@@ -1850,16 +1850,29 @@ function dueItems() {
       du retard n'apparaissait jamais. */
 function sessionItems(limite) {
   const d = duePartage();
-  /* Les nouveautés se réservent en MOTS (quota du jour) mais se plafonnent en
-     CARTES : au plus un tiers des places. Sans ce plafond, six mots à deux
-     pistes remplissaient les douze places de vocabulaire d'une session de 30,
-     et la première session de chaque jour ne révisait plus rien (audit du
-     2026-09-16 : « les mots HSK 2 me sont rarement présentés »). */
-  const plafondNeuf = Math.max(0, Math.floor(limite / 3));
-  const nouveaux = avecDecouvertes(neufsLimites(d.neufs, Math.min(newQuotaLeft(), NEW_RESERVE))).slice(0, plafondNeuf);
-  /* On ne coupe jamais entre une découverte et son test. */
-  if (nouveaux.length && nouveaux[nouveaux.length - 1].mode === "decouverte") nouveaux.pop();
-  const place = Math.max(0, limite - nouveaux.length);
+  /* Nouveautés (refonte du 2026-09-20, après « mes stats n'avancent pas »).
+     Le plafond du 2026-09-16 se comptait en CARTES (un tiers des places) et
+     chaque mot nouveau en coûtait deux (découverte + test), la demi-carte
+     restante était jetée, et la première lecture des caractères des mots de la
+     veille passait pour une nouveauté : 1,5 mot nouveau par jour au lieu des
+     six du quota, mesuré au harnais. Désormais :
+     - le plafond se compte en MOTS testés (un tiers des places de vocabulaire),
+       borné par le quota du jour ;
+     - la carte de découverte ne compte ni dans le plafond ni dans les places :
+       c'est un écran de lecture, pas un test. La file dépasse donc `limite` du
+       nombre de mots découverts (au plus NEW_RESERVE) ;
+     - la première lecture des caractères d'un mot dont le son est déjà
+       retrouvé est une RÉVISION prioritaire, pas une nouveauté. */
+  const plafondMots = Math.max(0, Math.floor(limite / 3));
+  const sonNeufs = d.neufs.filter(it => it.track === "son");
+  const ziPremiers = d.neufs.filter(it => it.track === "zi" && (it.card.son.reviews || it.card.son.connu));
+  /* Un mot découvert mais jamais testé (session quittée entre les deux) passe
+     avant les inconnus et ne consomme pas de quota : il l'a déjà consommé. */
+  const dejaVus = sonNeufs.filter(it => it.card.vu);
+  const aDecouvrir = sonNeufs.filter(it => !it.card.vu).slice(0, newQuotaLeft());
+  const tests = dejaVus.concat(aDecouvrir).slice(0, Math.min(plafondMots, NEW_RESERVE));
+  const nouveaux = avecDecouvertes(tests);
+  const place = Math.max(0, limite - tests.length);
   const retard = d.revus.slice(0, Math.ceil(place / 2));
   /* Le fond de la dette n'est plus tiré au sort à l'aveugle : les pistes pas
      encore sues (une réussite de moins que d'échecs, ou jamais réussies)
@@ -1868,11 +1881,22 @@ function sessionItems(limite) {
      plusieurs centaines de cartes ne les ramenait presque jamais. Le tirage
      ne sert plus qu'à compléter avec les pistes déjà sues. */
   const fond = d.revus.slice(retard.length);
-  const pasSues = fond.filter(it => !estConnu(it.card[it.track]));
+  /* Les premières lectures de caractères et les pistes ratées alternent une
+     pour une : mises en tête, les lectures prenaient toutes les places et la
+     dette de mots pas encore sus ne remontait plus (mesuré au harnais). */
+  const rates = fond.filter(it => !estConnu(it.card[it.track]));
+  const pasSues = [];
+  for (let i = 0; i < Math.max(ziPremiers.length, rates.length); i++) {
+    if (i < rates.length) pasSues.push(rates[i]);
+    if (i < ziPremiers.length) pasSues.push(ziPremiers[i]);
+  }
   const sues = shuffle(fond.filter(it => estConnu(it.card[it.track])));
   const tirage = pasSues.concat(sues).slice(0, place - retard.length);
   return nouveaux.concat(retard, tirage);
 }
+/* Nombre de TESTS d'une file : les cartes de découverte ne comptent pas dans
+   la longueur annoncée de la session. */
+function nbTests(items) { return items.filter(it => it.mode !== "decouverte").length; }
 
 /* ---------- La journée est faite ----------
    Une fois la session du jour terminée, le compteur d'accueil redescend à zéro
@@ -1901,10 +1925,17 @@ function faiblesJour() {
   if (!f || f.d !== todayKey() || !(f.mots || []).length) return [];
   return f.mots.map(h => state.cards.find(c => c.hanzi === h)).filter(Boolean);
 }
-/* Longueur de la session du jour, choisie sur l'accueil (15, 30 ou 45).
+/* Longueur de la session du jour, choisie sur l'accueil (20, 35 ou 50 depuis le 2026-09-20).
    Une seule longueur imposée obligeait à s'engager sur 30 cartes ou rien. */
-const TAILLES = [15, 30, 45];
-function mixMax() { return TAILLES.includes(state.taille) ? state.taille : 30; }
+/* 20 / 35 / 50 depuis le 2026-09-20 (demande de Daphnée : cinq cartes de plus
+   par palier, « je peux bien aller jusqu'à 50 »). Une taille enregistrée sous
+   l'ancienne échelle (15 / 30 / 45) est relevée d'un cran. */
+const TAILLES = [20, 35, 50];
+function mixMax() {
+  if (TAILLES.includes(state.taille)) return state.taille;
+  if (TAILLES.includes(state.taille + 5)) return state.taille + 5;
+  return 35;
+}
 function setTaille(n) { state.taille = n; save(); render(); }
 
 /* ---------- Interférence proactive ----------
@@ -3981,7 +4012,7 @@ function sessionMixte() {
      30 partaient aux autres formats et il en restait 12 pour les mots, toutes
      prises par les nouveautés (audit du 2026-09-16). */
   const max = mixMax();
-  const vocabDispo = sessionItems(max).length;
+  const vocabDispo = nbTests(sessionItems(max));
   const placeVocab = Math.max(Math.min(vocabDispo, Math.ceil(max / 2)), max - parts.length);
   while (parts.length > max - placeVocab) {
     const parKind = {};
@@ -3992,7 +4023,9 @@ function sessionMixte() {
     parts.splice(i, 1);
   }
   const place = Math.max(0, max - parts.length);
-  sessionItems(place).slice(0, place).forEach(it => parts.push({ kind: "srs", v: it }));
+  /* Pas de coupe ici : sessionItems respecte `place` en tests, et ses cartes
+     de découverte s'ajoutent par-dessus la longueur annoncée (2026-09-20). */
+  sessionItems(place).forEach(it => parts.push({ kind: "srs", v: it }));
   return placerDecouvertes(entrelacer(shuffle(parts)));
 }
 /* Compteurs d'ensemble : un seul écran de fin, un seul score. */
