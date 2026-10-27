@@ -275,7 +275,7 @@
   #answer-zone .ruby { margin: .3rem 0 .7rem; }
   input.answer[readonly] { border-style: dashed; }
   .verdict { font-size: 1.1rem; font-weight: 700; }
-  .verdict.ok { color: var(--good); } .verdict.ko { color: var(--bad); }
+  .verdict.ok { color: var(--good); } .verdict.ko { color: var(--bad); } .verdict.mid { color: var(--accent); }
   .heard { font-size: 1.02rem; color: var(--muted); }
 
   /* Les boutons de notation restent collés en bas : sur une carte dépliée avec
@@ -4604,6 +4604,48 @@ function diffHTML(got, want) {
   }
   return out;
 }
+/* ---------- Juger une phrase dite (2026-10-27) ----------
+   Retour de Daphnée : « parfois je disais les bonnes choses, la tolérance n'est
+   pas assez élevée », sans pour autant « me mettre toujours juste ». La
+   reconnaissance vocale écrit le mot le plus probable (她 pour 他, 在 pour 再,
+   3 pour 三) : comparer les caractères la punissait pour les choix du moteur.
+   On compare donc les SONS sans les tons, syllabe par syllabe, dans l'ordre.
+   Mêmes sons : juste. Au moins 70 % des syllabes communes et dans le même
+   ordre : « presque », et c'est elle qui tranche, puisqu'une autre
+   formulation correcte peut exister. En dessous : pas reconnu. */
+const CHIFFRES_ZH = "零一二三四五六七八九";
+const SYL_RE = /(?:[zcs]h|[bpmfdtnlgkhjqxrzcsyw])?(?:iang|iong|uang|ang|eng|ing|ong|ian|iao|uai|uan|ai|ei|ao|ou|an|en|er|in|un|ia|ie|iu|ua|uo|ui|ue|a|o|e|i|u)(?:(?=n[aeiou])|(?=ng?[^aeiou]|ng?$))?(?:ng|n)?/g;
+function syllabes(txt) {
+  const out = [];
+  const t = String(txt).replace(/[0-9]/g, d => CHIFFRES_ZH[d]);
+  for (const [seg, py, punct] of segment(t)) {
+    if (punct) continue;
+    const n = [...seg].length;
+    let parts = py ? pinyinPlain(py).split(/[^a-z]+/).filter(Boolean) : [];
+    if (parts.length && parts.length !== n) parts = parts.join("").match(SYL_RE) || [];
+    if (parts.length === n) out.push(...parts); else out.push(...seg); // repli : le caractère lui-même
+  }
+  return out;
+}
+function lcsLen(a, b) {
+  let prev = new Array(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [0];
+    for (let j = 1; j <= b.length; j++) cur[j] = a[i - 1] === b[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1]);
+    prev = cur;
+  }
+  return prev[b.length];
+}
+/* niveau : "exact" (mêmes caractères), "sons" (mêmes sons, autres caractères),
+   "presque" (même ordre à quelques syllabes près), "loin". */
+function jugerDit(entendu, cible) {
+  if (normHanzi(entendu) === normHanzi(cible)) return { niveau: "exact", ratio: 1 };
+  const a = syllabes(entendu), b = syllabes(cible);
+  if (!a.length || !b.length) return { niveau: "loin", ratio: 0 };
+  if (a.join(" ") === b.join(" ")) return { niveau: "sons", ratio: 1 };
+  const ratio = 2 * lcsLen(a, b) / (a.length + b.length);
+  return { niveau: ratio >= 0.7 ? "presque" : "loin", ratio, a, b };
+}
 const DIFF_LEGENDE = `<div class="q-prompt diff-leg"><span class="okc">vert</span> à sa place, <span class="koc">barré</span> en trop, <span class="manq">souligné</span> oublié</div>`;
 function dicterHTML() {
   return hasRecog() ? `<button class="btn ghost" id="dict-btn" onclick="dicter()">${DICTER_LABEL}</button>
@@ -4633,7 +4675,7 @@ function dicter() {
     const texte = recogTexte.join("").replace(/\s+/g, "");
     recog = null; stopRecog();
     if (!texte) { remettre("Je n'ai rien entendu. Réessaie, ou tape la phrase."); return; }
-    if ($("write-input")) $("write-input").value = texte;
+    if ($("write-input")) { $("write-input").value = texte; $("write-input").dataset.dicte = "1"; }
     remettre("Relis ce que j'ai compris, corrige si besoin, puis vérifie.");
   };
   try { recog.start(); } catch (e) { stopRecog(); remettre("Micro indisponible : tape la phrase."); }
@@ -4756,26 +4798,57 @@ function escVerifier() {
   stopRecog();
   avecSaisie(brut => escJuger(it, brut), it.card.esc.etapes[escPas].hanzi);
 }
+/* Verdict d'une phrase écrite ou dictée. Dictée : mêmes sons = juste, puisque
+   c'est le moteur qui a choisi les caractères. Tapée : un homophone reste une
+   faute d'écriture, mais on le dit (« bons sons »). « Presque » laisse le
+   dernier mot à Daphnée : bouton « Ma version dit la même chose ». */
+function verdictPhrase(brut, cible, avant) {
+  const dicte = !!($("write-input") && $("write-input").dataset.dicte);
+  const j = jugerDit(brut, cible);
+  /* Escalier : l'étape précédente est toujours « proche » de la suivante. Pour
+     mériter « presque », il faut avoir ajouté au moins la moitié du nouvel
+     élément ; renvoyer le champ pré-rempli tel quel reste « pas tout à fait ». */
+  if (avant && j.niveau === "presque") {
+    const base = lcsLen(syllabes(avant), j.b), ajout = j.b.length - base;
+    if (lcsLen(j.a, j.b) - base < Math.ceil(ajout / 2)) j.niveau = "loin";
+  }
+  const ok = j.niveau === "exact" || (dicte && j.niveau === "sons");
+  const presque = !ok && (j.niveau === "presque" || j.niveau === "sons");
+  const diff = `<div class="q-phrase hanzi diff" style="font-size:1.3rem">${diffHTML(normHanzi(brut), normHanzi(cible))}</div>${DIFF_LEGENDE}`;
+  const html = ok
+    ? `<div class="verdict ok">✓ Juste</div>${j.niveau === "sons" ? `<p class="q-prompt">Mêmes sons que le modèle : la dictée a seulement choisi d'autres caractères.</p>` : ""}`
+    : presque
+      ? `<div class="verdict mid">${j.niveau === "sons" ? "Bons sons, caractères à revoir" : "Presque : à toi de juger"}</div>${diff}
+         <p class="q-prompt">${j.niveau === "sons" ? "Tu as écrit les bons sons avec d'autres caractères." : "Les mots sont là, dans le même ordre, à quelques syllabes près. Si ta version dit la même chose, compte-la juste."}</p>`
+      : `<div class="verdict ko">✕ Pas tout à fait</div>${diff}`;
+  return { ok, presque: presque && j.niveau === "presque", html };
+}
 function escJuger(it, brut) {
   const e = it.card.esc, s = e.etapes[escPas], dernier = escPas === e.etapes.length - 1;
-  const got = normHanzi(brut), want = normHanzi(s.hanzi), ok = got === want;
-  if (!ok) escOk = false;
-  const diff = diffHTML(got, want);
+  const v = verdictPhrase(brut, s.hanzi, escPas ? e.etapes[escPas - 1].hanzi : "");
   $("reveal-zone").classList.add("hidden");
-  $("answer-zone").innerHTML = `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "✓ Juste" : "✕ Pas tout à fait"}</div>
-     ${ok ? "" : `<div class="q-phrase hanzi diff" style="font-size:1.3rem">${diff}</div>${DIFF_LEGENDE}`}
+  $("answer-zone").innerHTML = `${v.html}
      <div class="ruby">${rubyHTML(s.hanzi)}</div>
      <div><button class="audio-btn" onclick="speak(${jsattr(s.hanzi)})">🔊 Écouter</button>
           <button class="audio-btn" onclick="speak(${jsattr(s.hanzi)}, 0.55)">🐢 Lent</button></div>
      ${dernier ? blocsHTML(e.blocs.map(b => ({ h: b[0], py: b[1], sens: b[2], role: b[3] }))) : ""}`;
   $("answer-zone").classList.remove("hidden");
   speak(s.hanzi);
-  if (dernier) {
-    if (escOk) sessOk++; else if (!sessErrors.includes(it)) sessErrors.push(it);
-    noterMix(escOk, it.card.phrase + " « " + it.card.phraseFr + " »");
-  }
-  $("grades-slot").innerHTML = `<div class="grades" id="grades" style="grid-template-columns:1fr">
-    <button class="g-good" onclick="${dernier ? "advance()" : "escSuivant()"}">${dernier ? "Phrase suivante ›" : "Étape suivante ›"}</button></div>`;
+  const suite = dernier ? "Phrase suivante ›" : "Étape suivante ›";
+  $("grades-slot").innerHTML = v.presque
+    ? `<div class="grades" id="grades" style="grid-template-columns:1fr">
+        <button class="g-good" onclick="escConclure(true)">✓ Ma version dit la même chose</button>
+        <button class="g-again" onclick="escConclure(false)">${suite}</button></div>`
+    : `<div class="grades" id="grades" style="grid-template-columns:1fr">
+        <button class="g-good" onclick="escConclure(${v.ok})">${suite}</button></div>`;
+}
+function escConclure(okEtape) {
+  const it = queue[qIndex], e = it.card.esc;
+  if (!okEtape) escOk = false;
+  if (escPas < e.etapes.length - 1) { escSuivant(); return; }
+  if (escOk) sessOk++; else if (!sessErrors.includes(it)) sessErrors.push(it);
+  noterMix(escOk, it.card.phrase + " « " + it.card.phraseFr + " »");
+  advance();
 }
 function escSuivant() {
   escPas++;
@@ -5460,21 +5533,21 @@ function checkConstruire() {
 }
 function jugerConstruire(brut) {
   const card = queue[qIndex].card;
-  const got = normHanzi(brut), want = normHanzi(card.phrase);
-  const ok = got === want;
-  const diff = diffHTML(got, want);
+  const v = verdictPhrase(brut, card.phrase);
   $("reveal-zone").classList.add("hidden");
   $("answer-zone").innerHTML =
-    `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "✓ Phrase entière retrouvée" : "✕ Pas tout à fait"}</div>
-     ${ok ? "" : `<div class="q-phrase hanzi diff" style="font-size:1.3rem">${diff}</div>${DIFF_LEGENDE}`}
+    `${v.html}
      <div class="ruby">${rubyHTML(card.phrase)}</div>
      ${card.phraseFr ? `<div class="q-phrase-fr">${esc(card.phraseFr)}</div>` : ""}
      <div><button class="audio-btn" onclick="speak(${jsattr(card.phrase)})">🔊 Écouter</button>
           <button class="audio-btn" onclick="speak(${jsattr(card.phrase)}, 0.55)">🐢 Lent</button></div>
      ${blocsHTML(blocsPhrase(card))}`;
   $("answer-zone").classList.remove("hidden");
-  autoGrade(ok);
-  $("grades-slot").innerHTML = nextOnlyHTML();
+  /* « Presque » : la note attend son choix, elle n'est pas posée d'office. */
+  if (v.presque) $("grades-slot").innerHTML = `<div class="grades" id="grades" style="grid-template-columns:1fr">
+      <button class="g-good" onclick="autoGrade(true); advance()">✓ Ma version dit la même chose</button>
+      <button class="g-again" onclick="autoGrade(false); advance()">Suivant ›</button></div>`;
+  else { autoGrade(v.ok); $("grades-slot").innerHTML = nextOnlyHTML(); }
   speak(card.phrase);
 }
 
@@ -5557,18 +5630,25 @@ function toggleRecog(target) {
     }
     /* Pour chaque morceau, on garde l'alternative la plus proche de la cible :
        le moteur en propose plusieurs et la première n'est pas toujours la bonne. */
-    const cible = normHanzi(target);
-    const best = morceaux.map(alts =>
-      alts.find(a => cible.includes(normHanzi(a)) || normHanzi(a).includes(cible)) || alts[0] || "").join("");
-    const hit = normHanzi(best).includes(cible);
+    const cibleSyl = syllabes(target);
+    const best = morceaux.map(alts => alts.reduce((m, a) =>
+      lcsLen(syllabes(a), cibleSyl) > lcsLen(syllabes(m), cibleSyl) ? a : m, alts[0] || "")).join("");
+    /* Le moteur peut entendre un mot de plus avant ou après (« 嗯 », une
+       reprise) : si la cible y figure en entier, c'est juste. */
+    const j = normHanzi(best).includes(normHanzi(target)) ? { niveau: "exact" } : jugerDit(best, target);
+    const hit = j.niveau === "exact" || j.niveau === "sons";
     if ($("heard")) $("heard").textContent = "";
     reveal();
     const zone = $("answer-zone");
+    const titre = hit ? "Bien reconnu !" : j.niveau === "presque" ? "Presque : à toi de juger" : "Ce n'est pas ce que j'ai entendu";
+    const note = j.niveau === "sons" ? `<p class="q-prompt cmp-hint">Mêmes sons que le modèle : le moteur a seulement choisi d'autres caractères.</p>`
+      : j.niveau === "presque" ? `<div class="q-phrase hanzi diff" style="font-size:1.3rem">${diffHTML(normHanzi(best), normHanzi(target))}</div>${DIFF_LEGENDE}
+         <p class="q-prompt cmp-hint">Les mots sont là, dans le même ordre, à quelques syllabes près. Si ta version dit la même chose, compte-la juste.</p>`
+      : hit ? "" : `<p class="q-prompt cmp-hint">Compare avec la ligne « Modèle » : le son que tu as produit est celui-ci. Attention, le moteur corrige souvent les tons tout seul, un ton faux peut passer inaperçu. Le quiz tons reste le meilleur juge.</p>`;
     if (zone) zone.insertAdjacentHTML("afterbegin",
-      `<div class="verdict ${hit ? "ok" : "ko"}">${hit ? "Bien reconnu !" : "Ce n'est pas ce que j'ai entendu"}</div>
-       <div class="cmp-row"><span class="cmp-lab">Entendu</span><span class="ruby">${rubyHTML(best)}</span></div>
-       ${hit ? "" : `<p class="q-prompt cmp-hint">Compare avec la ligne « Modèle » : le son que tu as produit est celui-ci. Attention, le moteur corrige souvent les tons tout seul, un ton faux peut passer inaperçu. Le quiz tons reste le meilleur juge.</p>`}`);
-    const btn = document.querySelector(hit ? ".g-good" : ".g-again");
+      `<div class="verdict ${hit ? "ok" : j.niveau === "presque" ? "mid" : "ko"}">${titre}</div>
+       <div class="cmp-row"><span class="cmp-lab">Entendu</span><span class="ruby">${rubyHTML(best)}</span></div>${note}`);
+    const btn = j.niveau === "presque" ? null : document.querySelector(hit ? ".g-good" : ".g-again");
     if (btn) btn.classList.add("suggest");
   };
   try { recog.start(); }
