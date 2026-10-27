@@ -269,7 +269,11 @@
     font-family: "Kaiti SC", "STKaiti", KaiTi, serif;
   }
   .diff span.okc { color: var(--good); }
-  .diff span.koc { color: var(--bad); text-decoration: line-through; }
+  .diff span.koc, .diff-leg .koc { color: var(--bad); text-decoration: line-through; }
+  .diff span.manq, .diff-leg .manq { color: var(--accent); text-decoration: underline dashed; text-underline-offset: .25em; }
+  .diff-leg .okc { color: var(--good); }
+  #answer-zone .ruby { margin: .3rem 0 .7rem; }
+  input.answer[readonly] { border-style: dashed; }
   .verdict { font-size: 1.1rem; font-weight: 700; }
   .verdict.ok { color: var(--good); } .verdict.ko { color: var(--bad); }
   .heard { font-size: 1.02rem; color: var(--muted); }
@@ -3306,8 +3310,12 @@ function ordreRetirer(k) {
 
 /* ---- Production libre sous contraintes ---- */
 function checkProduction() {
+  stopRecog();
+  avecSaisie(brut => jugerProduction(brut), (curExo() || {}).modele);
+}
+function jugerProduction(brut) {
   const ex = curExo(), a = ex.attendu || {};
-  const saisi = normHanzi($("write-input").value);
+  const saisi = normHanzi(brut);
   const manque = (a.contient || []).filter(x => !saisi.includes(normHanzi(x)));
   const fautif = (a.interdit || []).filter(x => saisi.includes(normHanzi(x)));
   /* L'ordre se vérifie comme une sous-séquence : les éléments attendus doivent
@@ -3318,7 +3326,6 @@ function checkProduction() {
     if (i < 0 || i <= pos) ordreOk = false; else pos = i;
   });
   const ok = !manque.length && !fautif.length && ordreOk;
-  $("write-input").disabled = true;
   $("reveal-zone").classList.add("hidden");
   const diag = ok ? "" :
     (fautif.length ? `<div>À éviter ici : <span class="hanzi">${fautif.map(esc).join(" ")}</span></div>` : "") +
@@ -4552,6 +4559,52 @@ function startTraduction(seances) {
    La dictée entraîne la production orale ; l'ordre exact se juge sur ce qui
    s'affiche dans le champ, à relire avant de vérifier. */
 const DICTER_LABEL = "🎤 Dicter la phrase";
+/* ---------- Lire le champ de réponse (2026-10-27) ----------
+   Bug constaté sur iPhone : la réponse juste était comptée fausse. iOS garde le
+   texte en cours de saisie (pinyin pas encore converti, dictée du clavier encore
+   soulignée) hors de la valeur définitive du champ : on lisait un champ vide ou
+   l'étape précédente seule, puis `disabled` effaçait ce texte provisoire. On fait
+   d'abord quitter le champ (blur), ce qui valide la saisie, on lit un instant
+   après, et on verrouille en lecture seule. Un champ vide ou resté en pinyin
+   n'est pas jugé : un message dit quoi faire. */
+function avecSaisie(fn, cible) {
+  const inp = $("write-input");
+  if (!inp || inp.readOnly || inp.dataset.lecture) return;
+  inp.dataset.lecture = "1";
+  if (inp.blur) inp.blur();
+  setTimeout(() => {
+    delete inp.dataset.lecture;
+    const brut = inp.value;
+    const msg = /[a-z]/i.test(brut) && !/[a-z]/i.test(cible || "")
+      ? "Il reste du pinyin : choisis les caractères dans le clavier, puis vérifie."
+      : !/[一-鿿]/.test(brut) ? "Le champ est vide : écris ou dicte la phrase, puis vérifie." : "";
+    if (msg) {
+      let m = $("saisie-msg");
+      if (!m && inp.insertAdjacentHTML) { inp.insertAdjacentHTML("afterend", '<div class="q-prompt" id="saisie-msg"></div>'); m = $("saisie-msg"); }
+      if (m) m.textContent = msg;
+      return;
+    }
+    if ($("saisie-msg")) $("saisie-msg").remove();
+    inp.readOnly = true;
+    fn(brut);
+  }, 80);
+}
+/* Comparaison alignée : un mot ajouté en tête ne décale plus toute la phrase
+   en rouge. Vert = à sa place, barré = en trop, souligné = oublié. */
+function diffHTML(got, want) {
+  const g = [...got], w = [...want], n = g.length, m = w.length;
+  const L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+    L[i][j] = g[i] === w[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  let i = 0, j = 0, out = "";
+  while (i < n || j < m) {
+    if (i < n && j < m && g[i] === w[j]) { out += `<span class="okc">${esc(g[i])}</span>`; i++; j++; }
+    else if (j < m && (i >= n || L[i][j + 1] >= L[i + 1][j])) { out += `<span class="manq">${esc(w[j])}</span>`; j++; }
+    else { out += `<span class="koc">${esc(g[i])}</span>`; i++; }
+  }
+  return out;
+}
+const DIFF_LEGENDE = `<div class="q-prompt diff-leg"><span class="okc">vert</span> à sa place, <span class="koc">barré</span> en trop, <span class="manq">souligné</span> oublié</div>`;
 function dicterHTML() {
   return hasRecog() ? `<button class="btn ghost" id="dict-btn" onclick="dicter()">${DICTER_LABEL}</button>
     <div class="q-prompt" id="dict-etat"></div>` : "";
@@ -4574,7 +4627,7 @@ function dicter() {
   recog.onerror = ev => {
     stopRecog();
     remettre(ev.error === "not-allowed" || ev.error === "service-not-allowed"
-      ? "Micro refusé : tape la phrase." : "Micro indisponible : tape la phrase.");
+      ? "Micro refusé : tape la phrase, ou utilise le micro du clavier." : `Micro indisponible (${ev.error}) : tape la phrase, ou utilise le micro du clavier.`);
   };
   recog.onend = () => {
     const texte = recogTexte.join("").replace(/\s+/g, "");
@@ -4699,20 +4752,18 @@ function escIndice() {
 }
 function escVerifier() {
   const it = queue[qIndex];
-  if (!it || !it.card.esc || $("write-input").disabled) return;
+  if (!it || !it.card.esc) return;
   stopRecog();
+  avecSaisie(brut => escJuger(it, brut), it.card.esc.etapes[escPas].hanzi);
+}
+function escJuger(it, brut) {
   const e = it.card.esc, s = e.etapes[escPas], dernier = escPas === e.etapes.length - 1;
-  const got = normHanzi($("write-input").value), want = normHanzi(s.hanzi), ok = got === want;
+  const got = normHanzi(brut), want = normHanzi(s.hanzi), ok = got === want;
   if (!ok) escOk = false;
-  let diff = "";
-  for (let i = 0; i < Math.max(got.length, want.length); i++) {
-    const g = got[i] || "·";
-    diff += `<span class="${g === want[i] ? "okc" : "koc"}">${esc(g)}</span>`;
-  }
-  $("write-input").disabled = true;
+  const diff = diffHTML(got, want);
   $("reveal-zone").classList.add("hidden");
   $("answer-zone").innerHTML = `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "✓ Juste" : "✕ Pas tout à fait"}</div>
-     ${ok ? "" : `<div class="q-phrase hanzi diff" style="font-size:1.3rem">${diff}</div>`}
+     ${ok ? "" : `<div class="q-phrase hanzi diff" style="font-size:1.3rem">${diff}</div>${DIFF_LEGENDE}`}
      <div class="ruby">${rubyHTML(s.hanzi)}</div>
      <div><button class="audio-btn" onclick="speak(${jsattr(s.hanzi)})">🔊 Écouter</button>
           <button class="audio-btn" onclick="speak(${jsattr(s.hanzi)}, 0.55)">🐢 Lent</button></div>
@@ -4730,6 +4781,7 @@ function escSuivant() {
   escPas++;
   $("card-zone").innerHTML = escEtapeHTML(queue[qIndex].card.esc, escPas);
   $("session").scrollTop = 0;
+  if (window.scrollTo) window.scrollTo(0, 0);
 }
 function checkReco(i) {
   const it = queue[qIndex];
@@ -5343,16 +5395,13 @@ function reveal() {
 
 /* ---- Mode écriture ---- */
 function checkWriting() {
+  avecSaisie(brut => jugerEcriture(brut), queue[qIndex].card.hanzi);
+}
+function jugerEcriture(raw) {
   const card = queue[qIndex].card;
-  const raw = $("write-input").value;
   const got = normHanzi(raw), want = normHanzi(card.hanzi);
   const ok = got === want;
-  let diff = "";
-  for (let i = 0; i < Math.max(got.length, want.length); i++) {
-    const g = got[i] || "·";
-    diff += `<span class="${g === want[i] ? "okc" : "koc"}">${esc(g)}</span>`;
-  }
-  $("write-input").disabled = true;
+  const diff = diffHTML(got, want);
   $("answer-zone").innerHTML =
     `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "Correct !" : "Pas tout à fait"}</div>
      ${ok ? "" : `<div class="q-hanzi small hanzi diff">${diff}</div>`}
@@ -5406,19 +5455,18 @@ function indiceConstruire() {
     `<div class="expl" style="margin-top:.5rem">${renderPinyin(py)}</div>`;
 }
 function checkConstruire() {
+  stopRecog();
+  avecSaisie(brut => jugerConstruire(brut), queue[qIndex].card.phrase);
+}
+function jugerConstruire(brut) {
   const card = queue[qIndex].card;
-  const got = normHanzi($("write-input").value), want = normHanzi(card.phrase);
+  const got = normHanzi(brut), want = normHanzi(card.phrase);
   const ok = got === want;
-  let diff = "";
-  for (let i = 0; i < Math.max(got.length, want.length); i++) {
-    const g = got[i] || "·";
-    diff += `<span class="${g === want[i] ? "okc" : "koc"}">${esc(g)}</span>`;
-  }
-  $("write-input").disabled = true;
+  const diff = diffHTML(got, want);
   $("reveal-zone").classList.add("hidden");
   $("answer-zone").innerHTML =
     `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "✓ Phrase entière retrouvée" : "✕ Pas tout à fait"}</div>
-     ${ok ? "" : `<div class="q-phrase hanzi diff" style="font-size:1.3rem">${diff}</div>`}
+     ${ok ? "" : `<div class="q-phrase hanzi diff" style="font-size:1.3rem">${diff}</div>${DIFF_LEGENDE}`}
      <div class="ruby">${rubyHTML(card.phrase)}</div>
      ${card.phraseFr ? `<div class="q-phrase-fr">${esc(card.phraseFr)}</div>` : ""}
      <div><button class="audio-btn" onclick="speak(${jsattr(card.phrase)})">🔊 Écouter</button>
