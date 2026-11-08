@@ -61,7 +61,7 @@ let oreilleCible = null, oreilleOptions = [];
 
 function startOreille() {
   if (!EMBED_PAIRES.length) return;
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   sessMode = "oreille";
   oreilleQueue = pairesDue().slice(0, OREILLE_MAX);
   if (!oreilleQueue.length) oreilleQueue = shuffle(pairesPool().slice()).slice(0, OREILLE_MAX);

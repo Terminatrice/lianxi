@@ -367,7 +367,7 @@ function motsDeBrique(id) {
 function startBriqueSession(id) {
   const mots = motsDeBrique(id);
   if (!mots.length) return;
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   sessMode = "srs"; sessPractice = false; sessCalib = false;
   plan = []; planPos = 0;
   /* Deux tiers de piste Caractères (c'est elle que la brique éclaire), un tiers
@@ -418,14 +418,10 @@ function quitSession() {
     state.reprise = { d: todayKey(), faites: faites };
     save();
   }
-  sessEnCours = false;
-  /* sessPractice doit retomber ici. Quitter en plein repassage le laissait à
-     true, et l'entraînement lancé juste après depuis un onglet ne planifiait
-     plus rien : les réponses étaient prises et aucune échéance ne bougeait. */
-  plan = []; planPos = 0; sessCalib = false; sessPractice = false;
-  mixOn = false; mix = []; mixPos = 0; mixCours = false; mixCible = false;
-  drillExos = null; exoImpose = null;
-  consoMots = null; // quitter une consolidation en route ne consomme rien
+  /* Tout retombe, sessPractice compris : quitter en plein repassage le
+     laissait à true (bug d'août), et quitter une consolidation en route ne
+     consomme rien (consoMots remis à null). */
+  remettreSessionAZero();
   if (toneTimer) { clearTimeout(toneTimer); toneTimer = null; }
   if (window.speechSynthesis) speechSynthesis.cancel();
   stopRecog();

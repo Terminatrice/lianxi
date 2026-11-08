@@ -1043,6 +1043,79 @@ function newCard(w) {
 }
 
 
+/* ---------- État de la session en cours (refonte du 2026-11-08) ----------
+   Toutes les variables qui décrivent LA session en cours, déclarées ici et
+   nulle part ailleurs, avec une seule remise à zéro : `remettreSessionAZero`.
+   Avant, chacun des douze démarrages de session et « Quitter » remettaient à
+   zéro leur propre sélection de variables, à la main. Un oubli suffisait pour
+   qu'un réglage d'une session déborde sur la suivante : c'est ainsi qu'un
+   repassage quitté en route laissait les entraînements suivants sans aucune
+   planification (corrigé en août), et que la session mixte gardait les ratés
+   de la précédente. Règle : toute nouvelle variable de session se déclare ici
+   ET se remet à zéro dans `remettreSessionAZero`. Les files propres à un format
+   (gramQueue, compQueue, toneQueue...) restent dans le fichier de ce format :
+   elles sont réécrites à chaque carte par le format lui-même. */
+
+/* Format en cours, file et position, compteurs de l'écran de fin. */
+let sessMode = "srs"; // "srs" (révision) ou "tones" (quiz tons)
+let queue = [], qIndex = 0, sessTotal = 0, sessErrors = [], sessSkipped = [], sessOk = 0;
+let sessEcrit = 0, sessEcritPos = -9;   // écritures déjà passées, et à quelle position
+/* true pendant un repassage libre : on rejoue les cartes ratées sans planifier */
+let sessPractice = false;
+/* Vrai pendant le passage de mise à jour : il ne consomme pas le quota de
+   nouveautés du jour, sinon balayer 30 mots connus bloquerait l'app une semaine. */
+let sessCalib = false;
+/* Vrai entre le démarrage d'une session et son écran de fin. Sert uniquement à
+   distinguer « elle a terminé » de « elle est partie en cours de route » : les
+   réponses, elles, sont déjà enregistrées carte par carte. */
+let sessEnCours = false;
+
+/* Session du jour, ancienne version par plan. */
+let plan = [], planPos = 0;
+
+/* Session mixte : voir 15-session-du-jour.js (sessionMixte, lancerMix). */
+let mix = [], mixPos = 0, mixOn = false, mixBilan = null;
+/* Quota d'écriture au niveau de la session ENTIÈRE. Dans la file mixte, chaque
+   carte de vocabulaire arrive dans une file d'un seul élément : les compteurs
+   de session (sessEcrit, sessEcritPos) repartaient donc de zéro à chaque carte
+   et le quota ne limitait plus rien. D'où le trop-plein d'exercices d'écriture
+   signalé par Daphnée le 2026-08-21. Ces deux compteurs-ci survivent d'une
+   carte à l'autre de la même session du jour. */
+let mixEcrit = 0, mixEcritDern = -99;
+/* `liste` : une file toute faite (révision d'un cours, voir startCours). Sans
+   elle, c'est la session du jour. `cours` empêche la révision d'un cours de
+   mettre les compteurs du jour à zéro : elle ne remplace pas la session du jour. */
+let mixCours = false;
+/* `cible` : entraînement ciblé sur des fiches (startGramCible). Les éléments
+   marqués `libre` y passent en repassage, sans rien planifier. */
+let mixCible = false;
+/* Les mots servis par la session en cours : consommés de la liste du jour à la
+   FIN de la session seulement. Quitter en route ne consomme rien. */
+let consoMots = null;
+/* Entraînements de grammaire imposant leurs exercices (startDrillOrdre, atelier). */
+let drillExos = null, exoImpose = null;
+
+/* Valeurs de départ de toute session : appelée par chaque démarrage (via
+   `ouvrirSession`) et par « Quitter ». */
+function remettreSessionAZero() {
+  sessMode = "srs"; queue = []; qIndex = 0; sessTotal = 0;
+  sessErrors = []; sessSkipped = []; sessOk = 0; sessEcrit = 0; sessEcritPos = -9;
+  sessPractice = false; sessCalib = false; sessEnCours = false;
+  plan = []; planPos = 0;
+  mix = []; mixPos = 0; mixOn = false; mixBilan = null; mixEcrit = 0; mixEcritDern = -99;
+  mixCours = false; mixCible = false; consoMots = null;
+  drillExos = null; exoImpose = null; exoCourant = null;
+  gramErrors = []; gramOk = 0; compErrors = []; compOk = 0; errErrors = []; errOk = 0;
+  escPas = 0; escOk = true;
+}
+/* Début de n'importe quelle session : tout repart de zéro, puis on note
+   qu'une session est en cours (pour la reprise si elle quitte en route). */
+function ouvrirSession() {
+  stopRecog();
+  remettreSessionAZero();
+  sessEnCours = true;
+  if (state.reprise) { delete state.reprise; save(); }
+}
 /* ---------- Sauvegarde et synchronisation ----------
    La progression ne vit que dans le localStorage de ce navigateur : perdre le
    téléphone, c'est tout perdre. Deux filets partagent ici le même format, un
@@ -2829,7 +2902,6 @@ function boucleSuivant() {
 }
 
 /* --- 2. Remise en ordre en série --- */
-let drillExos = null, exoImpose = null;
 const DRILL_MAX = 12;
 function startDrillOrdre() {
   stopBoucle();
@@ -2840,7 +2912,7 @@ function startDrillOrdre() {
     if (cand.length) choisis.push({ p: p, ex: cand[Math.floor(Math.random() * cand.length)] });
   });
   if (!choisis.length) return;
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   sessMode = "gram"; sessPractice = true; sessCalib = false; mixOn = false;
   gramQueue = choisis.map(x => x.p);
   drillExos = choisis.map(x => x.ex);
@@ -2879,7 +2951,7 @@ function startAtelier() {
     .map(c => ({ kind: "srs", v: { card: c, track: "zi", mode: "construire" } }));
   const parts = prods.concat(ecrites);
   if (!parts.length) return;
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   sessPractice = true; sessCalib = false;
   drillExos = null; exoImpose = null;
   mix = entrelacer(shuffle(parts)); mixPos = 0; mixOn = true;
@@ -2900,7 +2972,7 @@ function startAtelier() {
 function startGramWeakSession() {
   const weak = gramWeak().map(x => x.p);
   if (!weak.length) return;
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   sessMode = "gram";
   gramQueue = spreadGram(shuffle(weak)).slice(0, GRAM_SESSION_MAX);
   gIndex = 0; gramTotal = gramQueue.length; gramErrors = []; gramOk = 0;
@@ -2934,7 +3006,7 @@ function startGramCible(ids) {
   startMix(parts, true, true);
 }
 function startGramSession() {
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   const due = gramSelection();
   if (!due.length) return;
   sessMode = "gram";
@@ -3459,7 +3531,7 @@ function errDue() {
 let errQueue = [], eIndex = 0, errErrors = [], errOk = 0, errTotal = 0, errOrder = [];
 
 function startErrSession() {
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   const due = errDue().slice(0, ERR_SESSION_MAX);
   if (!due.length) return;
   sessMode = "err";
@@ -3662,7 +3734,7 @@ let compQueue = [], cIndex = 0, compErrors = [], compOk = 0, compTotal = 0;
 
 function startGramExoReset() { exoCourant = null; }
 function startCompSession() {
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   const due = compDue().slice(0, COMP_SESSION_MAX);
   if (!due.length) return;
   sessMode = "comp";
@@ -3965,18 +4037,6 @@ function resetApp() {
 }
 
 /* ---------- Session ---------- */
-let sessMode = "srs"; // "srs" (révision) ou "tones" (quiz tons)
-let queue = [], qIndex = 0, sessTotal = 0, sessErrors = [], sessSkipped = [], sessOk = 0;
-let sessEcrit = 0, sessEcritPos = -9;   // écritures déjà passées, et à quelle position
-/* true pendant un repassage libre : on rejoue les cartes ratées sans planifier */
-let sessPractice = false;
-/* Vrai pendant le passage de mise à jour : il ne consomme pas le quota de
-   nouveautés du jour, sinon balayer 30 mots connus bloquerait l'app une semaine. */
-let sessCalib = false;
-/* Vrai entre le démarrage d'une session et son écran de fin. Sert uniquement à
-   distinguer « elle a terminé » de « elle est partie en cours de route » : les
-   réponses, elles, sont déjà enregistrées carte par carte. */
-let sessEnCours = false;
 
 /* Session à longueur fixe : la file est constituée une fois pour toutes et
    ne s'allonge jamais en cours de route. Les mots ratés ou passés reviennent
@@ -3986,7 +4046,6 @@ let sessEnCours = false;
    d'abord, puis le vocabulaire dû, puis la grammaire due. Tant qu'il fallait
    choisir entre trois boutons, la partie la plus utile (les reprises du cours)
    était aussi la plus facile à sauter. */
-let plan = [], planPos = 0;
 
 /* ---------- Session mixte ----------
    Une seule file, tous formats confondus (demande de Daphnée, 2026-08-21).
@@ -3997,14 +4056,6 @@ let plan = [], planPos = 0;
    nextTone) : on ne les fusionne pas, on les pilote. La file mixte donne un
    élément à la fois au moteur concerné, et la fin de ce mini-lot rend la main
    à `avancerMix`. */
-let mix = [], mixPos = 0, mixOn = false, mixBilan = null;
-/* Quota d'écriture au niveau de la session ENTIÈRE. Dans la file mixte, chaque
-   carte de vocabulaire arrive dans une file d'un seul élément : les compteurs
-   de session (sessEcrit, sessEcritPos) repartaient donc de zéro à chaque carte
-   et le quota ne limitait plus rien. D'où le trop-plein d'exercices d'écriture
-   signalé par Daphnée le 2026-08-21. Ces deux compteurs-ci survivent d'une
-   carte à l'autre de la même session du jour. */
-let mixEcrit = 0, mixEcritDern = -99;
 /* La longueur de la session du jour se choisit sur l'accueil : voir mixMax(). */
 /* Places réservées par format, pour qu'aucun ne puisse être évincé par un autre.
    Les phrases reprises en cours passent en premier : c'est le principe posé le
@@ -4085,19 +4136,15 @@ function majProgres(i, total) {
   $("prog-bar").style.width = Math.round(100 * a / Math.max(1, b)) + "%";
   $("prog-txt").textContent = `${Math.min(a + 1, b)} / ${b}`;
 }
-/* `liste` : une file toute faite (révision d'un cours, voir startCours). Sans
-   elle, c'est la session du jour. `cours` empêche la révision d'un cours de
-   mettre les compteurs du jour à zéro : elle ne remplace pas la session du jour. */
-let mixCours = false;
-/* `cible` : entraînement ciblé sur des fiches (startGramCible). Les éléments
-   marqués `libre` y passent en repassage, sans rien planifier. */
-let mixCible = false;
 function startMix(liste, cours, cible) {
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
-  mix = liste || sessionMixte();
+  /* Une file vide n'ouvre pas de session : avant, la session était déclarée
+     « en cours » sans rien afficher, et la reprise proposée à tort. */
+  const file = liste || sessionMixte();
+  if (!file.length) return;
+  ouvrirSession();
+  mix = file;
   mixCours = !!(liste && cours);
   mixCible = !!(liste && cible);
-  if (!mix.length) return;
   mixOn = true; mixPos = 0; mixBilan = nouveauBilan();
   mixEcrit = 0; mixEcritDern = -99;
   /* Ces listes servent aux écrans de fin des entraînements par onglet. En
@@ -4230,7 +4277,7 @@ function boutonFin() {
 }
 
 function startCalibrage() {
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   const items = calibItems(shuffle(calibMots()).slice(0, CALIB_MOTS_MAX));
   if (!items.length) return;
   sessMode = "srs";
@@ -4253,9 +4300,6 @@ function startCalibrage() {
 const CONSO_MODES = ["ecoute", "pinyin", "lecture", "ecriture", "phrase"];
 const CONSO_MAX = 30;       // plafond FERME de cartes par session
 const CONSO_MOTS_MAX = 12;  // mots par session : le reste attend la suivante
-/* Les mots servis par la session en cours : consommés de la liste du jour à la
-   FIN de la session seulement. Quitter en route ne consomme rien. */
-let consoMots = null;
 function startConsolidation() {
   const tous = faiblesJour();
   if (!tous.length) return;
@@ -4264,8 +4308,8 @@ function startConsolidation() {
      Daphnée le 2026-08-24). Les mots non servis restent dans la liste : le
      bouton propose la fournée suivante dès la fin de celle-ci. */
   const cartes = shuffle(tous).slice(0, CONSO_MOTS_MAX);
+  ouvrirSession();
   consoMots = cartes.map(c => c.hanzi);
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
   sessMode = "srs"; sessPractice = true; sessCalib = false;
   plan = []; planPos = 0;
   const parMot = Math.max(2, Math.min(CONSO_MODES.length, Math.floor(CONSO_MAX / cartes.length)));
@@ -4905,7 +4949,7 @@ function motsDeBrique(id) {
 function startBriqueSession(id) {
   const mots = motsDeBrique(id);
   if (!mots.length) return;
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   sessMode = "srs"; sessPractice = false; sessCalib = false;
   plan = []; planPos = 0;
   /* Deux tiers de piste Caractères (c'est elle que la brique éclaire), un tiers
@@ -4956,14 +5000,10 @@ function quitSession() {
     state.reprise = { d: todayKey(), faites: faites };
     save();
   }
-  sessEnCours = false;
-  /* sessPractice doit retomber ici. Quitter en plein repassage le laissait à
-     true, et l'entraînement lancé juste après depuis un onglet ne planifiait
-     plus rien : les réponses étaient prises et aucune échéance ne bougeait. */
-  plan = []; planPos = 0; sessCalib = false; sessPractice = false;
-  mixOn = false; mix = []; mixPos = 0; mixCours = false; mixCible = false;
-  drillExos = null; exoImpose = null;
-  consoMots = null; // quitter une consolidation en route ne consomme rien
+  /* Tout retombe, sessPractice compris : quitter en plein repassage le
+     laissait à true (bug d'août), et quitter une consolidation en route ne
+     consomme rien (consoMots remis à null). */
+  remettreSessionAZero();
   if (toneTimer) { clearTimeout(toneTimer); toneTimer = null; }
   if (window.speechSynthesis) speechSynthesis.cancel();
   stopRecog();
@@ -5849,7 +5889,7 @@ function tonesPool() {
   return pool;
 }
 function startToneQuiz() {
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   sessMode = "tones";
   const pool = tonesPool();
   toneQueue = tonsDue().slice(0, TONE_SESSION_MAX);
@@ -6014,7 +6054,7 @@ let oreilleCible = null, oreilleOptions = [];
 
 function startOreille() {
   if (!EMBED_PAIRES.length) return;
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   sessMode = "oreille";
   oreilleQueue = pairesDue().slice(0, OREILLE_MAX);
   if (!oreilleQueue.length) oreilleQueue = shuffle(pairesPool().slice()).slice(0, OREILLE_MAX);

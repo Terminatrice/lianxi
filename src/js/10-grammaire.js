@@ -322,7 +322,6 @@ function boucleSuivant() {
 }
 
 /* --- 2. Remise en ordre en série --- */
-let drillExos = null, exoImpose = null;
 const DRILL_MAX = 12;
 function startDrillOrdre() {
   stopBoucle();
@@ -333,7 +332,7 @@ function startDrillOrdre() {
     if (cand.length) choisis.push({ p: p, ex: cand[Math.floor(Math.random() * cand.length)] });
   });
   if (!choisis.length) return;
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   sessMode = "gram"; sessPractice = true; sessCalib = false; mixOn = false;
   gramQueue = choisis.map(x => x.p);
   drillExos = choisis.map(x => x.ex);
@@ -372,7 +371,7 @@ function startAtelier() {
     .map(c => ({ kind: "srs", v: { card: c, track: "zi", mode: "construire" } }));
   const parts = prods.concat(ecrites);
   if (!parts.length) return;
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   sessPractice = true; sessCalib = false;
   drillExos = null; exoImpose = null;
   mix = entrelacer(shuffle(parts)); mixPos = 0; mixOn = true;
@@ -393,7 +392,7 @@ function startAtelier() {
 function startGramWeakSession() {
   const weak = gramWeak().map(x => x.p);
   if (!weak.length) return;
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   sessMode = "gram";
   gramQueue = spreadGram(shuffle(weak)).slice(0, GRAM_SESSION_MAX);
   gIndex = 0; gramTotal = gramQueue.length; gramErrors = []; gramOk = 0;
@@ -427,7 +426,7 @@ function startGramCible(ids) {
   startMix(parts, true, true);
 }
 function startGramSession() {
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   const due = gramSelection();
   if (!due.length) return;
   sessMode = "gram";

@@ -1,16 +1,4 @@
 /* ---------- Session ---------- */
-let sessMode = "srs"; // "srs" (révision) ou "tones" (quiz tons)
-let queue = [], qIndex = 0, sessTotal = 0, sessErrors = [], sessSkipped = [], sessOk = 0;
-let sessEcrit = 0, sessEcritPos = -9;   // écritures déjà passées, et à quelle position
-/* true pendant un repassage libre : on rejoue les cartes ratées sans planifier */
-let sessPractice = false;
-/* Vrai pendant le passage de mise à jour : il ne consomme pas le quota de
-   nouveautés du jour, sinon balayer 30 mots connus bloquerait l'app une semaine. */
-let sessCalib = false;
-/* Vrai entre le démarrage d'une session et son écran de fin. Sert uniquement à
-   distinguer « elle a terminé » de « elle est partie en cours de route » : les
-   réponses, elles, sont déjà enregistrées carte par carte. */
-let sessEnCours = false;
 
 /* Session à longueur fixe : la file est constituée une fois pour toutes et
    ne s'allonge jamais en cours de route. Les mots ratés ou passés reviennent
@@ -20,7 +8,6 @@ let sessEnCours = false;
    d'abord, puis le vocabulaire dû, puis la grammaire due. Tant qu'il fallait
    choisir entre trois boutons, la partie la plus utile (les reprises du cours)
    était aussi la plus facile à sauter. */
-let plan = [], planPos = 0;
 
 /* ---------- Session mixte ----------
    Une seule file, tous formats confondus (demande de Daphnée, 2026-08-21).
@@ -31,14 +18,6 @@ let plan = [], planPos = 0;
    nextTone) : on ne les fusionne pas, on les pilote. La file mixte donne un
    élément à la fois au moteur concerné, et la fin de ce mini-lot rend la main
    à `avancerMix`. */
-let mix = [], mixPos = 0, mixOn = false, mixBilan = null;
-/* Quota d'écriture au niveau de la session ENTIÈRE. Dans la file mixte, chaque
-   carte de vocabulaire arrive dans une file d'un seul élément : les compteurs
-   de session (sessEcrit, sessEcritPos) repartaient donc de zéro à chaque carte
-   et le quota ne limitait plus rien. D'où le trop-plein d'exercices d'écriture
-   signalé par Daphnée le 2026-08-21. Ces deux compteurs-ci survivent d'une
-   carte à l'autre de la même session du jour. */
-let mixEcrit = 0, mixEcritDern = -99;
 /* La longueur de la session du jour se choisit sur l'accueil : voir mixMax(). */
 /* Places réservées par format, pour qu'aucun ne puisse être évincé par un autre.
    Les phrases reprises en cours passent en premier : c'est le principe posé le
@@ -119,19 +98,15 @@ function majProgres(i, total) {
   $("prog-bar").style.width = Math.round(100 * a / Math.max(1, b)) + "%";
   $("prog-txt").textContent = `${Math.min(a + 1, b)} / ${b}`;
 }
-/* `liste` : une file toute faite (révision d'un cours, voir startCours). Sans
-   elle, c'est la session du jour. `cours` empêche la révision d'un cours de
-   mettre les compteurs du jour à zéro : elle ne remplace pas la session du jour. */
-let mixCours = false;
-/* `cible` : entraînement ciblé sur des fiches (startGramCible). Les éléments
-   marqués `libre` y passent en repassage, sans rien planifier. */
-let mixCible = false;
 function startMix(liste, cours, cible) {
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
-  mix = liste || sessionMixte();
+  /* Une file vide n'ouvre pas de session : avant, la session était déclarée
+     « en cours » sans rien afficher, et la reprise proposée à tort. */
+  const file = liste || sessionMixte();
+  if (!file.length) return;
+  ouvrirSession();
+  mix = file;
   mixCours = !!(liste && cours);
   mixCible = !!(liste && cible);
-  if (!mix.length) return;
   mixOn = true; mixPos = 0; mixBilan = nouveauBilan();
   mixEcrit = 0; mixEcritDern = -99;
   /* Ces listes servent aux écrans de fin des entraînements par onglet. En
@@ -264,7 +239,7 @@ function boutonFin() {
 }
 
 function startCalibrage() {
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   const items = calibItems(shuffle(calibMots()).slice(0, CALIB_MOTS_MAX));
   if (!items.length) return;
   sessMode = "srs";
@@ -287,9 +262,6 @@ function startCalibrage() {
 const CONSO_MODES = ["ecoute", "pinyin", "lecture", "ecriture", "phrase"];
 const CONSO_MAX = 30;       // plafond FERME de cartes par session
 const CONSO_MOTS_MAX = 12;  // mots par session : le reste attend la suivante
-/* Les mots servis par la session en cours : consommés de la liste du jour à la
-   FIN de la session seulement. Quitter en route ne consomme rien. */
-let consoMots = null;
 function startConsolidation() {
   const tous = faiblesJour();
   if (!tous.length) return;
@@ -298,8 +270,8 @@ function startConsolidation() {
      Daphnée le 2026-08-24). Les mots non servis restent dans la liste : le
      bouton propose la fournée suivante dès la fin de celle-ci. */
   const cartes = shuffle(tous).slice(0, CONSO_MOTS_MAX);
+  ouvrirSession();
   consoMots = cartes.map(c => c.hanzi);
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
   sessMode = "srs"; sessPractice = true; sessCalib = false;
   plan = []; planPos = 0;
   const parMot = Math.max(2, Math.min(CONSO_MODES.length, Math.floor(CONSO_MAX / cartes.length)));

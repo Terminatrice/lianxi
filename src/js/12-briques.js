@@ -123,7 +123,7 @@ let compQueue = [], cIndex = 0, compErrors = [], compOk = 0, compTotal = 0;
 
 function startGramExoReset() { exoCourant = null; }
 function startCompSession() {
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   const due = compDue().slice(0, COMP_SESSION_MAX);
   if (!due.length) return;
   sessMode = "comp";

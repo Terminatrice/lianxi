@@ -26,7 +26,7 @@ function errDue() {
 let errQueue = [], eIndex = 0, errErrors = [], errOk = 0, errTotal = 0, errOrder = [];
 
 function startErrSession() {
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   const due = errDue().slice(0, ERR_SESSION_MAX);
   if (!due.length) return;
   sessMode = "err";

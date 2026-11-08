@@ -53,7 +53,7 @@ function tonesPool() {
   return pool;
 }
 function startToneQuiz() {
-  sessEnCours = true; if (state.reprise) { delete state.reprise; save(); }
+  ouvrirSession();
   sessMode = "tones";
   const pool = tonesPool();
   toneQueue = tonsDue().slice(0, TONE_SESSION_MAX);
