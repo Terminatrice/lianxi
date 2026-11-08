@@ -3310,7 +3310,7 @@ function ordreRetirer(k) {
 
 /* ---- Production libre sous contraintes ---- */
 function checkProduction() {
-  stopRecog();
+  clorePrise();
   avecSaisie(brut => jugerProduction(brut), (curExo() || {}).modele);
 }
 function jugerProduction(brut) {
@@ -4586,6 +4586,11 @@ function signalerSouci(e) {
 }
 window.addEventListener("error", ev => signalerSouci(ev.error || ev.message));
 window.addEventListener("unhandledrejection", ev => signalerSouci(ev.reason));
+/* Mémoire de la dernière saisie vue dans le champ de réponse (voir avecSaisie). */
+document.addEventListener("input", ev => {
+  const t = ev.target;
+  if (t && t.id === "write-input" && t.dataset) t.dataset.vu = t.value;
+}, true);
 function avecSaisie(fn, cible) {
   const inp = $("write-input");
   if (!inp || inp.readOnly) return;
@@ -4593,10 +4598,15 @@ function avecSaisie(fn, cible) {
      périmé (iOS peut suspendre un minuteur) et ne doit plus bloquer Vérifier. */
   if (inp.dataset.lecture && Date.now() - Number(inp.dataset.lecture) < 1500) return;
   inp.dataset.lecture = String(Date.now());
+  /* Trois lectures, la première non vide gagne : la valeur après la fermeture
+     du clavier, celle d'avant, et la dernière vue par l'écouteur « input »
+     (texte provisoire compris). Fermer le clavier pendant une dictée iOS peut
+     effacer le texte souligné : on ne le perd plus. */
+  const avant = inp.value;
   if (inp.blur) inp.blur();
   setTimeout(() => {
     delete inp.dataset.lecture;
-    const brut = inp.value;
+    const brut = inp.value || avant || inp.dataset.vu || "";
     const msg = /[a-z]/i.test(brut) && !/[a-z]/i.test(cible || "")
       ? "Il reste du pinyin : choisis les caractères dans le clavier, puis vérifie."
       : !/[一-鿿]/.test(brut) ? "Le champ est vide : écris ou dicte la phrase, puis vérifie." : "";
@@ -4679,39 +4689,22 @@ function dicterHTML() {
 }
 function dicter() {
   if (recog) { finirRecog(); return; } // deuxième appui : j'ai fini de parler
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const btn = $("dict-btn"), etat = $("dict-etat");
   const remettre = msg => { if ($("dict-btn")) $("dict-btn").textContent = DICTER_LABEL; if ($("dict-etat")) $("dict-etat").textContent = msg; };
-  let r;
-  try { r = recog = new SR(); } catch (e) { remettre("Micro indisponible ici : tape la phrase."); return; }
-  recog.lang = "zh-CN";
-  recog.continuous = true;
-  recogTexte = [];
-  btn.textContent = "✅ J'ai fini de parler";
-  etat.textContent = "Je t'écoute. Dis toute la phrase, puis touche « J'ai fini de parler ».";
-  recogTimer = setTimeout(finirRecog, 30000);
-  recog.onresult = ev => {
-    for (let i = ev.resultIndex; i < ev.results.length; i++) recogTexte.push(ev.results[i][0].transcript);
-  };
-  /* Une prise abandonnée (Vérifier, carte suivante) émet encore « aborted »
-     après coup : ce n'était pas une panne, et le message s'affichait sur la
-     carte suivante. On n'écoute que la prise en cours. */
-  recog.onerror = ev => {
-    if (recog !== r || ev.error === "aborted") return;
-    stopRecog();
-    if (ev.error === "no-speech") { remettre("Je n'ai rien entendu. Réessaie, ou tape la phrase."); return; }
-    remettre(ev.error === "not-allowed" || ev.error === "service-not-allowed"
-      ? "Micro refusé : tape la phrase, ou utilise le micro du clavier." : `Micro indisponible (${ev.error}) : tape la phrase, ou utilise le micro du clavier.`);
-  };
-  recog.onend = () => {
-    if (recog !== r) return;
-    const texte = recogTexte.join("").replace(/\s+/g, "");
-    recog = null; stopRecog();
-    if (!texte) { remettre("Je n'ai rien entendu. Réessaie, ou tape la phrase."); return; }
-    if ($("write-input")) { $("write-input").value = texte; $("write-input").dataset.dicte = "1"; }
-    remettre("Relis ce que j'ai compris, corrige si besoin, puis vérifie.");
-  };
-  try { recog.start(); } catch (e) { stopRecog(); remettre("Micro indisponible : tape la phrase."); }
+  const lance = lancerEcoute({
+    surTexte: t => { if ($("dict-etat")) $("dict-etat").textContent = `J'entends : ${t}`; },
+    surFin: morceaux => {
+      const texte = texteEntendu(morceaux);
+      if (!texte) { remettre("Je n'ai rien entendu. Réessaie, ou tape la phrase."); return; }
+      if ($("write-input")) { $("write-input").value = texte; $("write-input").dataset.dicte = "1"; $("write-input").dataset.vu = texte; }
+      remettre("Relis ce que j'ai compris, corrige si besoin, puis vérifie.");
+    },
+    surErreur: err => remettre(err === "not-allowed" || err === "service-not-allowed"
+      ? "Micro refusé : tape la phrase, ou utilise le micro du clavier."
+      : `Micro indisponible (${err}) : tape la phrase, ou utilise le micro du clavier.`),
+  });
+  if (!lance) { remettre("Micro indisponible ici : tape la phrase."); return; }
+  if ($("dict-btn")) $("dict-btn").textContent = "✅ J'ai fini de parler";
+  if ($("dict-etat")) $("dict-etat").textContent = "Je t'écoute. Dis toute la phrase, puis touche « J'ai fini de parler ».";
 }
 
 /* ---------- Décomposer une phrase ----------
@@ -4828,7 +4821,7 @@ function escIndice() {
 function escVerifier() {
   const it = queue[qIndex];
   if (!it || !it.card.esc) return;
-  stopRecog();
+  clorePrise();
   avecSaisie(brut => escJuger(it, brut), it.card.esc.etapes[escPas].hanzi);
 }
 /* Verdict d'une phrase écrite ou dictée. Dictée : mêmes sons = juste, puisque
@@ -5561,7 +5554,7 @@ function indiceConstruire() {
     `<div class="expl" style="margin-top:.5rem">${renderPinyin(py)}</div>`;
 }
 function checkConstruire() {
-  stopRecog();
+  clorePrise();
   avecSaisie(brut => jugerConstruire(brut), queue[qIndex].card.phrase);
 }
 function jugerConstruire(brut) {
@@ -5605,69 +5598,117 @@ function checkPhrase() {
 
 /* ---- Mode oral : micro optionnel, jamais bloquant ---- */
 const MIC_LABEL = "🎙️ M'enregistrer";
-let recog = null, recogTimer = null, recogTexte = [];
+let recog = null, recogTimer = null;
 function hasRecog() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
+/* ---------- Écoute vocale (refonte du 2026-11-08) ----------
+   Bug constaté sur iPhone (dictée « Je n'ai rien entendu », champ vide) :
+   Safari iOS en écoute continue ne livre souvent JAMAIS de résultat définitif.
+   Il fait grossir un seul résultat provisoire, et stop() peut ne rendre ni le
+   résultat final ni même onend. L'ancien code ne gardait que le définitif.
+   Désormais : on demande les résultats provisoires, on garde la DERNIÈRE
+   version de chaque morceau (remplacée, jamais empilée), et si Safari ne rend
+   pas la main après « J'ai fini de parler », on conclut nous-mêmes avec ce
+   qui a été entendu. Une seule mécanique pour la dictée et le mode Oral. */
+function lancerEcoute({ alternatives = 1, surTexte, surFin, surErreur }) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return false;
+  stopRecog();
+  let r;
+  try { r = new SR(); } catch (e) { return false; }
+  recog = r;
+  r.lang = "zh-CN";
+  r.continuous = true;
+  r.interimResults = true;
+  r.maxAlternatives = alternatives;
+  let morceaux = [], fini = false;
+  const conclure = () => {
+    if (fini) return;
+    fini = true;
+    if (recog === r) recog = null;
+    if (recogTimer) { clearTimeout(recogTimer); recogTimer = null; }
+    r.onresult = r.onerror = r.onend = null;
+    try { r.abort(); } catch (e) {}
+    surFin(morceaux.filter(m => m && m.some(Boolean)));
+  };
+  r.conclure = conclure;
+  r.onresult = ev => {
+    for (let i = 0; i < ev.results.length; i++) morceaux[i] = Array.from(ev.results[i]).map(a => a.transcript || "");
+    if (surTexte) surTexte(texteEntendu(morceaux.filter(Boolean)));
+  };
+  r.onerror = ev => {
+    if (fini || ev.error === "aborted") return;
+    /* « no-speech » après avoir entendu quelque chose : iOS coupe sur un
+       silence, mais la prise est bonne, on la garde. */
+    if (morceaux.length) { conclure(); return; }
+    fini = true;
+    if (recog === r) recog = null;
+    stopRecog();
+    if (ev.error === "no-speech") surFin([]); else if (surErreur) surErreur(ev.error);
+  };
+  r.onend = conclure;
+  recogTimer = setTimeout(finirRecog, 30000); // filet de sécurité si iOS ne rend jamais la main
+  try { r.start(); } catch (e) { recog = null; return false; }
+  return true;
+}
+/* Texte d'une prise : la meilleure alternative de chaque morceau, mis bout à
+   bout. iOS renvoie parfois des morceaux cumulatifs (le suivant reprend le
+   précédent) : on ne garde alors que le plus long. */
+function texteEntendu(morceaux, cible) {
+  const cibleSyl = cible ? syllabes(cible) : null;
+  const choisis = morceaux.map(alts => cibleSyl
+    ? alts.reduce((m, a) => lcsLen(syllabes(a), cibleSyl) > lcsLen(syllabes(m), cibleSyl) ? a : m, alts[0] || "")
+    : alts[0] || "").map(t => t.replace(/\s+/g, "")).filter(Boolean);
+  return choisis.filter((t, i) => !(choisis[i + 1] && choisis[i + 1].startsWith(t))).join("");
+}
 /* Abandon silencieux (changement de carte, session quittée) : tout est jeté. */
 function stopRecog() {
   if (recogTimer) { clearTimeout(recogTimer); recogTimer = null; }
-  if (recog) { const r = recog; recog = null; r.onend = null; try { r.abort(); } catch (e) {} }
-  recogTexte = [];
+  if (recog) { const r = recog; recog = null; r.onresult = r.onerror = r.onend = null; try { r.abort(); } catch (e) {} }
   const mic = $("mic-btn");
   if (mic) mic.textContent = MIC_LABEL;
+  if ($("dict-btn")) $("dict-btn").textContent = DICTER_LABEL;
 }
-/* Fin volontaire : « J'ai fini de parler ». recog.stop() livre ce qui a été
-   entendu (via onresult puis onend), là où abort() le jetait. C'est ce qui
-   rendait le bouton Arrêter inutile : il effaçait la prise au lieu de la juger
-   (retour de Daphnée, 2026-08-21). */
+/* Fin volontaire : « J'ai fini de parler ». stop() demande au moteur de livrer
+   la prise ; s'il ne rend pas la main en 1,2 s (iOS), on conclut avec ce qui
+   a déjà été entendu. */
 function finirRecog() {
   if (!recog) return;
   if (recogTimer) { clearTimeout(recogTimer); recogTimer = null; }
-  try { recog.stop(); } catch (e) { stopRecog(); }
+  const r = recog;
+  try { r.stop(); } catch (e) {}
+  setTimeout(() => { if (r.conclure) r.conclure(); }, 1200);
+}
+/* Vérifier pendant une dictée : on GARDE ce qui a été entendu (l'ancien code
+   jetait la prise et jugeait un champ vide). */
+function clorePrise() {
+  if (recog && recog.conclure) recog.conclure(); else stopRecog();
 }
 function toggleRecog(target) {
   if (recog) { finirRecog(); return; } // deuxième appui : j'ai fini de parler
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const mic = $("mic-btn"), heard = $("heard");
-  try { recog = new SR(); }
-  catch (e) { if (heard) heard.textContent = "Micro indisponible ici. Révèle la réponse et évalue-toi."; return; }
-  recog.lang = "zh-CN";
-  recog.maxAlternatives = 3;
-  /* En continu : le moteur ne coupe plus à la première pause. Elle a le temps
-     de dire la phrase entière, de se reprendre, puis elle annonce elle-même
-     qu'elle a fini. */
-  recog.continuous = true;
-  recogTexte = [];
+  const lance = lancerEcoute({
+    alternatives: 3,
+    surTexte: t => { if ($("heard")) $("heard").textContent = `J'entends : ${t}`; },
+    surErreur: err => { if ($("heard")) $("heard").textContent = (err === "not-allowed" || err === "service-not-allowed")
+      ? "Micro refusé. Révèle la réponse et évalue-toi toi-même."
+      : "Micro indisponible ici. Révèle la réponse et évalue-toi."; },
+    surFin: morceaux => {
+      if ($("mic-btn")) $("mic-btn").textContent = MIC_LABEL;
+      juge(morceaux);
+    },
+  });
+  if (!lance) { if (heard) heard.textContent = "Micro indisponible ici. Révèle la réponse et évalue-toi."; return; }
   if (mic) mic.textContent = "✅ J'ai fini de parler";
   if (heard) heard.textContent = "Je t'écoute... Prends ton temps, puis touche « J'ai fini de parler ».";
-  recogTimer = setTimeout(finirRecog, 30000); // filet de sécurité si iOS ne rend jamais la main
-  recog.onresult = ev => {
-    /* On accumule les morceaux : en continu, chaque pause livre un résultat. */
-    for (let i = ev.resultIndex; i < ev.results.length; i++) {
-      recogTexte.push(Array.from(ev.results[i]).map(r => r.transcript));
-    }
-  };
-  const rOral = recog;
-  recog.onerror = ev => {
-    if (recog !== rOral || ev.error === "aborted") return;
-    stopRecog();
-    if (heard) heard.textContent = (ev.error === "not-allowed" || ev.error === "service-not-allowed")
-      ? "Micro refusé. Révèle la réponse et évalue-toi toi-même."
-      : "Micro indisponible ici. Révèle la réponse et évalue-toi.";
-  };
   /* Le verdict se rend à la fin de la prise, une fois tous les morceaux reçus. */
-  recog.onend = () => {
-    const morceaux = recogTexte;
-    recog = null;
-    stopRecog();
+  function juge(morceaux) {
     if (!morceaux.length) {
       if ($("heard")) $("heard").textContent = "Je n'ai rien entendu. Réessaie, ou révèle et évalue-toi.";
       return;
     }
     /* Pour chaque morceau, on garde l'alternative la plus proche de la cible :
        le moteur en propose plusieurs et la première n'est pas toujours la bonne. */
-    const cibleSyl = syllabes(target);
-    const best = morceaux.map(alts => alts.reduce((m, a) =>
-      lcsLen(syllabes(a), cibleSyl) > lcsLen(syllabes(m), cibleSyl) ? a : m, alts[0] || "")).join("");
+    const best = texteEntendu(morceaux, target);
     /* Le moteur peut entendre un mot de plus avant ou après (« 嗯 », une
        reprise) : si la cible y figure en entier, c'est juste. */
     const j = normHanzi(best).includes(normHanzi(target)) ? { niveau: "exact" } : jugerDit(best, target);
@@ -5685,9 +5726,7 @@ function toggleRecog(target) {
        <div class="cmp-row"><span class="cmp-lab">Entendu</span><span class="ruby">${rubyHTML(best)}</span></div>${note}`);
     const btn = j.niveau === "presque" ? null : document.querySelector(hit ? ".g-good" : ".g-again");
     if (btn) btn.classList.add("suggest");
-  };
-  try { recog.start(); }
-  catch (e) { stopRecog(); if (heard) heard.textContent = "Micro indisponible ici. Révèle la réponse et évalue-toi."; }
+  }
 }
 
 /* Passer sans noter : la carte reste due telle quelle et revient à une prochaine
