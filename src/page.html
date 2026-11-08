@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Liànxí · Pratique du chinois</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Liànxí">
+<meta name="theme-color" content="#2F6D66">
+<style>/*@styles*/</style>
+</head>
+<body>
+
+<div id="app" class="wrap">
+  <header class="app">
+    <div class="seal hanzi" aria-hidden="true">练</div>
+    <div>
+      <h1>Liànxí</h1>
+      <p class="sub">Pratique quotidienne du chinois</p>
+    </div>
+    <div class="streak" id="streak" title="Jours de pratique d'affilée">🔥 0</div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-home" aria-selected="true" onclick="showTab('home')">Réviser</button>
+    <button role="tab" id="tab-cours" aria-selected="false" onclick="showTab('cours')">Cours</button>
+    <button role="tab" id="tab-comp" aria-selected="false" onclick="showTab('comp')">Briques</button>
+    <button role="tab" id="tab-gram" aria-selected="false" onclick="showTab('gram')">Grammaire</button>
+    <button role="tab" id="tab-voix" aria-selected="false" onclick="showTab('voix')">Voix</button>
+    <button role="tab" id="tab-dico" aria-selected="false" onclick="showTab('dico')">Dico</button>
+    <button role="tab" id="tab-words" aria-selected="false" onclick="showTab('words')">Mots</button>
+  </nav>
+
+  <div id="sync-banner" role="status">
+    <span id="sync-banner-txt"></span>
+    <button class="btn" onclick="restaurerDepuisBandeau()">Restaurer cette sauvegarde</button>
+    <button class="btn ghost" onclick="ignorerBandeau()">Garder ce qui est sur cet appareil</button>
+  </div>
+
+  <!-- ============ AUJOURD'HUI ============ -->
+  <section id="view-home">
+    <!-- Les erreurs réelles passent avant tout le reste : c'est le principe
+         « apprendre de mes erreurs » demandé le 2026-08-12. -->
+    <div class="panel" style="text-align:center">
+      <div class="chips" id="volet-chips"></div>
+      <div class="chips" id="niveau-chips"></div>
+      <p class="hint" id="volet-note"></p>
+      <div class="due-big" id="due-count">0</div>
+      <div class="due-label" id="due-label">à travailler aujourd'hui</div>
+      <button class="btn" id="start-btn" onclick="startJour()">Ma session du jour</button>
+      <button class="btn secondary hidden" id="conso-btn" onclick="startConsolidation()"></button>
+      <p class="taille-lab">Longueur de ma session</p>
+      <div class="chips" id="taille-chips"></div>
+      <p class="hint" id="quit-safe">Tu peux quitter à tout moment : chaque réponse est enregistrée aussitôt.</p>
+      <p class="hint" id="plan-hint"></p>
+      <p class="hint" id="no-due-hint" style="display:none">Tu es à jour. Reviens demain.</p>
+      <button class="filtre-btn" id="filtre-btn" onclick="toggleFiltres()" aria-expanded="false">Options</button>
+      <div class="chips hidden" id="theme-chips"></div>
+      <div class="chips hidden" id="track-chips"></div>
+      <button class="btn secondary hidden" id="tones-btn" onclick="startToneQuiz()">Quiz tons</button>
+    </div>
+
+    <!-- La mise à jour : un balayage de tout ce qui n'a jamais été testé, pour
+         écarter d'emblée ce qu'elle connaît déjà et ne travailler que le reste. -->
+    <div class="panel err-panel hidden" id="calib-panel" style="text-align:center">
+      <h2>Faire le point</h2>
+      <div class="due-big" id="calib-count">0</div>
+      <div class="due-label" id="calib-label">mots jamais testés</div>
+      <button class="btn" id="calib-btn" onclick="startCalibrage()">Me tester dessus</button>
+      <p class="hint">Un passage rapide. Ce que tu retrouves du premier coup est mis de côté pour un mois, le reste entre dans tes révisions.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Ton parcours</h2>
+      <div id="pc-niveaux"></div>
+      <div id="pc-pistes"></div>
+      <div class="stats">
+        <div class="stat"><div class="n" id="st-rythme">—</div><div class="l">nouveaux mots par jour</div></div>
+        <div class="stat"><div class="n" id="st-semaine">0</div><div class="l">cartes cette semaine</div></div>
+      </div>
+      <details class="gram-plus"><summary>C'est quoi croisé, su, solide ?</summary>
+        <p class="hint" id="st-hint" style="margin-top:0"></p>
+      </details>
+    </div>
+
+    <div class="panel">
+      <h2>À consolider</h2>
+      <ul class="words" id="weak-list"></ul>
+      <p class="hint" id="weak-empty">Les mots à retravailler apparaîtront ici après quelques sessions.</p>
+      <button class="btn secondary" id="export-weak" onclick="exportWeak()">Copier pour mon tuteur</button>
+      <div class="msg" id="weak-msg"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Couleurs des tons</h2>
+      <div class="tone-legend">
+        <span class="t1">ā 1ᵉʳ ton</span><span class="t2">á 2ᵉ ton</span>
+        <span class="t3">ǎ 3ᵉ ton</span><span class="t4">à 4ᵉ ton</span><span class="t0">a neutre</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ COMPOSANTS ============ -->
+  <!-- ============ DERNIER COURS ============ -->
+  <section id="view-cours" class="hidden">
+    <div id="cours-body"></div>
+  </section>
+
+  <section id="view-comp" class="hidden">
+    <div class="panel" style="text-align:center">
+      <div class="due-big" id="comp-due-count">0</div>
+      <div class="due-label" id="comp-due-label">composants à travailler</div>
+      <button class="btn" id="comp-start-btn" onclick="startCompSession()">Entraînement composants</button>
+      <p class="hint" id="comp-no-due" style="display:none">Tu es à jour sur les briques. Les fiches restent consultables ci-dessous.</p>
+      <p class="hint">Un caractère s'assemble à partir de briques qui reviennent partout : apprends les briques, et chaque nouveau caractère devient une combinaison d'éléments familiers.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Fiches (<span id="comp-count">0</span>)</h2>
+      <div id="comp-list"></div>
+    </div>
+  </section>
+
+  <!-- ============ GRAMMAIRE ============ -->
+  <section id="view-gram" class="hidden">
+    <div class="panel" style="text-align:center">
+      <div class="due-big" id="gram-due-count">0</div>
+      <div class="due-label" id="gram-due-label">points à travailler</div>
+      <button class="btn" id="gram-start-btn" onclick="startGramSession()">Entraînement grammaire</button>
+      <p class="hint" id="gram-no-due" style="display:none">Tu es à jour sur la grammaire. Les fiches restent consultables ci-dessous.</p>
+      <div id="gram-niveaux"></div>
+    </div>
+
+    <div class="panel">
+      <h2>S'entraîner autrement</h2>
+      <p class="hint" style="margin-top:0">Trois façons de faire rentrer les structures : les entendre, les remettre en ordre, puis les produire sans aide. Rien ici ne touche à tes révisions : tu peux en faire autant que tu veux.</p>
+      <button class="btn secondary" id="loop-btn" onclick="toggleBoucle()">Écouter mes structures en boucle</button>
+      <div id="loop-now" style="text-align:center"></div>
+      <button class="btn secondary" onclick="startDrillOrdre()">Remise en ordre en série</button>
+      <button class="btn" onclick="startAtelier()">Construire des phrases de zéro</button>
+      <button class="btn secondary" onclick="startEscaliersRecents()">Phrases longues pas à pas</button>
+    </div>
+
+    <div class="panel">
+      <h2>À consolider</h2>
+      <ul class="words" id="gram-weak"></ul>
+      <p class="hint" id="gram-weak-empty">Les structures à retravailler apparaîtront ici après quelques entraînements.</p>
+      <button class="btn" id="gram-weak-btn" onclick="startGramWeakSession()" style="display:none">Retravailler ces points</button>
+      <button class="btn secondary" id="gram-export" onclick="exportGram()">Copier pour mon tuteur</button>
+      <div class="msg" id="gram-msg"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Fiches (<span id="gram-count">0</span>)</h2>
+      <div id="gram-list"></div>
+    </div>
+  </section>
+
+  <!-- ============ PRONONCIATION ============ -->
+  <!-- Un seul entraînement à l'écran à la fois : les trois empilés faisaient une
+       page de prose (retour de Daphnée, 2026-08-28). Tout ce qui explique est
+       replié, tout ce qui agit est en bas. -->
+  <section id="view-voix" class="hidden">
+    <div class="chips" id="voix-modes"></div>
+
+    <div class="panel" id="pan-oreille" style="text-align:center">
+      <div class="due-big" id="oreille-n">0</div>
+      <div class="due-label">sons à distinguer</div>
+      <button class="btn" onclick="startOreille()">Commencer</button>
+      <div class="chips" id="oreille-chips"></div>
+      <details class="gram-plus hidden" id="oreille-weak-box">
+        <summary id="oreille-weak-lab">À reprendre</summary>
+        <ul class="words" id="oreille-weak"></ul>
+      </details>
+      <details class="gram-plus"><summary>À quoi ça sert</summary>
+        <p class="hint">On ne produit pas un son qu'on ne distingue pas encore. Le français
+          n'oppose ni les tons ni le souffle des consonnes : l'oreille doit apprendre la
+          différence avant que la bouche puisse la faire.</p></details>
+    </div>
+
+    <div class="panel hidden" id="pan-voix">
+      <div class="voix-cible" id="voix-cible"></div>
+      <canvas class="voix-canvas" id="voix-canvas"
+              aria-label="Courbe de la hauteur de ta voix comparée au ton attendu"></canvas>
+      <div class="verdict-voix" id="voix-verdict"></div>
+      <p class="mesure" id="voix-mesure"></p>
+      <div class="niveau-mic hidden" id="voix-niveau" aria-hidden="true"><div></div></div>
+      <div class="voix-actions">
+        <button class="btn secondary" onclick="voixModele()">🔊 Modèle</button>
+        <button class="btn" id="voix-rec" onclick="voixEnregistrer()">🎤 M'écouter</button>
+      </div>
+      <div class="chips">
+        <button class="chip" onclick="voixAutre()">Autre syllabe</button>
+        <button class="chip" id="voix-chip-faible" onclick="voixBasculerCible()">Mes tons fragiles</button>
+      </div>
+      <details class="gram-plus"><summary>Ce que ça mesure</summary>
+        <p class="hint">La hauteur de ta voix, rien d'autre. Fiable sur une syllabe isolée
+          dans un endroit calme. Muette sur le souffle des consonnes et sur le n/ng.</p></details>
+    </div>
+
+    <div class="panel hidden" id="pan-echo">
+      <div class="voix-cible" id="echo-cible"></div>
+      <p class="mesure" id="echo-etat"></p>
+      <div class="niveau-mic hidden" id="echo-niveau" aria-hidden="true"><div></div></div>
+      <div class="voix-actions">
+        <button class="btn secondary" onclick="echoModele()">🔊 Modèle</button>
+        <button class="btn" id="echo-rec" onclick="echoEnregistrer()">🎤 M'enregistrer</button>
+      </div>
+      <button class="btn hidden" id="echo-cmp" onclick="echoComparer()">▶︎ Comparer</button>
+      <div class="chips"><button class="chip" onclick="echoAutre()">Autre mot</button></div>
+      <details class="gram-plus"><summary>Comment s'en servir</summary>
+        <p class="hint">Modèle, ta voix, modèle, à la suite. Aucun jugement automatique :
+          c'est toi qui entends l'écart.</p></details>
+    </div>
+
+  </section>
+
+  <!-- ============ DICTIONNAIRE ============ -->
+  <section id="view-dico" class="hidden">
+    <div class="panel">
+      <h2>Dictionnaire de tes mots</h2>
+      <input id="dico-search" class="dico-input" placeholder="学 · xué · apprendre..." oninput="renderDico()" autocomplete="off">
+      <p class="hint">Cherche en caractères, en pinyin sans les accents, ou en français.</p>
+    </div>
+    <div id="dico-results"></div>
+
+    <!-- Les 成语 ne passent jamais dans la file de révision : ils sont là pour
+         être lus, pas mémorisés. À son niveau, les apprendre serait du décor. -->
+    <div class="panel">
+      <h2>Idiomes classiques</h2>
+      <p class="hint">Quatre caractères, une histoire. Ils ne sont pas dans tes révisions : c'est de la lecture, pour le plaisir et pour comprendre comment le chinois pense.</p>
+      <div id="chengyu-list"></div>
+    </div>
+  </section>
+
+  <!-- ============ MOTS ============ -->
+  <section id="view-words" class="hidden">
+    <div class="panel">
+      <h2>Ajouter des mots</h2>
+      <p class="hint" style="margin:0">Dépose une capture d'écran, un PDF ou un document dans le dossier Drive « Chinois » depuis ton téléphone (Partager, puis Google Drive) : le vocabulaire en est extrait automatiquement chaque matin à 7h30 et arrive ici au rechargement de la page. Pour un ajout immédiat : donne le contenu à ton tuteur Claude en session et dis « ajoute ».</p>
+    </div>
+
+    <div class="panel">
+      <h2>Voix chinoise</h2>
+      <select id="voice-select" onchange="setVoice(this.value)" aria-label="Choix de la voix chinoise"></select>
+      <button class="btn secondary" onclick="testVoice()">Écouter un exemple</button>
+      <p class="hint">Pour une voix plus naturelle sur iPhone : Réglages, Accessibilité, Contenu énoncé, Voix, Chinois, puis télécharge une version « Améliorée » ou « Premium » (Ting-Ting par exemple). Elle apparaîtra ensuite dans cette liste et sera choisie automatiquement.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Mon vocabulaire (<span id="word-count">0</span>)</h2>
+      <ul class="words" id="word-list"></ul>
+    </div>
+
+    <div class="panel">
+      <h2>Sauvegarde automatique</h2>
+      <p class="hint" style="margin-top:0">Ta progression vit dans ce navigateur. Branchée sur GitHub, l'app en dépose une copie dans un gist privé pendant que tu révises, et tu la récupères sur n'importe quel appareil.</p>
+      <div id="sync-etat" class="hint"></div>
+      <div id="sync-off">
+        <input class="field" id="sync-token" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Jeton GitHub (portée « gist »)">
+        <button class="btn secondary" onclick="activerSync()">Activer la sauvegarde en ligne</button>
+        <p class="hint">Sur github.com : Settings, Developer settings, Personal access tokens, Tokens (classic), Generate new token, coche uniquement <strong>gist</strong>. Garde le jeton dans ton gestionnaire de mots de passe : il te faudra le recoller sur un nouveau téléphone.</p>
+      </div>
+      <div id="sync-actions" style="display:none">
+        <button class="btn ghost" onclick="syncMaintenant()">Sauvegarder maintenant</button>
+        <button class="btn ghost" onclick="restaurerDepuisLigne()">Restaurer depuis la sauvegarde en ligne</button>
+        <button class="btn ghost" onclick="desactiverSync()">Oublier le jeton sur cet appareil</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Sauvegarde dans un fichier</h2>
+      <button class="btn ghost" onclick="exportFichier()">Enregistrer un fichier de sauvegarde</button>
+      <label class="file-btn">Restaurer depuis un fichier<input type="file" accept="application/json,.json" onchange="importFichier(this)"></label>
+      <p class="hint">Sur iPhone, « Enregistrer » ouvre la feuille de partage : choisis Fichiers ou iCloud Drive. Le fichier contient ta progression, pas le vocabulaire embarqué, qui revient tout seul à la restauration.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Maintenance</h2>
+      <button class="btn ghost" onclick="copyBackup()">Copier une sauvegarde complète</button>
+      <textarea id="restore-box" placeholder="Coller ici une sauvegarde à restaurer"></textarea>
+      <button class="btn ghost" onclick="restoreData()">Restaurer la sauvegarde</button>
+      <button class="btn" id="restore-confirm" style="display:none" onclick="confirmerRestauration()">Confirmer la restauration</button>
+      <button class="btn ghost" id="reset-btn" onclick="resetApp()">Tout réinitialiser</button>
+      <div class="msg" id="maint-msg"></div>
+    </div>
+  </section>
+
+  <footer class="build">Liànxí · <span id="build-stamp">1101 mots · 122 points de grammaire · 50 composants · 64 à peaufiner · 38 paires · 2026-11-08</span></footer>
+</div>
+
+<!-- ============ SESSION ============ -->
+<div id="session" class="hidden">
+  <div class="wrap">
+    <div class="sess-top">
+      <button onclick="quitSession()" aria-label="Quitter : ce que tu as répondu est enregistré" title="Quitter : ce que tu as répondu est enregistré">✕</button>
+      <span class="sess-track" id="sess-track" aria-hidden="true"></span>
+      <div class="progress"><div id="prog-bar" style="width:0%"></div></div>
+      <span class="sess-count" id="prog-txt"></span>
+      <button class="skip-btn" id="know-btn" onclick="markKnown()" title="Je connais déjà ce mot">Acquis</button>
+      <button class="skip-btn" onclick="skipCard()">Passer ›</button>
+    </div>
+    <div id="card-zone" aria-live="polite"></div>
+  </div>
+</div>
+
+<script>/*@scripts*/</script>
+</body>
+</html>
