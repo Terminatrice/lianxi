@@ -120,6 +120,7 @@
   }
   .btn.secondary { background: var(--accent-soft); color: var(--accent); }
   .btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  .sans-parler { display: grid; gap: .5rem; margin-top: 1rem; }
   .btn:disabled { opacity: .45; cursor: default; }
   button:focus-visible, input:focus-visible, textarea:focus-visible {
     outline: 3px solid var(--accent); outline-offset: 2px;
@@ -4988,7 +4989,46 @@ function quitSession() {
   renderGram();
   renderComp();
 }
+/* ---------- Sans parler (2026-11-08, demande de Daphnée) ----------
+   « Il faudrait que je puisse passer à un autre ou écrire si je ne peux pas
+   parler » (transports, bureau). Sur une carte orale, deux sorties : l'écrire
+   au clavier chinois (le pinyin à taper oblige à retrouver le son, la carte
+   reste notée normalement) ou un autre format silencieux. Après « l'écrire »,
+   les cartes orales suivantes passent d'elles-mêmes à l'écrit pendant
+   SANS_PARLER_MIN minutes, avec un bouton pour réactiver l'oral. */
+const SANS_PARLER_MIN = 45;
+let sansParlerDepuis = 0;
+function sansParlerActif() { return Date.now() - sansParlerDepuis < SANS_PARLER_MIN * 60000; }
+function ecritAuLieuDeDire(c) { return c.phrase && (c.mots || []).length >= 2 ? "construire" : "clavier"; }
+function oralEcrit() {
+  sansParlerDepuis = Date.now();
+  const it = queue[qIndex];
+  if (!it) return;
+  it.mode = ecritAuLieuDeDire(it.card);
+  it.sansParler = true;
+  nextCard();
+}
+function oralAutre() {
+  const it = queue[qIndex];
+  if (!it) return;
+  it.mode = "pinyin";
+  nextCard();
+}
+function reparler() {
+  sansParlerDepuis = 0;
+  const it = queue[qIndex];
+  if (it && it.sansParler) { it.mode = "oral"; delete it.sansParler; nextCard(); }
+}
+function sansParlerNote() {
+  return `<div class="q-prompt">Sans parler pour ${SANS_PARLER_MIN} min ·
+    <button class="audio-btn" onclick="reparler()">🎙️ Réactiver l'oral</button></div>`;
+}
 function modeFor(it) {
+  const m = modeForBrut(it);
+  if (m === "oral" && sansParlerActif()) { it.sansParler = true; return ecritAuLieuDeDire(it.card); }
+  return m;
+}
+function modeForBrut(it) {
   /* La consolidation impose son format carte par carte : chaque mot faible du
      jour repasse dans tous les sens, écoute, pinyin, lecture, écriture, phrase. */
   if (it.mode) {
@@ -5357,10 +5397,22 @@ function cardHTML(c, mode) {
           ${escalierDe(c.phrase) ? `<button class="btn ghost" onclick="constrEscalier()">4. La construire pas à pas</button>` : ""}
         </details>
       </div>
+      ${sansParlerActif() && queue[qIndex] && queue[qIndex].sansParler ? sansParlerNote() : ""}
       <div id="answer-zone" class="hidden"></div>
     </div><div id="grades-slot"></div>`;
 
   if (mode === "escalier") { escPas = 0; escOk = true; return escEtapeHTML(c.esc, 0); }
+
+  /* Écrire un mot au clavier chinois, à la place de le dire (voir « Sans parler »). */
+  if (mode === "clavier") return `<div class="qcard">
+      <div class="q-fr">« ${esc(c.fr)} »</div>
+      <div class="q-prompt">Écris-le en chinois</div>
+      <input class="answer" id="write-input" lang="zh-CN" autocomplete="off"
+             autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+      <div id="reveal-zone"><button class="btn secondary" onclick="checkWriting()">Vérifier</button></div>
+      ${sansParlerActif() ? sansParlerNote() : ""}
+      <div id="answer-zone" class="hidden"></div>
+    </div><div id="grades-slot"></div>`;
 
   if (mode === "phrase") return `<div class="qcard">
       <div class="q-prompt">Fabrique la phrase complète avec
@@ -5402,6 +5454,10 @@ function cardHTML(c, mode) {
         <button class="btn" onclick="reveal()">Révéler</button>
         ${sr ? `<button class="audio-btn" id="mic-btn" onclick="toggleRecog(${jsattr(target)})">🎙️ M'enregistrer</button>
                 <div class="heard" id="heard"></div>` : ""}
+        <div class="sans-parler">
+          <button class="btn ghost" onclick="oralEcrit()">⌨️ Je ne peux pas parler : l'écrire</button>
+          <button class="btn ghost" onclick="oralAutre()">Un autre exercice</button>
+        </div>
       </div>
       <div id="answer-zone" class="hidden">
         <div class="cmp-row"><span class="cmp-lab">Modèle</span><span class="ruby">${rubyHTML(target)}</span></div>
