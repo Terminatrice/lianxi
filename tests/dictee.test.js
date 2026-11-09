@@ -10,6 +10,7 @@ before(async () => { app = await kit.ouvrirApp(APP); });
 after(async () => { await app.fermer(); });
 const page = () => app.page;
 const ecoute = (mode, texte) => page().evaluate(([mode, texte]) => { window.__ecoute = { mode, texte }; }, [mode, texte]);
+// (chaque appel crée un nouveau scénario : « premiere » repart de zéro)
 const verdict = () => page().locator("#answer-zone .verdict").textContent();
 
 for (const mode of ["escalier", "construire"]) {
@@ -39,6 +40,29 @@ for (const mode of ["escalier", "construire"]) {
     assert.match(await verdict(), /Juste/);
     await page().evaluate(() => quitSession());
   });
+}
+
+/* Bug du 2026-11-09 (onglet Cours) : Safari iOS coupe l'écoute sur un silence.
+   Elle réfléchit avant de parler, ou marque une pause au milieu de la phrase :
+   l'app doit relancer l'écoute et garder tout ce qui a été entendu. */
+for (const mode of ["escalier", "construire"]) {
+  for (const cas of ["ios-silence", "ios-pause"]) {
+    test(`${mode} : ${cas}, l'écoute se relance et garde toute la phrase`, async () => {
+      await carteSeule(page(), mode);
+      const cible = await cibleCourante(page());
+      await ecoute(cas, cible);
+      await bouton(page(), "🎤 Dicter la phrase").click();
+      await page().waitForTimeout(400);
+      assert.equal(await bouton(page(), "✅ J'ai fini de parler").count(), 1, "toujours à l'écoute après l'arrêt de Safari");
+      await bouton(page(), "✅ J'ai fini de parler").click();
+      await page().waitForTimeout(1500);
+      assert.equal(await page().locator("#write-input").inputValue(), cible);
+      await bouton(page(), "Vérifier").click();
+      await page().waitForSelector("#answer-zone .verdict");
+      assert.match(await verdict(), /Juste/);
+      await page().evaluate(() => quitSession());
+    });
+  }
 }
 
 test("dictée Chrome (résultats définitifs à l'arrêt)", async () => {

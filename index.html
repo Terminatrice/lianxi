@@ -840,6 +840,7 @@
       <textarea id="restore-box" placeholder="Coller ici une sauvegarde à restaurer"></textarea>
       <button class="btn ghost" onclick="restoreData()">Restaurer la sauvegarde</button>
       <button class="btn" id="restore-confirm" style="display:none" onclick="confirmerRestauration()">Confirmer la restauration</button>
+      <button class="btn ghost" onclick="copierJournalMicro()">Copier le journal du micro</button>
       <button class="btn ghost" id="reset-btn" onclick="resetApp()">Tout réinitialiser</button>
       <div class="msg" id="maint-msg"></div>
     </div>
@@ -5689,45 +5690,90 @@ function hasRecog() { return !!(window.SpeechRecognition || window.webkitSpeechR
    version de chaque morceau (remplacée, jamais empilée), et si Safari ne rend
    pas la main après « J'ai fini de parler », on conclut nous-mêmes avec ce
    qui a été entendu. Une seule mécanique pour la dictée et le mode Oral. */
+/* Relance automatique (2026-11-09). Bug restant sur iPhone, onglet Cours,
+   « Traduire les phrases » et « Phrases pas à pas » : « Je n'ai rien entendu »
+   puis « Le champ est vide ». Safari iOS arrête l'écoute de lui-même après
+   quelques secondes de silence, ou à la première pause dans la phrase. Dans un
+   exercice de traduction, elle réfléchit avant de parler : le micro était déjà
+   coupé quand elle commençait. Désormais, tant qu'elle n'a pas touché « J'ai
+   fini de parler », un arrêt du moteur relance une nouvelle écoute en gardant
+   ce qui a déjà été entendu (les morceaux de la reprise s'ajoutent à la suite).
+   Bornes : ECOUTE_MAX_MS au total, RELANCES_MAX relances. */
+const ECOUTE_MAX_MS = 60000, RELANCES_MAX = 12;
+/* Journal des dernières écoutes, copiable depuis Mots > Maintenance : si le
+   micro se comporte encore mal sur le téléphone, c'est la seule trace de ce
+   que Safari a réellement fait. */
+const journalMicro = [];
+function noteMicro(ev, detail) {
+  journalMicro.push(`${new Date().toISOString().slice(11, 23)} ${ev}${detail ? " : " + detail : ""}`);
+  if (journalMicro.length > 80) journalMicro.shift();
+}
+function copierJournalMicro() {
+  const ua = navigator.userAgent || "";
+  copyText(`Journal du micro Liànxí (${todayKey()})\n${ua}\n${journalMicro.join("\n") || "(aucune écoute depuis l'ouverture de l'app)"}`,
+    $("maint-msg"), "Journal du micro copié. Colle-le dans ta session Claude Code.");
+}
 function lancerEcoute({ alternatives = 1, surTexte, surFin, surErreur }) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return false;
   stopRecog();
-  let r;
-  try { r = new SR(); } catch (e) { return false; }
-  recog = r;
-  r.lang = "zh-CN";
-  r.continuous = true;
-  r.interimResults = true;
-  r.maxAlternatives = alternatives;
-  let morceaux = [], fini = false;
+  /* Une voix de l'app encore en train de parler occupe le son de l'iPhone. */
+  try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+  const debut = Date.now(), sess = { finVoulue: false };
+  let morceaux = [], base = 0, fini = false, relances = 0, r = null;
+  const entendu = () => morceaux.filter(m => m && m.some(Boolean));
   const conclure = () => {
     if (fini) return;
     fini = true;
     if (recog === r) recog = null;
     if (recogTimer) { clearTimeout(recogTimer); recogTimer = null; }
-    r.onresult = r.onerror = r.onend = null;
-    try { r.abort(); } catch (e) {}
-    surFin(morceaux.filter(m => m && m.some(Boolean)));
+    if (r) { r.onresult = r.onerror = r.onend = null; try { r.abort(); } catch (e) {} }
+    noteMicro("fin", `${entendu().length} morceau(x), « ${texteEntendu(entendu())} »`);
+    surFin(entendu());
   };
-  r.conclure = conclure;
-  r.onresult = ev => {
-    for (let i = 0; i < ev.results.length; i++) morceaux[i] = Array.from(ev.results[i]).map(a => a.transcript || "");
-    if (surTexte) surTexte(texteEntendu(morceaux.filter(Boolean)));
+  sess.conclure = conclure;
+  const relancer = raison => {
+    if (fini) return;
+    if (sess.finVoulue || relances >= RELANCES_MAX || Date.now() - debut > ECOUTE_MAX_MS) { conclure(); return; }
+    relances++;
+    base = morceaux.length;
+    noteMicro("relance", raison);
+    if (!demarrer()) { noteMicro("relance impossible"); conclure(); }
   };
-  r.onerror = ev => {
-    if (fini || ev.error === "aborted") return;
-    /* « no-speech » après avoir entendu quelque chose : iOS coupe sur un
-       silence, mais la prise est bonne, on la garde. */
-    if (morceaux.length) { conclure(); return; }
-    fini = true;
-    if (recog === r) recog = null;
-    stopRecog();
-    if (ev.error === "no-speech") surFin([]); else if (surErreur) surErreur(ev.error);
-  };
-  r.onend = conclure;
-  recogTimer = setTimeout(finirRecog, 30000); // filet de sécurité si iOS ne rend jamais la main
-  try { r.start(); } catch (e) { recog = null; return false; }
+  function demarrer() {
+    let x;
+    try { x = new SR(); } catch (e) { return false; }
+    r = x; recog = x;
+    x.sess = sess; x.conclure = conclure;
+    x.lang = "zh-CN";
+    x.continuous = true;
+    x.interimResults = true;
+    x.maxAlternatives = alternatives;
+    x.onresult = ev => {
+      if (x !== r || fini) return;
+      for (let i = 0; i < ev.results.length; i++) morceaux[base + i] = Array.from(ev.results[i]).map(a => a.transcript || "");
+      noteMicro("résultat", texteEntendu(entendu()));
+      if (surTexte) surTexte(texteEntendu(entendu()));
+    };
+    x.onerror = ev => {
+      if (x !== r || fini) return;
+      noteMicro("erreur", ev.error);
+      /* Silence ou coupure du moteur : la fin (onend) qui suit décide de la relance. */
+      if (ev.error === "no-speech" || ev.error === "aborted") return;
+      x.onend = null;
+      if (entendu().length) { conclure(); return; }
+      fini = true;
+      if (recog === x) recog = null;
+      stopRecog();
+      if (surErreur) surErreur(ev.error);
+    };
+    x.onend = () => { if (x === r) relancer("arrêt du moteur"); };
+    try { x.start(); } catch (e) { if (recog === x) recog = null; return false; }
+    noteMicro("écoute", relances ? `reprise ${relances}` : "début");
+    return true;
+  }
+  if (!demarrer()) return false;
+  recogTimer = setTimeout(finirRecog, ECOUTE_MAX_MS); // filet de sécurité si iOS ne rend jamais la main
   return true;
 }
 /* Texte d'une prise : la meilleure alternative de chaque morceau, mis bout à
@@ -5738,7 +5784,11 @@ function texteEntendu(morceaux, cible) {
   const choisis = morceaux.map(alts => cibleSyl
     ? alts.reduce((m, a) => lcsLen(syllabes(a), cibleSyl) > lcsLen(syllabes(m), cibleSyl) ? a : m, alts[0] || "")
     : alts[0] || "").map(t => t.replace(/\s+/g, "")).filter(Boolean);
-  return choisis.filter((t, i) => !(choisis[i + 1] && choisis[i + 1].startsWith(t))).join("");
+  /* La comparaison ignore la ponctuation : iOS en ajoute (« 我喜欢。 » puis
+     « 我喜欢喝茶。 ») et la reprise passait alors en double. */
+  const gardes = choisis.filter((t, i) => !(choisis[i + 1] && normHanzi(choisis[i + 1]).startsWith(normHanzi(t))));
+  /* Un point ajouté par iOS à la pause ne doit pas couper la phrase en deux. */
+  return gardes.map((t, i) => i < gardes.length - 1 ? t.replace(/[。.!?！？]+$/, "") : t).join("");
 }
 /* Abandon silencieux (changement de carte, session quittée) : tout est jeté. */
 function stopRecog() {
@@ -5755,12 +5805,15 @@ function finirRecog() {
   if (!recog) return;
   if (recogTimer) { clearTimeout(recogTimer); recogTimer = null; }
   const r = recog;
+  if (r.sess) r.sess.finVoulue = true; // plus de relance : c'est elle qui arrête
+  noteMicro("fin demandée");
   try { r.stop(); } catch (e) {}
   setTimeout(() => { if (r.conclure) r.conclure(); }, 1200);
 }
 /* Vérifier pendant une dictée : on GARDE ce qui a été entendu (l'ancien code
    jetait la prise et jugeait un champ vide). */
 function clorePrise() {
+  if (recog && recog.sess) recog.sess.finVoulue = true;
   if (recog && recog.conclure) recog.conclure(); else stopRecog();
 }
 function toggleRecog(target) {
