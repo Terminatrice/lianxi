@@ -20,14 +20,23 @@ const ECOUTE_MAX_MS = 60000, RELANCES_MAX = 12;
 /* Journal des dernières écoutes, copiable depuis Mots > Maintenance : si le
    micro se comporte encore mal sur le téléphone, c'est la seule trace de ce
    que Safari a réellement fait. */
-const journalMicro = [];
+/* Gardé dans le téléphone (2026-11-11) : le journal ne vivait qu'en mémoire et
+   disparaissait au rechargement, donc jamais disponible quand on en avait
+   besoin. */
+const JOURNAL_CLE = "lianxi-journal-micro";
+const journalMicro = (() => { try { return JSON.parse(localStorage.getItem(JOURNAL_CLE)) || []; } catch (e) { return []; } })();
 function noteMicro(ev, detail) {
-  journalMicro.push(`${new Date().toISOString().slice(11, 23)} ${ev}${detail ? " : " + detail : ""}`);
-  if (journalMicro.length > 80) journalMicro.shift();
+  journalMicro.push(`${new Date().toISOString().slice(0, 23).replace("T", " ")} ${ev}${detail ? " : " + detail : ""}`);
+  while (journalMicro.length > 150) journalMicro.shift();
+  try { localStorage.setItem(JOURNAL_CLE, JSON.stringify(journalMicro)); } catch (e) {}
+}
+/* App ouverte depuis l'icône de l'écran d'accueil (et non dans Safari). */
+function appEcranAccueil() {
+  try { return navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches); } catch (e) { return false; }
 }
 function copierJournalMicro() {
   const ua = navigator.userAgent || "";
-  copyText(`Journal du micro Liànxí (${todayKey()})\n${ua}\n${journalMicro.join("\n") || "(aucune écoute depuis l'ouverture de l'app)"}`,
+  copyText(`Journal du micro Liànxí (${todayKey()})\n${ua}\nOuverte depuis l'écran d'accueil : ${appEcranAccueil() ? "oui" : "non"}\n${journalMicro.join("\n") || "(aucune écoute enregistrée)"}`,
     $("maint-msg"), "Journal du micro copié. Colle-le dans ta session Claude Code.");
 }
 function lancerEcoute({ alternatives = 1, surTexte, surFin, surErreur }) {
@@ -86,7 +95,7 @@ function lancerEcoute({ alternatives = 1, surTexte, surFin, surErreur }) {
     };
     x.onend = () => { if (x === r) relancer("arrêt du moteur"); };
     try { x.start(); } catch (e) { if (recog === x) recog = null; return false; }
-    noteMicro("écoute", relances ? `reprise ${relances}` : "début");
+    noteMicro("écoute", relances ? `reprise ${relances}` : `début${appEcranAccueil() ? " (écran d'accueil)" : ""}`);
     return true;
   }
   if (!demarrer()) return false;

@@ -5,6 +5,7 @@ const sessions = [
   ["mon oreille", () => startOreille()],
   ["traduire les phrases du cours", () => startTraduction(seancesRecentes())],
   ["reconnaître les caractères récents", () => startRecoRecents()],
+  ["vocabulaire d'une leçon du manuel", () => startLecon(leconsListe()[0])],
   ["mots jamais testés", () => startCalibrage()],
   ["consolidation des mots du jour", () => startConsolidation()],
 ];

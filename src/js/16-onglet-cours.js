@@ -71,7 +71,7 @@ function renderCours() {
       <button class="btn secondary" onclick="startTraduction(seancesRecentes())">Traduire les phrases du cours</button>
       ${escaliersDe(seancesRecentes()).length ? `<button class="btn secondary" onclick="startEscaliers(escaliersDe(seancesRecentes()))">Phrases longues pas à pas</button>` : ""}
     </div>` : "";
-  z.innerHTML = `${reco}${choix}
+  z.innerHTML = `${reco}${leconPanelHTML()}${choix}
     <div class="panel">
       <p class="cours-date">${esc(coursDate(s.date))}${s.lecon ? " · " + esc(s.lecon) : ""}</p>
       <h2 class="cours-titre hanzi" style="text-transform:none;letter-spacing:0;color:var(--ink)">${esc(s.titre)}</h2>
@@ -157,6 +157,64 @@ function startCours(id, quoi) {
   /* Les règles s'intercalent à intervalles réguliers dans le vocabulaire. */
   grams.forEach((p, i) => parts.splice(Math.floor((i + 1) * parts.length / (grams.length + 1)) + i, 0, { kind: "gram", v: p }));
   startMix(placerDecouvertes(parts), true);
+}
+
+/* ---------- Réviser tout le vocabulaire d'une leçon du manuel ----------
+   Demande de Daphnée (2026-11-11) : « réviser tout le nouveau vocabulaire
+   d'une leçon ». Les boutons par séance plafonnent à 14 mots et une leçon
+   s'étale sur plusieurs séances. Les mots d'une leçon : ceux dont le thème est
+   la leçon (« HSK 3 · L9 »), plus les mots des séances qui couvrent cette
+   leçon et qui n'ont pas encore été rangés dans une leçon (thème « à venir »,
+   sans thème, Expressions) : sans ce rattrapage, une leçon toute récente dont
+   les mots ne sont pas encore rethémés paraîtrait vide.
+   Tous les mots, une carte par mot sur la piste la moins sue ; un mot jamais
+   vu passe d'abord par sa carte de découverte. Notation normale. */
+let curLecon = null;
+const LECON_RE = /^HSK (\d) · L(\d+)$/;
+function leconsSeance(s) {
+  const m = /HSK (\d) · L(\d+)(?:\s*[–-]\s*L?(\d+))?/.exec(s.lecon || "");
+  if (!m) return [];
+  const out = [];
+  for (let k = +m[2]; k <= +(m[3] || m[2]); k++) out.push(`HSK ${m[1]} · L${k}`);
+  return out;
+}
+function leconCartes(l) {
+  const set = new Set(state.cards.filter(c => c.theme === l));
+  const libre = c => !c.theme || /à venir$/.test(c.theme) || c.theme === "Expressions";
+  EMBED_COURS.forEach(s => { if (leconsSeance(s).includes(l)) coursCartes(s).filter(libre).forEach(c => set.add(c)); });
+  return [...set];
+}
+function leconsListe() {
+  const set = new Set();
+  state.cards.forEach(c => { if (LECON_RE.test(c.theme || "")) set.add(c.theme); });
+  EMBED_COURS.forEach(s => leconsSeance(s).forEach(l => set.add(l)));
+  const rang = l => { const m = LECON_RE.exec(l); return +m[1] * 100 + +m[2]; };
+  return [...set].filter(l => leconCartes(l).length).sort((a, b) => rang(b) - rang(a));
+}
+function leconPanelHTML() {
+  const liste = leconsListe();
+  if (!liste.length) return "";
+  if (!liste.includes(curLecon)) curLecon = liste[0];
+  const cartes = leconCartes(curLecon), sus = cartes.filter(c => coursEtat(c) === "su").length;
+  return `<div class="panel">
+      <h2>Réviser une leçon du manuel</h2>
+      <select id="lecon-select" onchange="curLecon = this.value; renderCours()" aria-label="Leçon à réviser">
+        ${liste.map(l => `<option value="${esc(l)}"${l === curLecon ? " selected" : ""}>${esc(l)}</option>`).join("")}
+      </select>
+      <p class="hint">${cartes.length} mots, dont ${sus} déjà sus.</p>
+      <button class="btn" onclick="startLecon(curLecon)">Réviser tout le vocabulaire de la leçon</button>
+    </div>`;
+}
+function startLecon(l) {
+  const cartes = leconCartes(l);
+  if (!cartes.length) return;
+  const items = [];
+  shuffle(cartes).forEach(c => {
+    const jamaisVu = !c.son.reviews && !c.zi.reviews && !c.vu && !c.son.connu && !c.zi.connu;
+    if (jamaisVu) items.push({ card: c, track: "son", mode: "decouverte" });
+    items.push({ card: c, track: jamaisVu || !estConnu(c.son) ? "son" : "zi" });
+  });
+  startMix(placerDecouvertes(spread(items).map(it => ({ kind: "srs", v: it }))), true);
 }
 
 /* ---------- Reconnaître les caractères récents ----------

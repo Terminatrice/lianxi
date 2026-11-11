@@ -141,7 +141,12 @@ function dicter() {
     surTexte: t => { if ($("dict-etat")) $("dict-etat").textContent = `J'entends : ${t}`; },
     surFin: morceaux => {
       const texte = texteEntendu(morceaux);
-      if (!texte) { remettre("Je n'ai rien entendu. Réessaie, ou tape la phrase."); return; }
+      if (!texte) {
+        /* Rien reçu du tout : sur iPhone, c'est le cas de l'app ouverte depuis
+           l'écran d'accueil. Le micro du clavier, lui, fonctionne partout. */
+        remettre("Je n'ai rien entendu. Touche le champ, puis le micro 🎤 du clavier de l'iPhone, qui ne dépend pas de l'app.");
+        return;
+      }
       if ($("write-input")) { $("write-input").value = texte; $("write-input").dataset.dicte = "1"; $("write-input").dataset.vu = texte; }
       remettre("Relis ce que j'ai compris, corrige si besoin, puis vérifie.");
     },
@@ -257,6 +262,7 @@ function escEtapeHTML(e, k) {
       <div id="reveal-zone">
         <button class="btn secondary" onclick="escVerifier()">Vérifier</button>
         <button class="btn ghost" onclick="escIndice()">Indice : le pinyin</button>
+        <button class="btn ghost" onclick="escVoir()">Voir la réponse</button>
       </div>
       <div id="answer-zone" class="hidden"></div>
     </div><div id="grades-slot"></div>`;
@@ -296,9 +302,18 @@ function verdictPhrase(brut, cible, avant) {
       : `<div class="verdict ko">✕ Pas tout à fait</div>${diff}`;
   return { ok, presque: presque && j.niveau === "presque", html };
 }
-function escJuger(it, brut) {
+/* Réponse montrée sans vérification : l'étape compte « pas su ». */
+const REPONSE_VUE = { ok: false, presque: false, html: `<div class="verdict mid">La réponse</div>` };
+function escVoir() {
+  const it = queue[qIndex], inp = $("write-input");
+  if (!it || !it.card.esc || !inp || inp.readOnly) return;
+  stopRecog();
+  inp.readOnly = true;
+  escJuger(it, "", true);
+}
+function escJuger(it, brut, vu) {
   const e = it.card.esc, s = e.etapes[escPas], dernier = escPas === e.etapes.length - 1;
-  const v = verdictPhrase(brut, s.hanzi, escPas ? e.etapes[escPas - 1].hanzi : "");
+  const v = vu ? REPONSE_VUE : verdictPhrase(brut, s.hanzi, escPas ? e.etapes[escPas - 1].hanzi : "");
   $("reveal-zone").classList.add("hidden");
   $("answer-zone").innerHTML = `${v.html}
      <div class="ruby">${rubyHTML(s.hanzi)}</div>

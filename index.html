@@ -4412,7 +4412,7 @@ function renderCours() {
       <button class="btn secondary" onclick="startTraduction(seancesRecentes())">Traduire les phrases du cours</button>
       ${escaliersDe(seancesRecentes()).length ? `<button class="btn secondary" onclick="startEscaliers(escaliersDe(seancesRecentes()))">Phrases longues pas à pas</button>` : ""}
     </div>` : "";
-  z.innerHTML = `${reco}${choix}
+  z.innerHTML = `${reco}${leconPanelHTML()}${choix}
     <div class="panel">
       <p class="cours-date">${esc(coursDate(s.date))}${s.lecon ? " · " + esc(s.lecon) : ""}</p>
       <h2 class="cours-titre hanzi" style="text-transform:none;letter-spacing:0;color:var(--ink)">${esc(s.titre)}</h2>
@@ -4498,6 +4498,64 @@ function startCours(id, quoi) {
   /* Les règles s'intercalent à intervalles réguliers dans le vocabulaire. */
   grams.forEach((p, i) => parts.splice(Math.floor((i + 1) * parts.length / (grams.length + 1)) + i, 0, { kind: "gram", v: p }));
   startMix(placerDecouvertes(parts), true);
+}
+
+/* ---------- Réviser tout le vocabulaire d'une leçon du manuel ----------
+   Demande de Daphnée (2026-11-11) : « réviser tout le nouveau vocabulaire
+   d'une leçon ». Les boutons par séance plafonnent à 14 mots et une leçon
+   s'étale sur plusieurs séances. Les mots d'une leçon : ceux dont le thème est
+   la leçon (« HSK 3 · L9 »), plus les mots des séances qui couvrent cette
+   leçon et qui n'ont pas encore été rangés dans une leçon (thème « à venir »,
+   sans thème, Expressions) : sans ce rattrapage, une leçon toute récente dont
+   les mots ne sont pas encore rethémés paraîtrait vide.
+   Tous les mots, une carte par mot sur la piste la moins sue ; un mot jamais
+   vu passe d'abord par sa carte de découverte. Notation normale. */
+let curLecon = null;
+const LECON_RE = /^HSK (\d) · L(\d+)$/;
+function leconsSeance(s) {
+  const m = /HSK (\d) · L(\d+)(?:\s*[–-]\s*L?(\d+))?/.exec(s.lecon || "");
+  if (!m) return [];
+  const out = [];
+  for (let k = +m[2]; k <= +(m[3] || m[2]); k++) out.push(`HSK ${m[1]} · L${k}`);
+  return out;
+}
+function leconCartes(l) {
+  const set = new Set(state.cards.filter(c => c.theme === l));
+  const libre = c => !c.theme || /à venir$/.test(c.theme) || c.theme === "Expressions";
+  EMBED_COURS.forEach(s => { if (leconsSeance(s).includes(l)) coursCartes(s).filter(libre).forEach(c => set.add(c)); });
+  return [...set];
+}
+function leconsListe() {
+  const set = new Set();
+  state.cards.forEach(c => { if (LECON_RE.test(c.theme || "")) set.add(c.theme); });
+  EMBED_COURS.forEach(s => leconsSeance(s).forEach(l => set.add(l)));
+  const rang = l => { const m = LECON_RE.exec(l); return +m[1] * 100 + +m[2]; };
+  return [...set].filter(l => leconCartes(l).length).sort((a, b) => rang(b) - rang(a));
+}
+function leconPanelHTML() {
+  const liste = leconsListe();
+  if (!liste.length) return "";
+  if (!liste.includes(curLecon)) curLecon = liste[0];
+  const cartes = leconCartes(curLecon), sus = cartes.filter(c => coursEtat(c) === "su").length;
+  return `<div class="panel">
+      <h2>Réviser une leçon du manuel</h2>
+      <select id="lecon-select" onchange="curLecon = this.value; renderCours()" aria-label="Leçon à réviser">
+        ${liste.map(l => `<option value="${esc(l)}"${l === curLecon ? " selected" : ""}>${esc(l)}</option>`).join("")}
+      </select>
+      <p class="hint">${cartes.length} mots, dont ${sus} déjà sus.</p>
+      <button class="btn" onclick="startLecon(curLecon)">Réviser tout le vocabulaire de la leçon</button>
+    </div>`;
+}
+function startLecon(l) {
+  const cartes = leconCartes(l);
+  if (!cartes.length) return;
+  const items = [];
+  shuffle(cartes).forEach(c => {
+    const jamaisVu = !c.son.reviews && !c.zi.reviews && !c.vu && !c.son.connu && !c.zi.connu;
+    if (jamaisVu) items.push({ card: c, track: "son", mode: "decouverte" });
+    items.push({ card: c, track: jamaisVu || !estConnu(c.son) ? "son" : "zi" });
+  });
+  startMix(placerDecouvertes(spread(items).map(it => ({ kind: "srs", v: it }))), true);
 }
 
 /* ---------- Reconnaître les caractères récents ----------
@@ -4724,7 +4782,12 @@ function dicter() {
     surTexte: t => { if ($("dict-etat")) $("dict-etat").textContent = `J'entends : ${t}`; },
     surFin: morceaux => {
       const texte = texteEntendu(morceaux);
-      if (!texte) { remettre("Je n'ai rien entendu. Réessaie, ou tape la phrase."); return; }
+      if (!texte) {
+        /* Rien reçu du tout : sur iPhone, c'est le cas de l'app ouverte depuis
+           l'écran d'accueil. Le micro du clavier, lui, fonctionne partout. */
+        remettre("Je n'ai rien entendu. Touche le champ, puis le micro 🎤 du clavier de l'iPhone, qui ne dépend pas de l'app.");
+        return;
+      }
       if ($("write-input")) { $("write-input").value = texte; $("write-input").dataset.dicte = "1"; $("write-input").dataset.vu = texte; }
       remettre("Relis ce que j'ai compris, corrige si besoin, puis vérifie.");
     },
@@ -4840,6 +4903,7 @@ function escEtapeHTML(e, k) {
       <div id="reveal-zone">
         <button class="btn secondary" onclick="escVerifier()">Vérifier</button>
         <button class="btn ghost" onclick="escIndice()">Indice : le pinyin</button>
+        <button class="btn ghost" onclick="escVoir()">Voir la réponse</button>
       </div>
       <div id="answer-zone" class="hidden"></div>
     </div><div id="grades-slot"></div>`;
@@ -4879,9 +4943,18 @@ function verdictPhrase(brut, cible, avant) {
       : `<div class="verdict ko">✕ Pas tout à fait</div>${diff}`;
   return { ok, presque: presque && j.niveau === "presque", html };
 }
-function escJuger(it, brut) {
+/* Réponse montrée sans vérification : l'étape compte « pas su ». */
+const REPONSE_VUE = { ok: false, presque: false, html: `<div class="verdict mid">La réponse</div>` };
+function escVoir() {
+  const it = queue[qIndex], inp = $("write-input");
+  if (!it || !it.card.esc || !inp || inp.readOnly) return;
+  stopRecog();
+  inp.readOnly = true;
+  escJuger(it, "", true);
+}
+function escJuger(it, brut, vu) {
   const e = it.card.esc, s = e.etapes[escPas], dernier = escPas === e.etapes.length - 1;
-  const v = verdictPhrase(brut, s.hanzi, escPas ? e.etapes[escPas - 1].hanzi : "");
+  const v = vu ? REPONSE_VUE : verdictPhrase(brut, s.hanzi, escPas ? e.etapes[escPas - 1].hanzi : "");
   $("reveal-zone").classList.add("hidden");
   $("answer-zone").innerHTML = `${v.html}
      <div class="ruby">${rubyHTML(s.hanzi)}</div>
@@ -5415,6 +5488,7 @@ function cardHTML(c, mode) {
       <div id="constr-indice"></div>
       <div id="reveal-zone">
         <button class="btn secondary" onclick="checkConstruire()">Vérifier</button>
+        <button class="btn ghost" onclick="voirConstruire()">Voir la réponse</button>
         <details class="gram-plus"><summary>Je bloque : m'aider à la construire</summary>
           <button class="btn ghost" onclick="constrIdees()">1. L'ordre des idées</button>
           <button class="btn ghost" onclick="indiceConstruire()">2. Le pinyin</button>
@@ -5638,9 +5712,19 @@ function checkConstruire() {
   clorePrise();
   avecSaisie(brut => jugerConstruire(brut), queue[qIndex].card.phrase);
 }
-function jugerConstruire(brut) {
+/* « Voir la réponse » (demande de Daphnée, 2026-11-11 : « pour qu'au moins
+   je puisse apprendre même quand ça ne marche pas ») : la phrase s'affiche
+   comme après une vérification, comptée « pas su ». */
+function voirConstruire() {
+  stopRecog();
+  const inp = $("write-input");
+  if (!inp || inp.readOnly) return;
+  inp.readOnly = true;
+  jugerConstruire(inp.value || "", true);
+}
+function jugerConstruire(brut, vu) {
   const card = queue[qIndex].card;
-  const v = verdictPhrase(brut, card.phrase);
+  const v = vu ? REPONSE_VUE : verdictPhrase(brut, card.phrase);
   $("reveal-zone").classList.add("hidden");
   $("answer-zone").innerHTML =
     `${v.html}
@@ -5703,14 +5787,23 @@ const ECOUTE_MAX_MS = 60000, RELANCES_MAX = 12;
 /* Journal des dernières écoutes, copiable depuis Mots > Maintenance : si le
    micro se comporte encore mal sur le téléphone, c'est la seule trace de ce
    que Safari a réellement fait. */
-const journalMicro = [];
+/* Gardé dans le téléphone (2026-11-11) : le journal ne vivait qu'en mémoire et
+   disparaissait au rechargement, donc jamais disponible quand on en avait
+   besoin. */
+const JOURNAL_CLE = "lianxi-journal-micro";
+const journalMicro = (() => { try { return JSON.parse(localStorage.getItem(JOURNAL_CLE)) || []; } catch (e) { return []; } })();
 function noteMicro(ev, detail) {
-  journalMicro.push(`${new Date().toISOString().slice(11, 23)} ${ev}${detail ? " : " + detail : ""}`);
-  if (journalMicro.length > 80) journalMicro.shift();
+  journalMicro.push(`${new Date().toISOString().slice(0, 23).replace("T", " ")} ${ev}${detail ? " : " + detail : ""}`);
+  while (journalMicro.length > 150) journalMicro.shift();
+  try { localStorage.setItem(JOURNAL_CLE, JSON.stringify(journalMicro)); } catch (e) {}
+}
+/* App ouverte depuis l'icône de l'écran d'accueil (et non dans Safari). */
+function appEcranAccueil() {
+  try { return navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches); } catch (e) { return false; }
 }
 function copierJournalMicro() {
   const ua = navigator.userAgent || "";
-  copyText(`Journal du micro Liànxí (${todayKey()})\n${ua}\n${journalMicro.join("\n") || "(aucune écoute depuis l'ouverture de l'app)"}`,
+  copyText(`Journal du micro Liànxí (${todayKey()})\n${ua}\nOuverte depuis l'écran d'accueil : ${appEcranAccueil() ? "oui" : "non"}\n${journalMicro.join("\n") || "(aucune écoute enregistrée)"}`,
     $("maint-msg"), "Journal du micro copié. Colle-le dans ta session Claude Code.");
 }
 function lancerEcoute({ alternatives = 1, surTexte, surFin, surErreur }) {
@@ -5769,7 +5862,7 @@ function lancerEcoute({ alternatives = 1, surTexte, surFin, surErreur }) {
     };
     x.onend = () => { if (x === r) relancer("arrêt du moteur"); };
     try { x.start(); } catch (e) { if (recog === x) recog = null; return false; }
-    noteMicro("écoute", relances ? `reprise ${relances}` : "début");
+    noteMicro("écoute", relances ? `reprise ${relances}` : `début${appEcranAccueil() ? " (écran d'accueil)" : ""}`);
     return true;
   }
   if (!demarrer()) return false;

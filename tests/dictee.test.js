@@ -131,3 +131,32 @@ test("mode Oral : prise iOS jugée après « J'ai fini de parler »", async () =
 test("aucune erreur JavaScript pendant ces scénarios", () => {
   assert.deepEqual(app.erreurs, []);
 });
+
+// 2026-11-11 : « rajoute un bouton pour avoir la réponse, pour qu'au moins je
+// puisse apprendre même quand ça ne marche pas ».
+for (const mode of ["escalier", "construire"]) {
+  test(`${mode} : « Voir la réponse » montre la phrase, champ vide, sans bloquer`, async () => {
+    await carteSeule(page(), mode);
+    const cible = await cibleCourante(page());
+    await page().locator("#write-input").fill("");
+    await bouton(page(), "Voir la réponse").click();
+    await page().waitForSelector("#answer-zone .verdict");
+    assert.match(await verdict(), /La réponse/);
+    const montre = await page().locator("#answer-zone .ruby").first().textContent();
+    for (const ch of cible.replace(/[，,]/g, "")) assert.ok(montre.includes(ch), `réponse affichée : ${ch} manque`);
+    assert.equal(await page().locator("#grades-slot button").count(), 1, "un seul bouton pour continuer");
+    await page().evaluate(() => quitSession());
+  });
+}
+
+test("journal du micro : gardé après rechargement de l'app", async () => {
+  await carteSeule(page(), "construire");
+  await ecoute("muet", "");
+  await bouton(page(), "🎤 Dicter la phrase").click();
+  await page().waitForTimeout(150);
+  await bouton(page(), "✅ J'ai fini de parler").click();
+  await page().waitForTimeout(300);
+  await page().evaluate(() => quitSession());
+  const avant = await page().evaluate(() => localStorage.getItem("lianxi-journal-micro"));
+  assert.match(avant || "", /fin demandée/);
+});

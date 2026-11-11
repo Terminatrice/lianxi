@@ -94,3 +94,16 @@ test("une piste « Caractères » n'est jamais testée en écriture avant une le
 });
 
 test("aucune erreur JavaScript", () => assert.deepEqual(app.erreurs, []));
+
+test("leçon du manuel : tous ses mots, y compris ceux pas encore rangés dans la leçon (2026-11-11)", async () => {
+  const r = await ev(() => {
+    const l = "HSK 3 · L9", cartes = leconCartes(l);
+    const parTheme = state.cards.filter(c => c.theme === l).length;
+    const seance = EMBED_COURS.find(s => leconsSeance(s).includes(l));
+    return { n: cartes.length, parTheme, plage: leconsSeance({ lecon: "HSK 3 · L4–L6" }), seance: !!seance,
+      etrangers: cartes.filter(c => c.theme && c.theme !== l && !/à venir$/.test(c.theme) && c.theme !== "Expressions").length };
+  });
+  assert.deepEqual(r.plage, ["HSK 3 · L4", "HSK 3 · L5", "HSK 3 · L6"]);
+  assert.ok(r.n >= r.parTheme && r.n > 0);
+  assert.equal(r.etrangers, 0, "aucun mot rangé dans une autre leçon");
+});

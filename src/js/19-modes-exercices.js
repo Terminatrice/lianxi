@@ -282,6 +282,7 @@ function cardHTML(c, mode) {
       <div id="constr-indice"></div>
       <div id="reveal-zone">
         <button class="btn secondary" onclick="checkConstruire()">Vérifier</button>
+        <button class="btn ghost" onclick="voirConstruire()">Voir la réponse</button>
         <details class="gram-plus"><summary>Je bloque : m'aider à la construire</summary>
           <button class="btn ghost" onclick="constrIdees()">1. L'ordre des idées</button>
           <button class="btn ghost" onclick="indiceConstruire()">2. Le pinyin</button>
@@ -505,9 +506,19 @@ function checkConstruire() {
   clorePrise();
   avecSaisie(brut => jugerConstruire(brut), queue[qIndex].card.phrase);
 }
-function jugerConstruire(brut) {
+/* « Voir la réponse » (demande de Daphnée, 2026-11-11 : « pour qu'au moins
+   je puisse apprendre même quand ça ne marche pas ») : la phrase s'affiche
+   comme après une vérification, comptée « pas su ». */
+function voirConstruire() {
+  stopRecog();
+  const inp = $("write-input");
+  if (!inp || inp.readOnly) return;
+  inp.readOnly = true;
+  jugerConstruire(inp.value || "", true);
+}
+function jugerConstruire(brut, vu) {
   const card = queue[qIndex].card;
-  const v = verdictPhrase(brut, card.phrase);
+  const v = vu ? REPONSE_VUE : verdictPhrase(brut, card.phrase);
   $("reveal-zone").classList.add("hidden");
   $("answer-zone").innerHTML =
     `${v.html}
