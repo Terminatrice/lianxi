@@ -101,9 +101,14 @@ test("leçon du manuel : tous ses mots, y compris ceux pas encore rangés dans l
     const parTheme = state.cards.filter(c => c.theme === l).length;
     const seance = EMBED_COURS.find(s => leconsSeance(s).includes(l));
     return { n: cartes.length, parTheme, plage: leconsSeance({ lecon: "HSK 3 · L4–L6" }), seance: !!seance,
-      etrangers: cartes.filter(c => c.theme && c.theme !== l && !/à venir$/.test(c.theme) && c.theme !== "Expressions").length };
+      etrangers: cartes.filter(c => c.theme !== l && !LECONS_MANUEL[l].includes(c.hanzi)).length,
+      manquants: LECONS_MANUEL[l].filter(h => !cartes.some(c => c.hanzi === h)),
+      l10: leconCartes("HSK 3 · L10").length, aVenirL10: state.cards.filter(c => LECONS_MANUEL["HSK 3 · L10"].includes(c.hanzi) && /à venir$/.test(c.theme || "")).length };
   });
   assert.deepEqual(r.plage, ["HSK 3 · L4", "HSK 3 · L5", "HSK 3 · L6"]);
   assert.ok(r.n >= r.parTheme && r.n > 0);
-  assert.equal(r.etrangers, 0, "aucun mot rangé dans une autre leçon");
+  assert.equal(r.etrangers, 0, "aucun mot hors du thème ou de la liste du manuel");
+  assert.deepEqual(r.manquants, [], "tous les mots du support de la leçon 9");
+  assert.equal(r.l10, 15, "les 15 mots du support de la leçon 10");
+  assert.equal(r.aVenirL10, 0, "les mots de la leçon 10 ne sont plus « à venir »");
 });

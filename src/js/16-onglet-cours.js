@@ -167,6 +167,11 @@ function startCours(id, quoi) {
    leçon et qui n'ont pas encore été rangés dans une leçon (thème « à venir »,
    sans thème, Expressions) : sans ce rattrapage, une leçon toute récente dont
    les mots ne sont pas encore rethémés paraîtrait vide.
+   Depuis le relevé des supports du Drive (LECONS_MANUEL), une leçon dont on a
+   la liste officielle prend toute cette liste, plus les mots rangés dans son
+   thème ; le rattrapage par les séances ne sert plus qu'aux leçons sans liste,
+   et il écarte les mots que le manuel place dans une autre leçon (une séance
+   « L9–L10 » mêle les deux).
    Tous les mots, une carte par mot sur la piste la moins sue ; un mot jamais
    vu passe d'abord par sa carte de découverte. Notation normale. */
 let curLecon = null;
@@ -180,7 +185,13 @@ function leconsSeance(s) {
 }
 function leconCartes(l) {
   const set = new Set(state.cards.filter(c => c.theme === l));
-  const libre = c => !c.theme || /à venir$/.test(c.theme) || c.theme === "Expressions";
+  const manuel = LECONS_MANUEL[l];
+  if (manuel) {
+    const parHanzi = new Map(state.cards.map(c => [c.hanzi, c]));
+    manuel.forEach(h => { const c = parHanzi.get(h); if (c) set.add(c); });
+    return [...set];
+  }
+  const libre = c => (!c.theme || /à venir$/.test(c.theme) || c.theme === "Expressions") && !LECON_DU_MOT[c.hanzi];
   EMBED_COURS.forEach(s => { if (leconsSeance(s).includes(l)) coursCartes(s).filter(libre).forEach(c => set.add(c)); });
   return [...set];
 }
@@ -188,6 +199,7 @@ function leconsListe() {
   const set = new Set();
   state.cards.forEach(c => { if (LECON_RE.test(c.theme || "")) set.add(c.theme); });
   EMBED_COURS.forEach(s => leconsSeance(s).forEach(l => set.add(l)));
+  Object.keys(LECONS_MANUEL).forEach(l => set.add(l));
   const rang = l => { const m = LECON_RE.exec(l); return +m[1] * 100 + +m[2]; };
   return [...set].filter(l => leconCartes(l).length).sort((a, b) => rang(b) - rang(a));
 }

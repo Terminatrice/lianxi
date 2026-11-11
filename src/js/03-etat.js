@@ -35,7 +35,7 @@ function mergeEmbed(s) {
       ex.mots = w.mots || [];
       ex.cl = w.cl || ""; ex.cl_pinyin = w.cl_pinyin || ""; ex.cl_note = w.cl_note || "";
       ex.usage = w.usage || ""; ex.construction = w.construction || "";
-      ex.theme = w.theme || ex.theme || "Général";
+      ex.theme = themeManuel(w.hanzi.trim(), w.theme) || ex.theme || "Général";
     } else {
       s.cards.push(newCard(w));
     }
@@ -97,7 +97,7 @@ function newCard(w) {
     mots: w.mots || [],
     cl: w.cl || "", cl_pinyin: w.cl_pinyin || "", cl_note: w.cl_note || "",
     usage: w.usage || "", construction: w.construction || "",
-    theme: (w.theme||"Général").trim(),
+    theme: (themeManuel(w.hanzi.trim(), (w.theme||"").trim()) || "Général"),
     son: newTrack("son"), zi: newTrack("zi") };
 }
 
