@@ -77,6 +77,8 @@
   .cours-etat.su { background: var(--good-soft); color: var(--good); }
   .cours-nouveau { font-size: .95rem; color: var(--accent); font-weight: 600; }
   .cours-liste { margin: .3rem 0 0; padding-left: 1.2rem; font-size: 1.1rem; line-height: 1.5; }
+  .lecon-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr)); gap: .5rem; }
+  .lecon-grille .chip { min-height: 44px; font-size: 1.1rem; font-weight: 600; }
   .cours-formu { padding: .6rem 0; border-bottom: 1px solid var(--line); }
   .cours-formu:last-child { border-bottom: none; }
   .cours-formu .ruby { margin-bottom: .2rem; }

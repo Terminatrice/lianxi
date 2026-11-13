@@ -112,3 +112,17 @@ test("leçon du manuel : tous ses mots, y compris ceux pas encore rangés dans l
   assert.equal(r.l10, 15, "les 15 mots du support de la leçon 10");
   assert.equal(r.aVenirL10, 0, "les mots de la leçon 10 ne sont plus « à venir »");
 });
+
+test("écran Cours : une page par leçon, sans date, phrases d'une séance « L9–L10 » réparties (2026-11-13)", async () => {
+  const r = await ev(() => {
+    showTab("cours"); choisirLecon("HSK 3 · L10");
+    const z = document.getElementById("cours-body").textContent;
+    const f = l => leconSeance(l).formulations.map(x => x.hanzi);
+    return { dates: /\d\d\/\d\d/.test(z), titre: z.includes("数学比历史难多了"),
+      l10: f("HSK 3 · L10"), l9: f("HSK 3 · L9") };
+  });
+  assert.equal(r.dates, false, "aucune date à l'écran");
+  assert.ok(r.titre);
+  assert.ok(r.l10.includes("数学比历史难多了。") && !r.l10.includes("吃得越多，胖得越快。"));
+  assert.ok(r.l9.includes("吃得越多，胖得越快。") && !r.l9.includes("数学比历史难多了。"));
+});

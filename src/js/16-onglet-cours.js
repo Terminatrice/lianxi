@@ -35,71 +35,140 @@ function coursDate(d) {
   const t = new Date(d + "T12:00:00");
   return isNaN(t) ? d : t.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
-function setCours(i) { curCours = i; renderCours(); }
+/* ---------- Écran Cours : une page par leçon du manuel ----------
+   Demande de Daphnée (2026-11-13) : « on ne comprend vraiment rien à l'écran,
+   et il y a un problème entre les dates et les numéros de support de cours.
+   Tu peux t'en tenir seulement aux numéros de support ? » L'écran empilait les
+   mots récents, un menu de leçon et vingt puces de dates, puis le détail d'une
+   séance qui mêlait souvent deux leçons (« L9–L10 »). Désormais : on choisit
+   un numéro de leçon, et tout ce qui la concerne tient sur une seule page.
+   Le contenu d'une leçon (leconSeance) a la forme d'une séance, ce qui laisse
+   les exercices de séance (startCours, traduction, escaliers) inchangés :
+   - mots : la liste du support (leconCartes) ;
+   - grammaire : les fiches dont le thème est la leçon ;
+   - phrases, expressions, distinctions : celles des séances qui couvrent la
+     leçon, sans doublon ;
+   - phrases longues : celles rangées dans la leçon.
+   Les dates, résumés de séance, conseils et devoirs ne s'affichent plus. */
+const LECON_CLE = "lianxi-lecon";
+function leconNum(l) { const m = LECON_RE.exec(l || ""); return m ? { niv: m[1], n: m[2] } : null; }
+function leconNom(l) { const x = leconNum(l); return x ? `Leçon ${x.n}` : l; }
+/* Une séance « L9–L10 » mêle deux leçons : chacune de ses phrases, expressions
+   et distinctions va à la leçon dont elle contient le plus de mots ; sans mot
+   d'aucune liste (une phrase reprise d'une fiche de grammaire de la leçon
+   compte pour beaucoup), à la première leçon de la séance (qui finit d'ordinaire une
+   leçon avant d'introduire la suivante). */
+const GRAM_TEXTE = {};
+function gramTexteLecon(l) {
+  if (!(l in GRAM_TEXTE)) GRAM_TEXTE[l] = normHanzi(JSON.stringify(EMBED_GRAMMAR.filter(p => p.theme === l)));
+  return GRAM_TEXTE[l];
+}
+function leconDuTexte(s, texte) {
+  const ls = leconsSeance(s);
+  if (ls.length < 2) return ls[0];
+  let mieux = ls[0], max = 0;
+  ls.forEach(l => {
+    /* Une phrase reprise d'une fiche de grammaire de la leçon y appartient. */
+    const gram = gramTexteLecon(l).includes(normHanzi(texte)) ? 10 : 0;
+    const n = gram + leconCartes(l).filter(c => texte.includes(c.hanzi)).length;
+    if (n > max) { max = n; mieux = l; }
+  });
+  return mieux;
+}
+function leconSeance(l) {
+  const seances0 = EMBED_COURS.filter(s => leconsSeance(s).includes(l));
+  const garde = (s, arr, txt) => (arr || []).filter(x => leconDuTexte(s, txt(x)) === l);
+  const seances = seances0.map(s => ({
+    expressions: garde(s, s.expressions, h => h),
+    formulations: garde(s, s.formulations, f => f.hanzi),
+    distinctions: garde(s, s.distinctions, d => d),
+  }));
+  const uniq = (arr, cle) => { const vus = new Set(); return arr.filter(x => { const k = cle(x); if (vus.has(k)) return false; vus.add(k); return true; }); };
+  const mots = leconCartes(l).map(c => c.hanzi), siens = new Set(mots);
+  return {
+    id: l, lecon: l,
+    mots: mots,
+    expressions: uniq(seances.flatMap(s => s.expressions || []).filter(h => !siens.has(h)), h => h),
+    formulations: uniq(seances.flatMap(s => s.formulations || []), f => normHanzi(f.hanzi)),
+    distinctions: uniq(seances.flatMap(s => s.distinctions || []), d => d),
+    grammaire: EMBED_GRAMMAR.filter(p => p.theme === l).map(p => p.id),
+  };
+}
+function choisirLecon(l) {
+  curLecon = l;
+  try { localStorage.setItem(LECON_CLE, l); } catch (e) { /* préférence non gardée */ }
+  renderCours();
+}
+function leconChoixHTML(liste) {
+  const niveaux = [...new Set(liste.map(l => leconNum(l).niv))];
+  const niv = leconNum(curLecon).niv;
+  const puces = niveaux.length > 1 ? `<div class="chips" style="justify-content:flex-start;margin:0 0 .7rem">${niveaux.map(n =>
+      `<button class="chip" aria-pressed="${n === niv}" onclick="choisirLecon(${jsattr(liste.find(l => leconNum(l).niv === n))})">HSK ${n}</button>`).join("")}</div>` : "";
+  const duNiveau = liste.filter(l => leconNum(l).niv === niv).sort((a, b) => leconNum(a).n - leconNum(b).n);
+  return `<div class="panel">
+      <h2>Choisis ta leçon</h2>
+      ${puces}
+      <div class="lecon-grille">${duNiveau.map(l =>
+        `<button class="chip" aria-pressed="${l === curLecon}" aria-label="${esc(leconNom(l))}" onclick="choisirLecon(${jsattr(l)})">${esc(leconNum(l).n)}</button>`).join("")}</div>
+    </div>`;
+}
 function renderCours() {
-  const liste = coursListe(), z = $("cours-body");
-  if (!liste.length) { z.innerHTML = `<div class="panel"><p class="hint">Aucun cours enregistré pour l'instant.</p></div>`; return; }
-  if (curCours >= liste.length) curCours = 0;
-  const s = liste[curCours], cartes = coursCartes(s);
-  const mots = (s.mots || []).map(h => state.cards.find(c => c.hanzi === h)).filter(Boolean);
-  const exprs = (s.expressions || []).map(h => state.cards.find(c => c.hanzi === h)).filter(Boolean);
-  const gram = (s.grammaire || []).map(id => EMBED_GRAMMAR.find(p => p.id === id)).filter(Boolean);
+  const liste = leconsListe(), z = $("cours-body");
+  if (!liste.length) { z.innerHTML = `<div class="panel"><p class="hint">Aucune leçon pour l'instant. Les leçons apparaissent ici dès que leurs mots sont dans l'app.</p></div>`; return; }
+  if (!liste.includes(curLecon)) {
+    let garde = null;
+    try { garde = localStorage.getItem(LECON_CLE); } catch (e) { /* rien */ }
+    curLecon = liste.includes(garde) ? garde : liste[0];
+  }
+  const l = curLecon, s = leconSeance(l), nom = leconNom(l), titre = LECONS_TITRES[l];
+  const mots = coursCartes({ mots: s.mots });
+  const exprs = s.expressions.map(h => state.cards.find(c => c.hanzi === h)).filter(Boolean);
+  const gram = s.grammaire.map(id => EMBED_GRAMMAR.find(p => p.id === id)).filter(Boolean);
   const chars = coursCaracteres(s), nouveaux = chars.filter(x => x.nouveau);
-  const sus = cartes.filter(c => coursEtat(c) === "su").length;
+  const esc_ = EMBED_ESCALIERS.filter(e => e.lecon === l);
+  const sus = mots.filter(c => coursEtat(c) === "su").length;
   const ligne = c => {
     const e = coursEtat(c);
     return `<li><span class="w-hanzi hanzi">${esc(c.hanzi)}</span>
       <span class="w-mid"><span class="w-pinyin">${renderPinyin(c.pinyin)}</span>
-      <span class="cours-etat ${e === "su" ? "su" : ""}">${e === "su" ? "su" : e === "neuf" ? "à découvrir" : "en cours"}</span><br>
+      <span class="cours-etat ${e === "su" ? "su" : ""}">${e === "su" ? "su" : e === "neuf" ? "nouveau" : "en cours"}</span><br>
       <span class="w-fr">${esc(c.fr)}</span></span>
       <button class="audio-btn" style="margin-left:auto" onclick="speak(${jsattr(c.hanzi)})" aria-label="Écouter ${esc(c.hanzi)}">🔊</button></li>`;
   };
-  const choix = liste.length > 1
-    ? `<div class="chips" style="justify-content:flex-start;margin:0 0 1rem">${liste.map((x, i) =>
-        `<button class="chip" aria-pressed="${i === curCours}" onclick="setCours(${i})">${esc(x.date.slice(8) + "/" + x.date.slice(5, 7))}</button>`).join("")}</div>` : "";
-  const bouton = (q, txt) => `<button class="btn secondary" onclick="startCours(${jsattr(s.id)}, '${q}')">${txt}</button>`;
-  const formu = (s.formulations || []).map(f => `<div class="cours-formu"><div class="ruby">${rubyHTML(f.hanzi)}</div>
+  const exo = (q, txt) => `<button class="btn secondary" onclick="startCours(${jsattr(l)}, '${q}')">${txt}</button>`;
+  const exos = [
+    chars.length && exo("reco", "Reconnaître les caractères"),
+    chars.length && exo("ecriture", "Écrire les caractères"),
+    mots.length && exo("lecture", "Lire sans pinyin"),
+    (s.formulations.length || mots.some(c => c.phrase)) && exo("trad", "Traduire des phrases"),
+    esc_.length && exo("escalier", "Construire des phrases longues"),
+    gram.length && exo("gram", "Pratiquer la grammaire"),
+  ].filter(Boolean).join("");
+  const formu = s.formulations.map(f => `<div class="cours-formu"><div class="ruby">${rubyHTML(f.hanzi)}</div>
         <div class="q-phrase-fr">${esc(f.fr)}</div>
         <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(f.hanzi)})" aria-label="Écouter la phrase">🔊</button></div></div>`).join("");
   const exprListe = exprs.map(c => ligne(c) + (c.usage ? `<li style="display:block;border-bottom:none;padding-top:0"><div class="q-phrase-fr">${glose(c.usage)}</div></li>` : "")).join("");
-  const resume = [mots.length && `${mots.length} mots`, exprs.length && `${exprs.length} expressions`, gram.length && `${gram.length} règles`, nouveaux.length && `${nouveaux.length} nouveaux caractères`].filter(Boolean).join(", ");
-  const recents = motsRecents();
-  const reco = recents.length >= 4 ? `<div class="panel">
-      <h2>Préparer la révision de mes derniers cours</h2>
-      <p class="hint" style="margin-top:0">${recents.length} mots de tes derniers cours et de tes découvertes récentes. Reconnaître : relier un caractère à son sens, ou un sens au bon caractère. Traduire : écrire en entier les phrases du cours depuis le français.</p>
-      <button class="btn" onclick="startRecoRecents()">Reconnaître les caractères (${Math.min(RECO_MAX, recents.length)})</button>
-      <button class="btn secondary" onclick="startTraduction(seancesRecentes())">Traduire les phrases du cours</button>
-      ${escaliersDe(seancesRecentes()).length ? `<button class="btn secondary" onclick="startEscaliers(escaliersDe(seancesRecentes()))">Phrases longues pas à pas</button>` : ""}
-    </div>` : "";
-  z.innerHTML = `${reco}${leconPanelHTML()}${choix}
+  z.innerHTML = `${leconChoixHTML(liste)}
     <div class="panel">
-      <p class="cours-date">${esc(coursDate(s.date))}${s.lecon ? " · " + esc(s.lecon) : ""}</p>
-      <h2 class="cours-titre hanzi" style="text-transform:none;letter-spacing:0;color:var(--ink)">${esc(s.titre)}</h2>
-      <p style="margin:.2rem 0 .8rem;font-size:1.1rem">${esc(s.resume)}</p>
-      ${cartes.length || gram.length ? `<p class="hint" style="margin:0">${resume}.${cartes.length ? ` Su pour l'instant : ${sus} mots sur ${cartes.length}.` : ""}</p>
-      <button class="btn" onclick="startCours(${jsattr(s.id)}, 'tout')">Réviser tout ce cours</button>` : ""}
+      <p class="cours-date">HSK ${esc(leconNum(l).niv)} · ${esc(nom)}</p>
+      ${titre ? `<h2 class="cours-titre hanzi" style="text-transform:none;letter-spacing:0;color:var(--ink)">${esc(titre[0])}</h2>
+      <p style="margin:-.3rem 0 .8rem;font-size:1.05rem">${esc(titre[1])}</p>` : ""}
+      <p class="hint" style="margin:0">${mots.length} mots · ${sus} sus · ${mots.length - sus} à travailler</p>
+      <button class="btn" onclick="startLecon(${jsattr(l)})">Réviser la ${esc(nom.toLowerCase())}</button>
+      <p class="hint">Tous les mots de la leçon. Les mots nouveaux te sont d'abord présentés.</p>
     </div>
-    ${mots.length ? `<div class="panel"><h2>Vocabulaire</h2><ul class="words">${mots.map(ligne).join("")}</ul>
-      ${bouton("vocab", "Réviser le vocabulaire et les expressions")}</div>` : ""}
-    ${exprs.length || formu ? `<div class="panel"><h2>Expressions et formulations</h2>
-      ${exprs.length ? `<ul class="words">${exprListe}</ul>` : ""}${formu}
-      ${formu ? bouton("trad", "Traduire ces phrases") : ""}
-      ${escaliersDe([s]).length ? bouton("escalier", "Construire les phrases longues pas à pas") : ""}</div>` : ""}
-    ${chars.length ? `<div class="panel"><h2>Écriture et lecture</h2>
-      <p class="hint" style="margin-top:0">${nouveaux.length
-        ? `Caractères nouveaux dans l'app : <span class="cours-nouveau">${nouveaux.map(x => esc(x.ch)).join(" ")}</span>. Sans pinyin au niveau HSK 3 : l'enjeu est de les reconnaître seule.`
-        : "Aucun caractère nouveau : tous figuraient déjà dans d'autres mots."}</p>
-      ${charsHTML(chars.map(x => x.ch))}
-      ${bouton("reco", "Reconnaître les caractères")}${bouton("ecriture", "M'entraîner à écrire")}${bouton("lecture", "Lire sans pinyin")}</div>` : ""}
+    ${exos ? `<div class="panel"><h2>Autres exercices</h2>${exos}</div>` : ""}
+    ${mots.length ? `<div class="panel"><h2>Vocabulaire (${mots.length})</h2><ul class="words">${mots.map(ligne).join("")}</ul></div>` : ""}
+    ${formu || exprs.length ? `<div class="panel"><h2>Phrases et expressions</h2>
+      ${exprs.length ? `<ul class="words">${exprListe}</ul>` : ""}${formu}</div>` : ""}
+    ${chars.length ? `<div class="panel"><h2>Caractères (${chars.length})</h2>
+      ${nouveaux.length ? `<p class="hint" style="margin-top:0">Nouveaux dans l'app : <span class="cours-nouveau">${nouveaux.map(x => esc(x.ch)).join(" ")}</span></p>` : ""}
+      ${charsHTML(chars.map(x => x.ch))}</div>` : ""}
     ${gram.length ? `<div class="panel"><h2>Grammaire</h2>
       ${gram.map(p => `<details class="gram-plus"><summary><strong>${esc(p.titre)}</strong></summary>
-        <div style="margin-top:.5rem">${gramWeakBodyHTML({ p: p })}</div></details>`).join("")}
-      ${bouton("gram", "S'entraîner sur ces règles")}</div>` : ""}
-    ${(s.distinctions || []).length ? `<div class="panel"><h2>Distinctions à retenir</h2>
-      <ul class="cours-liste">${s.distinctions.map(x => `<li>${glose(x)}</li>`).join("")}</ul></div>` : ""}
-    ${((s.conseils || []).length || (s.devoirs || []).length) ? `<div class="panel"><h2>Conseils et devoirs du prof</h2>
-      <ul class="cours-liste">${(s.conseils || []).concat(s.devoirs || []).map(x => `<li>${esc(x)}</li>`).join("")}</ul>
-      ${s.prochain ? `<p class="hint">Prochain cours : ${esc(s.prochain)}</p>` : ""}</div>` : ""}`;
+        <div style="margin-top:.5rem">${gramWeakBodyHTML({ p: p })}</div></details>`).join("")}</div>` : ""}
+    ${s.distinctions.length ? `<div class="panel"><h2>À ne pas confondre</h2>
+      <ul class="cours-liste">${s.distinctions.map(x => `<li>${glose(x)}</li>`).join("")}</ul></div>` : ""}`;
 }
 /* Les mots les moins sus d'abord (à découvrir, puis en cours, puis sus), puis un
    tirage pour ne pas resservir toujours les mêmes à égalité. */
@@ -119,7 +188,7 @@ function coursItems(cartes, formats) {
 const COURS_SON = c => ({ card: c, track: "son" });
 const COURS_ZI = c => ({ card: c, track: "zi" });
 function startCours(id, quoi) {
-  const s = EMBED_COURS.find(x => x.id === id);
+  const s = LECON_RE.test(id) ? leconSeance(id) : EMBED_COURS.find(x => x.id === id);
   if (!s) return;
   const cartes = coursCartes(s);
   const gram = (s.grammaire || []).map(i => EMBED_GRAMMAR.find(p => p.id === i)).filter(Boolean);
@@ -150,7 +219,7 @@ function startCours(id, quoi) {
   if (quoi === "gram") { startGramCible(gram.map(p => p.id)); return; }
   if (quoi === "reco") { startReco(cartes); return; }
   if (quoi === "trad") { startTraduction([s]); return; }
-  if (quoi === "escalier") { startEscaliers(escaliersDe([s])); return; }
+  if (quoi === "escalier") { startEscaliers(LECON_RE.test(id) ? EMBED_ESCALIERS.filter(e => e.lecon === id) : escaliersDe([s])); return; }
   if (quoi === "tout") grams = shuffle(gram);
   if (!items.length && !grams.length) return;
   const parts = spread(items).map(it => ({ kind: "srs", v: it }));
@@ -202,20 +271,6 @@ function leconsListe() {
   Object.keys(LECONS_MANUEL).forEach(l => set.add(l));
   const rang = l => { const m = LECON_RE.exec(l); return +m[1] * 100 + +m[2]; };
   return [...set].filter(l => leconCartes(l).length).sort((a, b) => rang(b) - rang(a));
-}
-function leconPanelHTML() {
-  const liste = leconsListe();
-  if (!liste.length) return "";
-  if (!liste.includes(curLecon)) curLecon = liste[0];
-  const cartes = leconCartes(curLecon), sus = cartes.filter(c => coursEtat(c) === "su").length;
-  return `<div class="panel">
-      <h2>Réviser une leçon du manuel</h2>
-      <select id="lecon-select" onchange="curLecon = this.value; renderCours()" aria-label="Leçon à réviser">
-        ${liste.map(l => `<option value="${esc(l)}"${l === curLecon ? " selected" : ""}>${esc(l)}</option>`).join("")}
-      </select>
-      <p class="hint">${cartes.length} mots, dont ${sus} déjà sus.</p>
-      <button class="btn" onclick="startLecon(curLecon)">Réviser tout le vocabulaire de la leçon</button>
-    </div>`;
 }
 function startLecon(l) {
   const cartes = leconCartes(l);

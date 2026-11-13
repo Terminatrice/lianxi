@@ -33,3 +33,17 @@ function themeManuel(hanzi, theme) {
   const sansLecon = !theme || /à venir$/.test(theme);
   return sansLecon && LECON_DU_MOT[hanzi] ? LECON_DU_MOT[hanzi] : theme;
 }
+/* Titres des leçons du HSK 3, tels qu'ils figurent en tête des supports
+   (leçons 3 et 7 : titres du manuel, faute de support sur le Drive). */
+const LECONS_TITRES = {
+  "HSK 3 · L1": ["周末你有什么打算", "Qu'est-ce que tu as prévu ce week-end ?"],
+  "HSK 3 · L2": ["他什么时候回来", "Quand est-ce qu'il revient ?"],
+  "HSK 3 · L3": ["桌子上放着很多饮料", "Il y a plein de boissons sur la table"],
+  "HSK 3 · L4": ["她总是笑着跟客人说话", "Elle parle toujours aux clients avec le sourire"],
+  "HSK 3 · L5": ["我最近越来越胖了", "Je grossis de plus en plus ces temps-ci"],
+  "HSK 3 · L6": ["怎么突然找不到了", "Pourquoi je ne le trouve plus tout d'un coup ?"],
+  "HSK 3 · L7": ["我跟她都认识五年了", "Ça fait cinq ans qu'on se connaît, elle et moi"],
+  "HSK 3 · L8": ["你去哪儿我就去哪儿", "Où tu vas, je vais"],
+  "HSK 3 · L9": ["她的汉语说得跟中国人一样好", "Elle parle chinois aussi bien qu'une Chinoise"],
+  "HSK 3 · L10": ["数学比历史难多了", "Les maths sont bien plus dures que l'histoire"],
+};
