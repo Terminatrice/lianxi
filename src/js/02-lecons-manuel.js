@@ -47,3 +47,55 @@ const LECONS_TITRES = {
   "HSK 3 · L9": ["她的汉语说得跟中国人一样好", "Elle parle chinois aussi bien qu'une Chinoise"],
   "HSK 3 · L10": ["数学比历史难多了", "Les maths sont bien plus dures que l'histoire"],
 };
+/* ---------- Expressions du début des supports (热身) ----------
+   Demande de Daphnée (2026-11-14) : « je ne passe jamais en revue les
+   expressions de début de support de cours ». Chaque support s'ouvre sur un
+   dicton (« 你知道这句话的意思吗？ »). Ils deviennent des fiches du thème
+   Expressions, révisées comme les autres dans la session générale, et chaque
+   leçon les reprend dans sa page et dans « Réviser toute la leçon ».
+   Trois existaient déjà dans vocab.json ; les six autres sont ajoutées ici,
+   dans les sources pour survivre à l'ingestion (si la même fiche arrive par
+   vocab.json, c'est elle qui l'emporte). Leçons 3 et 7 : pas de support. */
+const LECONS_DICTONS = {
+  "HSK 3 · L1": ["大考大玩，小考小玩"],
+  "HSK 3 · L2": ["上山容易下山难"],
+  "HSK 3 · L4": ["友谊第一，比赛第二"],
+  "HSK 3 · L5": ["身体是革命的本钱", "药到病除"],
+  "HSK 3 · L6": ["万事开头难"],
+  "HSK 3 · L8": ["站得高，看得远"],
+  "HSK 3 · L9": ["三人行，必有我师"],
+  "HSK 3 · L10": ["不可同日而语"],
+};
+const DICTONS_MANUEL = [
+  { hanzi: "大考大玩，小考小玩", pinyin: "dà kǎo dà wán, xiǎo kǎo xiǎo wán", fr: "gros examen, grosse détente ; petit examen, petite détente",
+    usage: "Boutade d'élève du support de la leçon 1 : plus l'examen est important, plus on s'amuse. Se dit en riant.",
+    phrase: "大考大玩，小考小玩。", phraseFr: "Gros examen, grosse détente ; petit examen, petite détente.",
+    mots: [["大考", "dà kǎo", "gros examen"], ["大玩", "dà wán", "s'amuser beaucoup"], ["小考", "xiǎo kǎo", "petit examen"], ["小玩", "xiǎo wán", "s'amuser un peu"]], theme: "Expressions" },
+  { hanzi: "上山容易下山难", pinyin: "shàng shān róngyì xià shān nán", fr: "monter, c'est facile ; descendre, c'est dur",
+    usage: "Phrase de Xiaogang dans le dialogue de la leçon 2, quand les jambes font mal à la descente.",
+    phrase: "上山容易下山难，你不知道？", phraseFr: "Monter c'est facile, descendre c'est dur, tu ne savais pas ?",
+    mots: [["上山", "shàng shān", "monter la montagne"], ["容易", "róngyì", "facile"], ["下山", "xià shān", "descendre"], ["难", "nán", "difficile"], ["你", "nǐ", "tu"], ["不", "bù", "ne pas"], ["知道", "zhīdào", "savoir"]], theme: "Expressions" },
+  { hanzi: "药到病除", pinyin: "yào dào bìng chú", fr: "le remède arrive, la maladie s'en va (guérison immédiate)",
+    usage: "Expression figée en quatre caractères, du support de la leçon 5 : pour un remède ou une solution qui marche tout de suite.",
+    phrase: "这个药真好，药到病除。", phraseFr: "Ce médicament est vraiment bien, guérison immédiate.",
+    mots: [["这个", "zhège", "ce"], ["药", "yào", "médicament"], ["真", "zhēn", "vraiment"], ["好", "hǎo", "bien"], ["药到病除", "yào dào bìng chú", "guérison immédiate"]], theme: "Expressions" },
+  { hanzi: "站得高，看得远", pinyin: "zhàn de gāo, kàn de yuǎn", fr: "qui se tient haut voit loin (avoir une vision large)",
+    usage: "Dicton du support de la leçon 8 : prendre de la hauteur pour penser à l'avenir, pas seulement au présent.",
+    phrase: "站得高，看得远。", phraseFr: "Qui se tient haut voit loin.",
+    mots: [["站", "zhàn", "se tenir debout"], ["得", "de", "particule de degré"], ["高", "gāo", "haut"], ["看", "kàn", "voir"], ["得", "de", "particule de degré"], ["远", "yuǎn", "loin"]], theme: "Expressions" },
+  { hanzi: "三人行，必有我师", pinyin: "sān rén xíng, bì yǒu wǒ shī", fr: "parmi trois personnes qui marchent ensemble, il y a forcément un maître pour moi",
+    usage: "Citation de Confucius, du support de la leçon 9 : on peut apprendre de tout le monde. Se dit avec modestie.",
+    phrase: "三人行，必有我师。", phraseFr: "Parmi trois personnes qui marchent ensemble, il y a forcément un maître pour moi.",
+    mots: [["三", "sān", "trois"], ["人", "rén", "personnes"], ["行", "xíng", "marcher"], ["必", "bì", "forcément"], ["有", "yǒu", "il y a"], ["我", "wǒ", "mon"], ["师", "shī", "maître"]], theme: "Expressions" },
+  { hanzi: "不可同日而语", pinyin: "bù kě tóng rì ér yǔ", fr: "sans commune mesure, on ne peut pas comparer",
+    usage: "Expression figée du support de la leçon 10 : deux choses trop différentes pour être comparées (« aujourd'hui, c'est bien mieux qu'avant »).",
+    phrase: "现在的生活和过去不可同日而语。", phraseFr: "La vie d'aujourd'hui n'a rien à voir avec celle d'avant.",
+    mots: [["现在", "xiànzài", "maintenant"], ["的", "de", "de"], ["生活", "shēnghuó", "la vie"], ["和", "hé", "et"], ["过去", "guòqù", "le passé"], ["不可同日而语", "bù kě tóng rì ér yǔ", "sans commune mesure"]], theme: "Expressions" },
+];
+{
+  const ids = new Set(EMBED_VOCAB.map(w => w.hanzi));
+  DICTONS_MANUEL.forEach(w => { if (!ids.has(w.hanzi)) EMBED_VOCAB.push(w); });
+}
+function dictonsLecon(l) {
+  return (LECONS_DICTONS[l] || []).map(h => state.cards.find(c => c.hanzi === h)).filter(Boolean);
+}

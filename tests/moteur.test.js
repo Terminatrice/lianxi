@@ -139,3 +139,18 @@ test("Cours : chaque leçon du HSK 3 a ses phrases en escalier, plages « L4–L
   assert.deepEqual(r.perdus, [], "chaque phrase en escalier du HSK 3 tombe dans une leçon");
   assert.deepEqual(r.blocs, [], "les blocs recomposent la phrase finale");
 });
+
+test("Cours : nouveau vocabulaire seul, et expressions du support dans la leçon et la révision générale (2026-11-14)", async () => {
+  const r = await ev(() => {
+    const l = "HSK 3 · L10";
+    startLecon(l, true); const nv = new Set(mix.map(x => x.v.card.hanzi));
+    startLecon(l); const tout = new Set(mix.map(x => x.v.card.hanzi));
+    return { nv: [...nv].sort(), manuel: LECONS_MANUEL[l].slice().sort(), dicton: tout.has("不可同日而语"),
+      manquants: Object.values(LECONS_DICTONS).flat().filter(h => !state.cards.some(c => c.hanzi === h)),
+      volet: voletDe(state.cards.find(c => c.hanzi === "不可同日而语")) };
+  });
+  assert.deepEqual(r.nv, r.manuel);
+  assert.ok(r.dicton);
+  assert.deepEqual(r.manquants, []);
+  assert.equal(r.volet, "expr");
+});

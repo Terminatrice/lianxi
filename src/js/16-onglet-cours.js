@@ -133,6 +133,7 @@ function renderCours() {
   const chars = coursCaracteres(s), nouveaux = chars.filter(x => x.nouveau);
   const esc_ = escaliersLecon(l);
   const sus = mots.filter(c => coursEtat(c) === "su").length;
+  const dictons = dictonsLecon(l), nouveaux_ = vocabNouveau(l);
   const ligne = c => {
     const e = coursEtat(c);
     return `<li><span class="w-hanzi hanzi">${esc(c.hanzi)}</span>
@@ -160,9 +161,15 @@ function renderCours() {
       ${titre ? `<h2 class="cours-titre hanzi" style="text-transform:none;letter-spacing:0;color:var(--ink)">${esc(titre[0])}</h2>
       <p style="margin:-.3rem 0 .8rem;font-size:1.05rem">${esc(titre[1])}</p>` : ""}
       <p class="hint" style="margin:0">${mots.length} mots · ${sus} sus · ${mots.length - sus} à travailler</p>
-      <button class="btn" onclick="startLecon(${jsattr(l)})">Réviser la ${esc(nom.toLowerCase())}</button>
-      <p class="hint">Tous les mots de la leçon. Les mots nouveaux te sont d'abord présentés.</p>
+      <button class="btn" onclick="startLecon(${jsattr(l)})">Réviser toute la ${esc(nom.toLowerCase())}</button>
+      <p class="hint" style="margin-top:0">${dictons.length ? "Le vocabulaire, les mots vus en cours et l'expression du support." : "Le vocabulaire et les mots vus en cours."}</p>
+      ${nouveaux_.length ? `<button class="btn secondary" onclick="startLecon(${jsattr(l)}, true)">Nouveau vocabulaire seulement (${nouveaux_.length} mots)</button>` : ""}
     </div>
+    ${dictons.length ? `<div class="panel"><h2>${dictons.length > 1 ? "Expressions du support" : "Expression du support"}</h2>
+      ${dictons.map(c => `<div class="cours-formu"><div class="ruby">${rubyHTML(c.hanzi)}</div>
+        <div class="q-phrase-fr">${esc(c.fr)}</div>
+        ${c.usage ? `<p class="hint" style="margin:.2rem 0 0">${glose(c.usage)}</p>` : ""}
+        <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(c.hanzi)})" aria-label="Écouter l'expression">🔊</button></div></div>`).join("")}</div>` : ""}
     ${exos ? `<div class="panel"><h2>Autres exercices</h2>${exos}</div>` : ""}
     ${mots.length ? `<div class="panel"><h2>Vocabulaire (${mots.length})</h2><ul class="words">${mots.map(ligne).join("")}</ul></div>` : ""}
     ${formu || exprs.length ? `<div class="panel"><h2>Phrases et expressions</h2>
@@ -278,8 +285,17 @@ function leconsListe() {
   const rang = l => { const m = LECON_RE.exec(l); return +m[1] * 100 + +m[2]; };
   return [...set].filter(l => leconCartes(l).length).sort((a, b) => rang(b) - rang(a));
 }
-function startLecon(l) {
-  const cartes = leconCartes(l);
+/* Le nouveau vocabulaire seul : la liste du support (ou, sans liste, les mots
+   rangés dans la leçon), sans les mots vus en séance ni les expressions. */
+function vocabNouveau(l) {
+  const manuel = LECONS_MANUEL[l];
+  if (!manuel) return state.cards.filter(c => c.theme === l);
+  const parHanzi = new Map(state.cards.map(c => [c.hanzi, c]));
+  return manuel.map(h => parHanzi.get(h)).filter(Boolean);
+}
+function startLecon(l, seulementNouveau) {
+  const cartes = seulementNouveau ? vocabNouveau(l)
+    : [...new Set(leconCartes(l).concat(dictonsLecon(l)))];
   if (!cartes.length) return;
   const items = [];
   shuffle(cartes).forEach(c => {
