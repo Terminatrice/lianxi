@@ -75,6 +75,12 @@ function leconDuTexte(s, texte) {
   });
   return mieux;
 }
+/* Phrases en escalier d'une leçon : celles rangées dans la leçon, plus celles
+   d'une plage (« L4–L6 ») que leconDuTexte attribue à cette leçon. */
+function escaliersLecon(l) {
+  return EMBED_ESCALIERS.filter(e => e.lecon === l || (leconsSeance(e).length > 1 && leconsSeance(e).includes(l)
+    && leconDuTexte(e, e.etapes[e.etapes.length - 1].hanzi) === l));
+}
 function leconSeance(l) {
   const seances0 = EMBED_COURS.filter(s => leconsSeance(s).includes(l));
   const garde = (s, arr, txt) => (arr || []).filter(x => leconDuTexte(s, txt(x)) === l);
@@ -125,7 +131,7 @@ function renderCours() {
   const exprs = s.expressions.map(h => state.cards.find(c => c.hanzi === h)).filter(Boolean);
   const gram = s.grammaire.map(id => EMBED_GRAMMAR.find(p => p.id === id)).filter(Boolean);
   const chars = coursCaracteres(s), nouveaux = chars.filter(x => x.nouveau);
-  const esc_ = EMBED_ESCALIERS.filter(e => e.lecon === l);
+  const esc_ = escaliersLecon(l);
   const sus = mots.filter(c => coursEtat(c) === "su").length;
   const ligne = c => {
     const e = coursEtat(c);
@@ -219,7 +225,7 @@ function startCours(id, quoi) {
   if (quoi === "gram") { startGramCible(gram.map(p => p.id)); return; }
   if (quoi === "reco") { startReco(cartes); return; }
   if (quoi === "trad") { startTraduction([s]); return; }
-  if (quoi === "escalier") { startEscaliers(LECON_RE.test(id) ? EMBED_ESCALIERS.filter(e => e.lecon === id) : escaliersDe([s])); return; }
+  if (quoi === "escalier") { startEscaliers(LECON_RE.test(id) ? escaliersLecon(id) : escaliersDe([s])); return; }
   if (quoi === "tout") grams = shuffle(gram);
   if (!items.length && !grams.length) return;
   const parts = spread(items).map(it => ({ kind: "srs", v: it }));

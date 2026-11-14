@@ -126,3 +126,16 @@ test("écran Cours : une page par leçon, sans date, phrases d'une séance « L9
   assert.ok(r.l10.includes("数学比历史难多了。") && !r.l10.includes("吃得越多，胖得越快。"));
   assert.ok(r.l9.includes("吃得越多，胖得越快。") && !r.l9.includes("数学比历史难多了。"));
 });
+
+test("Cours : chaque leçon du HSK 3 a ses phrases en escalier, plages « L4–L6 » comprises (2026-11-14)", async () => {
+  const r = await ev(() => {
+    const vides = [], hsk3 = EMBED_ESCALIERS.filter(e => /^HSK 3/.test(e.lecon || ""));
+    for (let n = 1; n <= 10; n++) if (!escaliersLecon("HSK 3 · L" + n).length) vides.push(n);
+    const ranges = new Set(); for (let n = 1; n <= 10; n++) escaliersLecon("HSK 3 · L" + n).forEach(e => ranges.add(e.id));
+    const blocs = ESCALIERS_MANUEL.filter(e => e.blocs.map(b => b[0]).join("") !== normHanzi(e.etapes[e.etapes.length - 1].hanzi)).map(e => e.id);
+    return { vides, perdus: hsk3.filter(e => !ranges.has(e.id)).map(e => e.id), blocs };
+  });
+  assert.deepEqual(r.vides, []);
+  assert.deepEqual(r.perdus, [], "chaque phrase en escalier du HSK 3 tombe dans une leçon");
+  assert.deepEqual(r.blocs, [], "les blocs recomposent la phrase finale");
+});
