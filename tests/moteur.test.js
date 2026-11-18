@@ -154,3 +154,17 @@ test("Cours : nouveau vocabulaire seul, et expressions du support dans la leçon
   assert.deepEqual(r.manquants, []);
   assert.equal(r.volet, "expr");
 });
+
+test("Cours : revoir toutes les phrases d'un support, avec pinyin et traduction, sans planifier (2026-11-18)", async () => {
+  const r = await ev(() => {
+    const l = "HSK 3 · L10", n = phrasesSupport(l).length, avant = state.cards.length;
+    startPhrasesSupport(l);
+    const premier = mix[0].v;
+    return { n, file: mix.length, mode: premier.mode, libre: mix.every(e => e.libre),
+      complet: phrasesSupport(l).every(p => p.pinyin && p.fr), cartes: state.cards.length === avant };
+  });
+  assert.ok(r.n > 30);
+  assert.equal(r.file, r.n);
+  assert.equal(r.mode, "support");
+  assert.ok(r.libre && r.complet && r.cartes);
+});

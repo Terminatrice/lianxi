@@ -252,6 +252,14 @@ function cardHTML(c, mode) {
       <div id="answer-zone" class="hidden"></div>
     </div><div id="grades-slot"></div>`;
   }
+  /* Phrase d'un support de cours (2026-11-18) : la phrase en caractères, puis
+     le pinyin et la traduction d'une touche. Entraînement libre, non planifié. */
+  if (mode === "support") return `<div class="qcard tappable" onclick="cardTap(event)">
+      <div class="q-prompt">${c.groupe ? esc(c.groupe) : "Phrase du support"}${c.qui ? ` · ${esc(c.qui)}` : ""}</div>
+      <div class="q-hanzi hanzi" style="font-size:2rem;line-height:1.5">${esc(c.hanzi)}</div>
+      <div id="reveal-zone"><button class="btn secondary" onclick="reveal()">Voir le pinyin et la traduction</button></div>
+      <div id="answer-zone" class="hidden">${answer}${audio(c.hanzi, "la phrase")}</div>
+    </div>${gradesHTML()}`;
   if (mode === "lecture") return `<div class="qcard tappable" onclick="cardTap(event)">
       <div class="q-hanzi hanzi">${esc(c.hanzi)}</div>
       <div class="q-prompt">Pinyin et sens ?</div>

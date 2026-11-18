@@ -170,9 +170,10 @@ function renderCours() {
         <div class="q-phrase-fr">${esc(c.fr)}</div>
         ${c.usage ? `<p class="hint" style="margin:.2rem 0 0">${glose(c.usage)}</p>` : ""}
         <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(c.hanzi)})" aria-label="Écouter l'expression">🔊</button></div></div>`).join("")}</div>` : ""}
+    ${phrasesSupportHTML(l)}
     ${exos ? `<div class="panel"><h2>Autres exercices</h2>${exos}</div>` : ""}
     ${mots.length ? `<div class="panel"><h2>Vocabulaire (${mots.length})</h2><ul class="words">${mots.map(ligne).join("")}</ul></div>` : ""}
-    ${formu || exprs.length ? `<div class="panel"><h2>Phrases et expressions</h2>
+    ${formu || exprs.length ? `<div class="panel"><h2>Phrases vues en cours</h2>
       ${exprs.length ? `<ul class="words">${exprListe}</ul>` : ""}${formu}</div>` : ""}
     ${chars.length ? `<div class="panel"><h2>Caractères (${chars.length})</h2>
       ${nouveaux.length ? `<p class="hint" style="margin-top:0">Nouveaux dans l'app : <span class="cours-nouveau">${nouveaux.map(x => esc(x.ch)).join(" ")}</span></p>` : ""}
@@ -292,6 +293,30 @@ function vocabNouveau(l) {
   if (!manuel) return state.cards.filter(c => c.theme === l);
   const parHanzi = new Map(state.cards.map(c => [c.hanzi, c]));
   return manuel.map(h => parHanzi.get(h)).filter(Boolean);
+}
+/* Toutes les phrases du support, dans l'ordre où elles se lisent. */
+function startPhrasesSupport(l) {
+  const ph = phrasesSupport(l);
+  if (!ph.length) return;
+  startMix(ph.map(p => ({ kind: "srs", libre: true, v: { track: "zi", mode: "support",
+    card: { hanzi: p.hanzi, pinyin: p.pinyin, fr: p.fr, groupe: p.groupe, qui: p.qui, phrase: "", mots: [], son: {}, zi: {} } } })), true, true);
+}
+function phrasesSupportHTML(l) {
+  const groupes = PHRASES_SUPPORTS[l] || [];
+  if (!groupes.length) return "";
+  const n = phrasesSupport(l).length;
+  return `<div class="panel"><h2>Phrases du support (${n})</h2>
+      <p class="hint" style="margin-top:0">Les dialogues et les exemples de grammaire, dans l'ordre du support. Lis la phrase, puis découvre le pinyin et la traduction.</p>
+      <button class="btn" onclick="startPhrasesSupport(${jsattr(l)})">Revoir les ${n} phrases du support</button>
+      ${groupes.map(([titre, lignes]) => `<details class="gram-plus"><summary><strong>${esc(titre)}</strong> (${lignes.length})</summary>
+        ${lignes.map(([qui, hz, py, fr]) => `<div class="cours-formu">
+          ${qui ? `<div class="hint" style="margin:0">${esc(qui)}</div>` : ""}
+          <div class="hanzi" style="font-size:1.3rem">${esc(hz)}</div>
+          <div class="w-pinyin">${renderPinyin(py)}</div>
+          <div class="q-phrase-fr">${esc(fr)}</div>
+          <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(hz)})" aria-label="Écouter la phrase">🔊</button></div></div>`).join("")}
+      </details>`).join("")}
+    </div>`;
 }
 function startLecon(l, seulementNouveau) {
   const cartes = seulementNouveau ? vocabNouveau(l)

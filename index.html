@@ -1162,6 +1162,496 @@ const DICTONS_MANUEL = [
 function dictonsLecon(l) {
   return (LECONS_DICTONS[l] || []).map(h => state.cards.find(c => c.hanzi === h)).filter(Boolean);
 }
+/* ---------- Toutes les phrases des supports du Drive ----------
+   Demande de Daphnée (2026-11-18) : « revoir toutes les phrases d'un support
+   de cours, avec le pinyin et la traduction ». Relevé des supports
+   « HSK标准教程3 第N课课件 » : les dialogues (课文), dans l'ordre où ils se
+   lisent, et les phrases d'exemple des points de grammaire (语言点) et du
+   vocabulaire. Les exercices à trous et les vrai/faux ne sont pas repris.
+   Les supports ne donnent que l'anglais : traduction française et pinyin
+   (tons de 一 et 不 notés selon la prononciation) rédigés pour l'app.
+   Format : [titre du groupe, [[qui parle ou "", hanzi, pinyin, français]…]].
+   Dans les sources pour survivre à l'ingestion automatique. */
+const PHRASES_SUPPORTS = {
+  "HSK 3 · L1": [
+    ["Grammaire · 跟 et 打算", [
+      ["", "我在跟爸爸妈妈聊天。", "wǒ zài gēn bàba māma liáotiān.", "Je discute avec mes parents."],
+      ["", "周末你一般干什么？", "zhōumò nǐ yìbān gàn shénme?", "Qu'est-ce que tu fais d'habitude le week-end ?"],
+      ["", "我喜欢跟朋友一起玩儿。", "wǒ xǐhuan gēn péngyou yìqǐ wánr.", "J'aime m'amuser avec mes amis."],
+      ["", "我打算跟朋友去看电影。", "wǒ dǎsuàn gēn péngyou qù kàn diànyǐng.", "Je compte aller voir un film avec des amis."],
+    ]],
+    ["Grammaire · verbe + 好", [
+      ["", "今晚的电影小刚已经买好票了。", "jīn wǎn de diànyǐng Xiǎogāng yǐjīng mǎi hǎo piào le.", "Xiaogang a déjà acheté les billets pour le film de ce soir."],
+      ["", "饭还没做好，请你等一会儿。", "fàn hái méi zuò hǎo, qǐng nǐ děng yíhuìr.", "Le repas n'est pas encore prêt, attends un instant s'il te plaît."],
+    ]],
+    ["Texte 1 · Les projets du week-end", [
+      ["小丽", "周末你有什么打算？", "zhōumò nǐ yǒu shénme dǎsuàn?", "Qu'est-ce que tu as prévu ce week-end ?"],
+      ["小刚", "我早就想好了，请你吃饭、看电影、喝咖啡。", "wǒ zǎo jiù xiǎng hǎo le, qǐng nǐ chī fàn, kàn diànyǐng, hē kāfēi.", "J'ai tout prévu depuis longtemps : je t'invite au restaurant, au cinéma et à prendre un café."],
+      ["小丽", "请我？", "qǐng wǒ?", "Tu m'invites, moi ?"],
+      ["小刚", "是啊，我已经找好饭馆了，电影票也买好了。", "shì a, wǒ yǐjīng zhǎo hǎo fànguǎn le, diànyǐng piào yě mǎi hǎo le.", "Oui, j'ai déjà trouvé le restaurant, et j'ai aussi acheté les billets de cinéma."],
+      ["小丽", "我还没想好要不要跟你去呢。", "wǒ hái méi xiǎng hǎo yào bu yào gēn nǐ qù ne.", "Je n'ai pas encore décidé si je viens avec toi."],
+    ]],
+    ["Grammaire · 一……也/都 + 不/没", [
+      ["", "我一个苹果也不想吃。", "wǒ yí ge píngguǒ yě bù xiǎng chī.", "Je ne veux pas manger une seule pomme."],
+      ["", "南方一点儿也不冷。", "nánfāng yìdiǎnr yě bù lěng.", "Dans le Sud, il ne fait pas froid du tout."],
+      ["", "这个星期我很忙，一点儿时间也没有。", "zhège xīngqī wǒ hěn máng, yìdiǎnr shíjiān yě méiyǒu.", "Cette semaine je suis très occupée, je n'ai pas une minute."],
+      ["", "这些汉字太难了，我一个也不认识。", "zhèxiē Hànzì tài nán le, wǒ yí ge yě bú rènshi.", "Ces caractères sont trop difficiles, je n'en connais pas un seul."],
+      ["", "我没带钱，一件衣服都没买。", "wǒ méi dài qián, yí jiàn yīfu dōu méi mǎi.", "Je n'avais pas d'argent sur moi, je n'ai pas acheté un seul vêtement."],
+      ["", "这件衣服真便宜，一点儿也不贵。", "zhè jiàn yīfu zhēn piányi, yìdiǎnr yě bú guì.", "Ce vêtement est vraiment bon marché, il n'est pas cher du tout."],
+    ]],
+    ["Grammaire · 那 (alors)", [
+      ["A", "我不想去看电影。", "wǒ bù xiǎng qù kàn diànyǐng.", "Je n'ai pas envie d'aller au cinéma."],
+      ["B", "那我也不去了。", "nà wǒ yě bú qù le.", "Alors je n'y vais pas non plus."],
+    ]],
+    ["Texte 2 · À la maison", [
+      ["妈妈", "你一直玩儿电脑游戏，作业写完了吗？", "nǐ yìzhí wánr diànnǎo yóuxì, zuòyè xiě wán le ma?", "Tu joues aux jeux vidéo sans arrêt, tu as fini tes devoirs ?"],
+      ["儿子", "都写完了。", "dōu xiě wán le.", "Je les ai tous finis."],
+      ["妈妈", "明天不是有考试吗？你怎么一点儿也不着急？", "míngtiān bú shì yǒu kǎoshì ma? nǐ zěnme yìdiǎnr yě bù zháojí?", "Tu n'as pas un examen demain ? Comment ça se fait que tu ne t'inquiètes pas du tout ?"],
+      ["儿子", "我早就复习好了。", "wǒ zǎo jiù fùxí hǎo le.", "J'ai fini de réviser depuis longtemps."],
+      ["妈妈", "那也不能一直玩儿啊。", "nà yě bù néng yìzhí wánr a.", "Même comme ça, tu ne peux pas jouer sans arrêt."],
+    ]],
+    ["Grammaire · 时候", [
+      ["A", "你什么时候去美国旅游？", "nǐ shénme shíhou qù Měiguó lǚyóu?", "Quand pars-tu en voyage aux États-Unis ?"],
+      ["B", "明年的这个时候去。", "míngnián de zhège shíhou qù.", "L'année prochaine, à la même époque."],
+      ["", "春天的时候，南方经常下雨。", "chūntiān de shíhou, nánfāng jīngcháng xià yǔ.", "Au printemps, il pleut souvent dans le Sud."],
+      ["", "上下班的时候，这条路非常堵。", "shàng xià bān de shíhou, zhè tiáo lù fēicháng dǔ.", "Aux heures de pointe, cette route est très embouteillée."],
+      ["", "我在美国的时候，没有买车，出门特别不方便。", "wǒ zài Měiguó de shíhou, méiyǒu mǎi chē, chū mén tèbié bù fāngbiàn.", "Quand j'étais aux États-Unis, je n'avais pas de voiture : sortir était vraiment peu pratique."],
+    ]],
+    ["Texte 3 · Projets de voyage", [
+      ["小丽", "下个月我去旅游，你能跟我一起去吗？", "xià ge yuè wǒ qù lǚyóu, nǐ néng gēn wǒ yìqǐ qù ma?", "Le mois prochain je pars en voyage, tu peux venir avec moi ?"],
+      ["小刚", "我还没想好呢。你觉得哪儿最好玩儿？", "wǒ hái méi xiǎng hǎo ne. nǐ juéde nǎr zuì hǎowánr?", "Je n'ai pas encore décidé. D'après toi, où est-ce le plus sympa ?"],
+      ["小丽", "南方啊，我们去年就是这个时候去的。", "nánfāng a, wǒmen qùnián jiù shì zhège shíhou qù de.", "Le Sud ! On y est allés l'an dernier, exactement à cette époque."],
+      ["小刚", "南方太热了，北方好一些，不冷也不热。", "nánfāng tài rè le, běifāng hǎo yìxiē, bù lěng yě bú rè.", "Dans le Sud il fait trop chaud ; le Nord, c'est mieux : ni froid ni chaud."],
+    ]],
+    ["Grammaire · 搬, 提, 拿", [
+      ["", "我们打算明天搬家。", "wǒmen dǎsuàn míngtiān bān jiā.", "Nous comptons déménager demain."],
+      ["", "这么重的东西，你一只手怎么提？", "zhème zhòng de dōngxi, nǐ yì zhī shǒu zěnme tí?", "Une chose aussi lourde, comment tu la portes d'une seule main ?"],
+      ["", "这份文件你能帮我拿给小丽吗？", "zhè fèn wénjiàn nǐ néng bāng wǒ ná gěi Xiǎolì ma?", "Tu peux apporter ce document à Xiaoli pour moi ?"],
+    ]],
+    ["Texte 4 · Préparer le voyage", [
+      ["小刚", "水果、面包、茶都准备好了，我们还带什么？", "shuǐguǒ, miànbāo, chá dōu zhǔnbèi hǎo le, wǒmen hái dài shénme?", "Les fruits, le pain, le thé, tout est prêt. Qu'est-ce qu'on emporte d'autre ?"],
+      ["小丽", "手机、电脑、地图，一个也不能少。", "shǒujī, diànnǎo, dìtú, yí ge yě bù néng shǎo.", "Le téléphone, l'ordinateur, la carte : il n'en faut oublier aucun."],
+      ["小刚", "这些我昨天下午就准备好了。", "zhèxiē wǒ zuótiān xiàwǔ jiù zhǔnbèi hǎo le.", "Tout ça, je l'ai préparé dès hier après-midi."],
+      ["小丽", "再多带几件衣服吧。", "zài duō dài jǐ jiàn yīfu ba.", "Emporte encore quelques vêtements."],
+      ["小刚", "我们是去旅游，不是搬家，还是少带一些吧。", "wǒmen shì qù lǚyóu, bú shì bān jiā, háishi shǎo dài yìxiē ba.", "On part en voyage, on ne déménage pas : emportons plutôt moins de choses."],
+    ]],
+  ],
+  "HSK 3 · L2": [
+    ["Grammaire · verbe + 来/去", [
+      ["", "谁在外边？你出去看看吧。", "shéi zài wàibian? nǐ chūqu kànkan ba.", "Qui est dehors ? Sors voir."],
+      ["", "汉语书你带来了吗？", "Hànyǔ shū nǐ dài lai le ma?", "Tu as apporté ton livre de chinois ?"],
+      ["", "老师进教室来了。", "lǎoshī jìn jiàoshì lai le.", "Le professeur est entré dans la classe."],
+      ["", "朋友回家去了。", "péngyou huí jiā qu le.", "Mon ami est rentré chez lui."],
+      ["", "我上楼去。", "wǒ shàng lóu qu.", "Je monte à l'étage."],
+      ["", "明天要带作业来。", "míngtiān yào dài zuòyè lai.", "Demain, il faut apporter les devoirs."],
+      ["", "帮我买来点儿面包。", "bāng wǒ mǎi lai diǎnr miànbāo.", "Rapporte-moi un peu de pain."],
+      ["", "这次旅游，我想带去这本书。", "zhè cì lǚyóu, wǒ xiǎng dài qu zhè běn shū.", "Pour ce voyage, je veux emporter ce livre."],
+    ]],
+    ["Texte 1 · À la descente", [
+      ["小丽", "休息一下吧。", "xiūxi yíxià ba.", "Faisons une pause."],
+      ["小刚", "怎么了？", "zěnme le?", "Qu'est-ce qu'il y a ?"],
+      ["小丽", "我现在腿也疼，脚也疼。", "wǒ xiànzài tuǐ yě téng, jiǎo yě téng.", "J'ai mal aux jambes et aux pieds."],
+      ["小刚", "好，那边树多，我们过去坐一下吧。", "hǎo, nàbian shù duō, wǒmen guòqu zuò yíxià ba.", "D'accord, il y a beaucoup d'arbres là-bas, allons nous asseoir un moment."],
+      ["小丽", "上来的时候我怎么没觉得这么累？", "shàng lai de shíhou wǒ zěnme méi juéde zhème lèi?", "Pourquoi je ne me sentais pas aussi fatiguée en montant ?"],
+      ["小刚", "上山容易下山难，你不知道？", "shàng shān róngyì xià shān nán, nǐ bù zhīdào?", "Monter c'est facile, descendre c'est dur, tu ne savais pas ?"],
+    ]],
+    ["Grammaire · V1 了……就 V2", [
+      ["", "妈妈起了床就做早饭。", "māma qǐ le chuáng jiù zuò zǎofàn.", "Maman prépare le petit-déjeuner dès qu'elle est levée."],
+      ["", "你每天晚上吃了饭就睡觉。", "nǐ měi tiān wǎnshang chī le fàn jiù shuì jiào.", "Tous les soirs, tu te couches dès que tu as mangé."],
+      ["", "小刚拿了伞就下来。", "Xiǎogāng ná le sǎn jiù xiàlai.", "Xiaogang descend dès qu'il a pris le parapluie."],
+      ["", "你下了课我们就去书店。", "nǐ xià le kè wǒmen jiù qù shūdiàn.", "Dès que ton cours est fini, on va à la librairie."],
+      ["", "爸爸回来了我们就吃饭。", "bàba huílai le wǒmen jiù chī fàn.", "Dès que papa est rentré, on mange."],
+    ]],
+    ["Texte 2 · Au téléphone", [
+      ["周太太", "喂，你好，请问周明在吗？", "wèi, nǐ hǎo, qǐngwèn Zhōu Míng zài ma?", "Allô, bonjour, est-ce que Zhou Ming est là ?"],
+      ["秘书", "周经理出去了，不在办公室。", "Zhōu jīnglǐ chūqu le, bú zài bàngōngshì.", "Le directeur Zhou est sorti, il n'est pas au bureau."],
+      ["周太太", "他去哪儿了？什么时候回来？", "tā qù nǎr le? shénme shíhou huílai?", "Où est-il allé ? Quand revient-il ?"],
+      ["秘书", "他出去办事了，下午回来。", "tā chūqu bàn shì le, xiàwǔ huílai.", "Il est sorti régler une affaire, il revient cet après-midi."],
+      ["周太太", "回来了就让他给我打个电话。", "huílai le jiù ràng tā gěi wǒ dǎ ge diànhuà.", "Dès qu'il rentre, dites-lui de m'appeler."],
+      ["秘书", "好的，他到了办公室我就告诉他。", "hǎo de, tā dào le bàngōngshì wǒ jiù gàosu tā.", "Très bien, je le lui dis dès qu'il arrive au bureau."],
+    ]],
+    ["Grammaire · 辆 et 把", [
+      ["", "去年我买了一辆自行车。", "qùnián wǒ mǎi le yí liàng zìxíngchē.", "L'an dernier, j'ai acheté un vélo."],
+      ["", "这辆车是去北京机场吗？", "zhè liàng chē shì qù Běijīng jīchǎng ma?", "Ce bus va à l'aéroport de Pékin ?"],
+      ["", "我们出去叫辆出租车吧。", "wǒmen chūqu jiào liàng chūzūchē ba.", "Sortons appeler un taxi."],
+      ["", "桌子上有一把304房间的钥匙。", "zhuōzi shang yǒu yì bǎ sān líng sì fángjiān de yàoshi.", "Il y a sur la table une clé de la chambre 304."],
+      ["", "他来的时候，我们已经搬好椅子了，所以他一把椅子也没搬。", "tā lái de shíhou, wǒmen yǐjīng bān hǎo yǐzi le, suǒyǐ tā yì bǎ yǐzi yě méi bān.", "Quand il est arrivé, on avait déjà installé les chaises : il n'en a pas porté une seule."],
+      ["", "下雨了，我回家给你拿把伞吧。", "xià yǔ le, wǒ huí jiā gěi nǐ ná bǎ sǎn ba.", "Il pleut, je rentre te chercher un parapluie."],
+    ]],
+    ["Texte 3 · Raccompagner une amie", [
+      ["小刚", "雨下得真大。你怎么回去？我送你吧。", "yǔ xià de zhēn dà. nǐ zěnme huíqu? wǒ sòng nǐ ba.", "Il pleut vraiment fort. Comment tu rentres ? Je te raccompagne."],
+      ["小丽", "没事，我出去叫辆出租车就行了。", "méi shì, wǒ chūqu jiào liàng chūzūchē jiù xíng le.", "Ce n'est rien, je sors appeler un taxi, ça ira."],
+      ["小刚", "那你等等，我上楼去给你拿把伞。", "nà nǐ děngdeng, wǒ shàng lóu qu gěi nǐ ná bǎ sǎn.", "Alors attends, je monte te chercher un parapluie."],
+      ["小丽", "好的。我跟你一起上去吧。", "hǎo de. wǒ gēn nǐ yìqǐ shàngqu ba.", "D'accord. Je monte avec toi."],
+      ["小刚", "你在这儿等吧，我拿了伞就下来。", "nǐ zài zhèr děng ba, wǒ ná le sǎn jiù xiàlai.", "Attends ici, je redescends dès que j'ai le parapluie."],
+    ]],
+    ["Grammaire · 其实 et 能……吗", [
+      ["", "老师其实也有不懂的时候。", "lǎoshī qíshí yě yǒu bù dǒng de shíhou.", "En fait, les professeurs aussi ont des moments où ils ne comprennent pas."],
+      ["", "其实这件衣服不是我买的。", "qíshí zhè jiàn yīfu bú shì wǒ mǎi de.", "En fait, ce n'est pas moi qui ai acheté ce vêtement."],
+      ["", "你不做作业，也不练习，能学好吗？", "nǐ bú zuò zuòyè, yě bú liànxí, néng xué hǎo ma?", "Tu ne fais pas tes devoirs et tu ne t'entraînes pas : comment veux-tu bien apprendre ?"],
+    ]],
+    ["Texte 4 · À la maison", [
+      ["周太太", "你看，我这么胖，怎么办？", "nǐ kàn, wǒ zhème pàng, zěnme bàn?", "Regarde comme je suis grosse, qu'est-ce que je fais ?"],
+      ["周明", "你每天晚上吃了饭就睡觉，也不出去走走，能不胖吗？", "nǐ měi tiān wǎnshang chī le fàn jiù shuì jiào, yě bù chūqu zǒuzou, néng bú pàng ma?", "Tous les soirs tu te couches dès que tu as mangé, et tu ne sors jamais marcher : comment veux-tu ne pas grossir ?"],
+      ["周太太", "其实我每天都运动。", "qíshí wǒ měi tiān dōu yùndòng.", "En fait, je fais du sport tous les jours."],
+      ["周明", "但是你一点儿也没瘦！你做什么运动了？", "dànshì nǐ yìdiǎnr yě méi shòu! nǐ zuò shénme yùndòng le?", "Mais tu n'as pas maigri du tout ! Quel sport tu fais ?"],
+      ["周太太", "做饭啊。", "zuò fàn a.", "La cuisine !"],
+    ]],
+  ],
+  "HSK 3 · L4": [
+    ["Grammaire · 又……又……", [
+      ["", "外边又黑又冷。", "wàibian yòu hēi yòu lěng.", "Dehors, il fait noir et froid."],
+      ["", "这个西瓜又大又甜。", "zhège xīguā yòu dà yòu tián.", "Cette pastèque est grosse et sucrée."],
+    ]],
+    ["Grammaire · V1 着 + V2", [
+      ["", "周先生和周太太坐着看电视。", "Zhōu xiānsheng hé Zhōu tàitai zuò zhe kàn diànshì.", "M. et Mme Zhou regardent la télé, assis."],
+      ["", "很多人拿着报纸坐在门口。", "hěn duō rén ná zhe bàozhǐ zuò zài ménkǒu.", "Beaucoup de gens sont assis à l'entrée, un journal à la main."],
+    ]],
+    ["Texte 1 · En classe", [
+      ["小明", "这是你们比赛的照片吗？", "zhè shì nǐmen bǐsài de zhàopiàn ma?", "Ce sont les photos de votre compétition ?"],
+      ["马可", "是，这是我们比赛后照的。", "shì, zhè shì wǒmen bǐsài hòu zhào de.", "Oui, on les a prises après le match."],
+      ["小明", "照得不错，你们都是一个年级的吗？", "zhào de búcuò, nǐmen dōu shì yí ge niánjí de ma?", "Elles sont réussies. Vous êtes tous de la même année ?"],
+      ["马可", "不是。那个又高又漂亮的女孩儿是二年级的。", "bú shì. nàge yòu gāo yòu piàoliang de nǚháir shì èr niánjí de.", "Non. La fille grande et jolie est en deuxième année."],
+      ["小明", "旁边那个拿着书笑的人是谁？", "pángbiān nàge ná zhe shū xiào de rén shì shéi?", "Qui est la personne à côté qui sourit en tenant un livre ?"],
+      ["马可", "那是我！", "nà shì wǒ!", "C'est moi !"],
+    ]],
+    ["Grammaire · 对", [
+      ["", "她笑着对我说，她买了一件又漂亮又便宜的衣服。", "tā xiào zhe duì wǒ shuō, tā mǎi le yí jiàn yòu piàoliang yòu piányi de yīfu.", "Elle m'a dit en souriant qu'elle avait acheté un vêtement joli et pas cher."],
+      ["", "你再对我说说他的别的好玩儿的事情吧。", "nǐ zài duì wǒ shuōshuo tā de bié de hǎowánr de shìqing ba.", "Raconte-moi encore d'autres histoires amusantes sur lui."],
+    ]],
+    ["Texte 2 · En classe", [
+      ["小丽", "你觉得小红怎么样？", "nǐ juéde Xiǎohóng zěnmeyàng?", "Comment tu trouves Xiaohong ?"],
+      ["同学", "她又聪明又热情，也很努力。", "tā yòu cōngming yòu rèqíng, yě hěn nǔlì.", "Elle est intelligente et chaleureuse, et elle travaille beaucoup."],
+      ["小丽", "我看她总是笑着回答老师的问题。", "wǒ kàn tā zǒngshì xiào zhe huídá lǎoshī de wèntí.", "Je vois qu'elle répond toujours aux questions du professeur avec le sourire."],
+      ["同学", "她对每个人都笑，也常常对我笑。", "tā duì měi ge rén dōu xiào, yě chángcháng duì wǒ xiào.", "Elle sourit à tout le monde, et elle me sourit souvent aussi."],
+      ["小丽", "你是不是喜欢她啊？", "nǐ shì bu shì xǐhuan tā a?", "Est-ce que tu l'aimes bien ?"],
+      ["同学", "喜欢她的人太多了，你看那些拿着鲜花站在门口的，都是等她的。", "xǐhuan tā de rén tài duō le, nǐ kàn nàxiē ná zhe xiānhuā zhàn zài ménkǒu de, dōu shì děng tā de.", "Elle a beaucoup trop d'admirateurs : regarde ceux qui attendent à l'entrée avec des fleurs, c'est elle qu'ils attendent."],
+    ]],
+    ["Grammaire · 家 et 块", [
+      ["", "因为那家饭馆的东西很新鲜，服务员也很热情，所以很多人都喜欢去那儿吃饭。", "yīnwèi nà jiā fànguǎn de dōngxi hěn xīnxiān, fúwùyuán yě hěn rèqíng, suǒyǐ hěn duō rén dōu xǐhuan qù nàr chī fàn.", "Comme ce restaurant sert des produits frais et que les serveurs sont chaleureux, beaucoup de gens aiment y manger."],
+      ["", "医院的前面有一家很大的公司。", "yīyuàn de qiánmiàn yǒu yì jiā hěn dà de gōngsī.", "Devant l'hôpital, il y a une très grande entreprise."],
+      ["", "这块蛋糕怎么这么贵啊？", "zhè kuài dàngāo zěnme zhème guì a?", "Pourquoi cette part de gâteau est-elle si chère ?"],
+      ["", "桌子上放着几块西瓜。", "zhuōzi shang fàng zhe jǐ kuài xīguā.", "Il y a quelques tranches de pastèque sur la table."],
+      ["", "这块手表是爸爸去北京旅游时给我买的。", "zhè kuài shǒubiǎo shì bàba qù Běijīng lǚyóu shí gěi wǒ mǎi de.", "Cette montre, papa me l'a achetée quand il est allé en voyage à Pékin."],
+    ]],
+    ["Texte 3 · Devant le supermarché", [
+      ["小刚", "我有点儿饿了，我们进超市买点儿东西吧。", "wǒ yǒudiǎnr è le, wǒmen jìn chāoshì mǎi diǎnr dōngxi ba.", "J'ai un peu faim, entrons au supermarché acheter quelque chose."],
+      ["小丽", "好啊，这家超市的蛋糕又便宜又好吃，一块只要2.99元。", "hǎo a, zhè jiā chāoshì de dàngāo yòu piányi yòu hǎochī, yí kuài zhǐ yào èr diǎn jiǔ jiǔ yuán.", "Bonne idée, les gâteaux de ce supermarché sont bons et pas chers : seulement 2,99 yuans la part."],
+      ["小刚", "我们买两块，回家吃着蛋糕看电视，怎么样？", "wǒmen mǎi liǎng kuài, huí jiā chī zhe dàngāo kàn diànshì, zěnmeyàng?", "On en prend deux, et on regarde la télé à la maison en mangeant du gâteau, ça te dit ?"],
+      ["小丽", "好啊，我再去买一些喝的。", "hǎo a, wǒ zài qù mǎi yìxiē hē de.", "D'accord, je vais aussi acheter quelque chose à boire."],
+      ["小刚", "喝着咖啡吃蛋糕，太好了！", "hē zhe kāfēi chī dàngāo, tài hǎo le!", "Manger du gâteau en buvant un café, génial !"],
+    ]],
+    ["Texte 4 · Au restaurant", [
+      ["经理", "您好！您找谁？", "nín hǎo! nín zhǎo shéi?", "Bonjour ! Qui cherchez-vous ?"],
+      ["客人", "你们这儿是不是有一个又年轻又漂亮的服务员？", "nǐmen zhèr shì bu shì yǒu yí ge yòu niánqīng yòu piàoliang de fúwùyuán?", "Vous n'avez pas ici une serveuse jeune et jolie ?"],
+      ["经理", "我们这儿年轻、漂亮的服务员有很多。", "wǒmen zhèr niánqīng, piàoliang de fúwùyuán yǒu hěn duō.", "Des serveuses jeunes et jolies, nous en avons beaucoup."],
+      ["客人", "她工作又认真又热情。", "tā gōngzuò yòu rènzhēn yòu rèqíng.", "Elle travaille sérieusement, et elle est chaleureuse."],
+      ["经理", "您能再说说吗？", "nín néng zài shuōshuo ma?", "Pouvez-vous m'en dire plus ?"],
+      ["客人", "她总是笑着跟客人说话。", "tā zǒngshì xiào zhe gēn kèrén shuō huà.", "Elle parle toujours aux clients avec le sourire."],
+      ["经理", "啊，我知道了，你说的是李小美吧？", "a, wǒ zhīdào le, nǐ shuō de shì Lǐ Xiǎoměi ba?", "Ah, je vois : vous parlez de Li Xiaomei, c'est ça ?"],
+    ]],
+  ],
+  "HSK 3 · L5": [
+    ["Grammaire · 越来越", [
+      ["", "天气越来越热。", "tiānqì yuèláiyuè rè.", "Il fait de plus en plus chaud."],
+      ["", "他越来越忙。", "tā yuèláiyuè máng.", "Il est de plus en plus occupé."],
+      ["", "汉语越来越难。", "Hànyǔ yuèláiyuè nán.", "Le chinois devient de plus en plus difficile."],
+      ["", "我越来越喜欢汉语。", "wǒ yuèláiyuè xǐhuan Hànyǔ.", "J'aime le chinois de plus en plus."],
+      ["", "妹妹越来越漂亮。", "mèimei yuèláiyuè piàoliang.", "Ma petite sœur est de plus en plus jolie."],
+      ["", "车越来越多。", "chē yuèláiyuè duō.", "Il y a de plus en plus de voitures."],
+      ["", "这个电影越来越有意思。", "zhège diànyǐng yuèláiyuè yǒu yìsi.", "Ce film devient de plus en plus intéressant."],
+      ["", "我越来越了解他。", "wǒ yuèláiyuè liǎojiě tā.", "Je le connais de mieux en mieux."],
+      ["", "天黑得越来越快。", "tiān hēi de yuèláiyuè kuài.", "La nuit tombe de plus en plus vite."],
+    ]],
+    ["Grammaire · 了 (changement) et 听说", [
+      ["", "我现在喜欢夏天了。", "wǒ xiànzài xǐhuan xiàtiān le.", "Maintenant, j'aime l'été."],
+      ["", "听说咖啡喝多了，对身体不好。", "tīngshuō kāfēi hē duō le, duì shēntǐ bù hǎo.", "On dit que trop de café, c'est mauvais pour la santé."],
+      ["", "听说他十一岁的时候开始踢足球，现在已经踢了十年了。", "tīngshuō tā shíyī suì de shíhou kāishǐ tī zúqiú, xiànzài yǐjīng tī le shí nián le.", "Il paraît qu'il a commencé le foot à onze ans : ça fait déjà dix ans qu'il joue."],
+    ]],
+    ["Texte 1 · Chez Xiaoli", [
+      ["朋友", "我听说你身体不舒服，怎么了？", "wǒ tīngshuō nǐ shēntǐ bù shūfu, zěnme le?", "J'ai appris que tu n'étais pas bien, qu'est-ce qui se passe ?"],
+      ["小丽", "前几天有点儿发烧，现在好多了。", "qián jǐ tiān yǒudiǎnr fāshāo, xiànzài hǎo duō le.", "Il y a quelques jours j'avais un peu de fièvre, maintenant ça va beaucoup mieux."],
+      ["朋友", "喝杯茶吧，这是我为你买的绿茶，很不错。", "hē bēi chá ba, zhè shì wǒ wèi nǐ mǎi de lǜchá, hěn búcuò.", "Prends une tasse de thé : c'est du thé vert que je t'ai acheté, il est très bon."],
+      ["小丽", "谢谢，我要吃药，不喝茶了。", "xièxie, wǒ yào chī yào, bù hē chá le.", "Merci, je dois prendre des médicaments, je ne vais pas boire de thé."],
+      ["朋友", "那喝杯水吧。", "nà hē bēi shuǐ ba.", "Alors prends un verre d'eau."],
+      ["小丽", "好的。", "hǎo de.", "D'accord."],
+    ]],
+    ["Grammaire · 不用 et 不要", [
+      ["A", "听说他生病了。我们要不要去看看他？", "tīngshuō tā shēng bìng le. wǒmen yào bu yào qù kànkan tā?", "Il paraît qu'il est malade. On va le voir ?"],
+      ["B", "不用去看他。他已经好了。", "bú yòng qù kàn tā. tā yǐjīng hǎo le.", "Pas besoin d'aller le voir, il va déjà bien."],
+      ["B", "不要去看他。他对我们不好。", "bú yào qù kàn tā. tā duì wǒmen bù hǎo.", "N'allons pas le voir, il n'est pas gentil avec nous."],
+      ["A", "你要吃点儿我做的菜吗？", "nǐ yào chī diǎnr wǒ zuò de cài ma?", "Tu veux goûter un peu de ce que j'ai cuisiné ?"],
+      ["B", "不用。我现在不饿。", "bú yòng. wǒ xiànzài bú è.", "Pas besoin, je n'ai pas faim."],
+      ["B", "不要。你做的菜不好吃。", "bú yào. nǐ zuò de cài bù hǎochī.", "Non merci, ta cuisine n'est pas bonne."],
+    ]],
+    ["Texte 2 · Au téléphone", [
+      ["周太太", "对不起，我明天不能和你们出去玩儿了。", "duìbuqǐ, wǒ míngtiān bù néng hé nǐmen chūqu wánr le.", "Désolée, demain je ne pourrai pas sortir avec vous."],
+      ["张太太", "为什么？怎么了？", "wèi shénme? zěnme le?", "Pourquoi ? Qu'est-ce qui se passe ?"],
+      ["周太太", "我儿子生病了，我要在家照顾他。", "wǒ érzi shēng bìng le, wǒ yào zài jiā zhàogù tā.", "Mon fils est malade, je dois rester à la maison m'occuper de lui."],
+      ["张太太", "他吃药了吗？要不要去医院？", "tā chī yào le ma? yào bu yào qù yīyuàn?", "Il a pris des médicaments ? Il faut aller à l'hôpital ?"],
+      ["周太太", "不用去医院，昨天吃了感冒药，现在好一些了。", "bú yòng qù yīyuàn, zuótiān chī le gǎnmào yào, xiànzài hǎo yìxiē le.", "Pas besoin d'hôpital : il a pris un médicament contre le rhume hier, ça va un peu mieux."],
+      ["张太太", "那我们下次再一起出去玩儿吧。", "nà wǒmen xià cì zài yìqǐ chūqu wánr ba.", "Alors on sortira ensemble la prochaine fois."],
+    ]],
+    ["Grammaire · 开", [
+      ["", "我最喜欢现在的季节，草和树都绿了，花也开了。", "wǒ zuì xǐhuan xiànzài de jìjié, cǎo hé shù dōu lǜ le, huā yě kāi le.", "J'adore la saison actuelle : l'herbe et les arbres ont reverdi, et les fleurs sont écloses."],
+      ["", "我工作的公司经常要开会。", "wǒ gōngzuò de gōngsī jīngcháng yào kāi huì.", "Dans l'entreprise où je travaille, il y a souvent des réunions."],
+      ["", "爸爸开车送我去学校。", "bàba kāi chē sòng wǒ qù xuéxiào.", "Papa me conduit à l'école en voiture."],
+      ["", "我小的时候，爸爸是开饭馆的。", "wǒ xiǎo de shíhou, bàba shì kāi fànguǎn de.", "Quand j'étais petite, papa tenait un restaurant."],
+      ["", "服务员为客人开门。", "fúwùyuán wèi kèrén kāi mén.", "Le serveur ouvre la porte aux clients."],
+    ]],
+    ["Texte 3 · Chez Xiaogang", [
+      ["小丽", "你最喜欢哪个季节？", "nǐ zuì xǐhuan nǎge jìjié?", "Quelle saison tu préfères ?"],
+      ["小刚", "当然是春天，天气不那么冷了，草和树都绿了，花也开了。", "dāngrán shì chūntiān, tiānqì bú nàme lěng le, cǎo hé shù dōu lǜ le, huā yě kāi le.", "Le printemps, bien sûr : il ne fait plus aussi froid, l'herbe et les arbres reverdissent, les fleurs éclosent."],
+      ["小丽", "我最喜欢夏天，因为我可以穿漂亮的裙子了。", "wǒ zuì xǐhuan xiàtiān, yīnwèi wǒ kěyǐ chuān piàoliang de qúnzi le.", "Moi, je préfère l'été, parce que je peux enfin mettre de jolies robes."],
+      ["小刚", "那我也喜欢夏天了。", "nà wǒ yě xǐhuan xiàtiān le.", "Alors moi aussi, maintenant, j'aime l'été."],
+      ["小丽", "怎么？你也有漂亮的裙子？", "zěnme? nǐ yě yǒu piàoliang de qúnzi?", "Comment ça ? Tu as de jolies robes, toi aussi ?"],
+      ["小刚", "不，我喜欢看你穿漂亮的裙子。", "bù, wǒ xǐhuan kàn nǐ chuān piàoliang de qúnzi.", "Non, j'aime te voir porter de jolies robes."],
+    ]],
+    ["Grammaire · 越来越 + adjectif ou verbe de sentiment", [
+      ["", "我认识的汉字越来越多。", "wǒ rènshi de Hànzì yuèláiyuè duō.", "Je connais de plus en plus de caractères."],
+      ["", "我越来越喜欢运动。", "wǒ yuèláiyuè xǐhuan yùndòng.", "J'aime de plus en plus le sport."],
+      ["", "我的鸟会说的话越来越多。", "wǒ de niǎo huì shuō de huà yuèláiyuè duō.", "Mon oiseau sait dire de plus en plus de mots."],
+    ]],
+    ["Texte 4 · Chez Xiaogang", [
+      ["小丽", "我最近越来越胖了。", "wǒ zuìjìn yuèláiyuè pàng le.", "Ces temps-ci, je grossis de plus en plus."],
+      ["小刚", "谁说的？我觉得你越来越漂亮了。", "shéi shuō de? wǒ juéde nǐ yuèláiyuè piàoliang le.", "Qui a dit ça ? Moi, je te trouve de plus en plus jolie."],
+      ["小丽", "你看，这条裙子是去年买的，今年就不能穿了。", "nǐ kàn, zhè tiáo qúnzi shì qùnián mǎi de, jīnnián jiù bù néng chuān le.", "Regarde, cette robe, je l'ai achetée l'an dernier, et cette année je ne peux déjà plus la mettre."],
+      ["小刚", "那是因为你吃得太多了，少吃点儿吧。", "nà shì yīnwèi nǐ chī de tài duō le, shǎo chī diǎnr ba.", "C'est parce que tu manges trop : mange un peu moins."],
+      ["小丽", "我做的饭越来越好吃，我能少吃吗？", "wǒ zuò de fàn yuèláiyuè hǎochī, wǒ néng shǎo chī ma?", "Ma cuisine est de plus en plus bonne, comment veux-tu que je mange moins ?"],
+    ]],
+  ],
+  "HSK 3 · L6": [
+    ["Grammaire · nom + 呢", [
+      ["A", "你的书呢？放在哪儿了？", "nǐ de shū ne? fàng zài nǎr le?", "Où est ton livre ? Où l'as-tu mis ?"],
+      ["B", "就在桌子上啊。", "jiù zài zhuōzi shang a.", "Il est juste sur la table."],
+    ]],
+    ["Grammaire · verbe + 得/不 + résultat", [
+      ["", "我看得清楚那个汉字。", "wǒ kàn de qīngchu nàge Hànzì.", "Je vois bien ce caractère."],
+      ["", "楼太高了，我上不去。", "lóu tài gāo le, wǒ shàng bu qù.", "L'immeuble est trop haut, je n'arrive pas à monter."],
+      ["", "我找不到我的眼镜。", "wǒ zhǎo bu dào wǒ de yǎnjìng.", "Je ne trouve pas mes lunettes."],
+    ]],
+    ["Texte 1 · Au salon", [
+      ["周明", "我的眼镜呢？怎么突然找不到了？你看见了吗？", "wǒ de yǎnjìng ne? zěnme tūrán zhǎo bu dào le? nǐ kànjiàn le ma?", "Où sont mes lunettes ? Pourquoi je ne les trouve plus tout d'un coup ? Tu les as vues ?"],
+      ["周太太", "我没看见啊。", "wǒ méi kànjiàn a.", "Je ne les ai pas vues."],
+      ["周明", "我离不开眼镜，没有眼镜，我一个字也看不清楚。", "wǒ lí bu kāi yǎnjìng, méiyǒu yǎnjìng, wǒ yí ge zì yě kàn bu qīngchu.", "Je ne peux pas me passer de mes lunettes : sans elles, je ne lis pas un seul caractère."],
+      ["周太太", "你去房间找找，是不是刚才放在桌子上了？", "nǐ qù fángjiān zhǎozhao, shì bu shì gāngcái fàng zài zhuōzi shang le?", "Va chercher dans la chambre : tu ne les as pas posées sur la table tout à l'heure ?"],
+      ["周明", "我怎么看得到啊？你快过来帮忙啊。", "wǒ zěnme kàn de dào a? nǐ kuài guòlai bāngmáng a.", "Comment veux-tu que je les voie ? Viens vite m'aider."],
+      ["周太太", "好吧，我帮你去找找。", "hǎo ba, wǒ bāng nǐ qù zhǎozhao.", "Bon, je vais t'aider à chercher."],
+    ]],
+    ["Grammaire · verbe + 完, 刚 et 刚才", [
+      ["", "吃完饭不要马上运动。", "chī wán fàn bú yào mǎshàng yùndòng.", "Ne fais pas de sport juste après avoir mangé."],
+      ["", "爸爸刚出去。", "bàba gāng chūqu.", "Papa vient de sortir."],
+      ["", "爸爸刚才出去了。", "bàba gāngcái chūqu le.", "Papa est sorti tout à l'heure."],
+      ["", "我刚喝完一杯咖啡。", "wǒ gāng hē wán yì bēi kāfēi.", "Je viens de finir un café."],
+      ["", "我刚才喝了一杯咖啡。", "wǒ gāngcái hē le yì bēi kāfēi.", "J'ai bu un café tout à l'heure."],
+      ["", "儿子刚做完作业。", "érzi gāng zuò wán zuòyè.", "Mon fils vient de finir ses devoirs."],
+      ["", "儿子刚才在做作业。", "érzi gāngcái zài zuò zuòyè.", "Tout à l'heure, mon fils était en train de faire ses devoirs."],
+    ]],
+    ["Texte 2 · Au téléphone", [
+      ["同学", "今天的作业你做完了吗？", "jīntiān de zuòyè nǐ zuò wán le ma?", "Tu as fini les devoirs d'aujourd'hui ?"],
+      ["儿子", "刚做完，你呢？", "gāng zuò wán, nǐ ne?", "Je viens de les finir, et toi ?"],
+      ["同学", "今天这些题特别难，我看不懂，不会做，你能帮我吗？", "jīntiān zhèxiē tí tèbié nán, wǒ kàn bu dǒng, bú huì zuò, nǐ néng bāng wǒ ma?", "Les exercices d'aujourd'hui sont vraiment difficiles : je ne les comprends pas et je ne sais pas les faire. Tu peux m'aider ?"],
+      ["儿子", "电话里讲不明白，你来我家吧，我给你讲讲。", "diànhuà li jiǎng bu míngbai, nǐ lái wǒ jiā ba, wǒ gěi nǐ jiǎngjiang.", "Au téléphone, je n'arriverai pas à t'expliquer clairement. Viens chez moi, je t'expliquerai."],
+      ["同学", "好啊，我锻炼完了就过去。", "hǎo a, wǒ duànliàn wán le jiù guòqu.", "D'accord, je viens dès que j'ai fini mon sport."],
+    ]],
+    ["Grammaire · verbe + 得 + 更 + adjectif", [
+      ["", "戴上眼镜，我可以看得更清楚。", "dài shang yǎnjìng, wǒ kěyǐ kàn de gèng qīngchu.", "Avec mes lunettes, je vois plus clair."],
+      ["", "下次你一定会考得更好。", "xià cì nǐ yídìng huì kǎo de gèng hǎo.", "La prochaine fois, tu réussiras sûrement mieux ton examen."],
+      ["", "你还是早点休息吧，可以起得更早。", "nǐ háishi zǎo diǎn xiūxi ba, kěyǐ qǐ de gèng zǎo.", "Couche-toi plutôt tôt, tu pourras te lever plus tôt."],
+    ]],
+    ["Texte 3 · Dans la salle de repos", [
+      ["同事", "你怎么有点儿不高兴？", "nǐ zěnme yǒudiǎnr bù gāoxìng?", "Pourquoi tu as l'air un peu contrarié ?"],
+      ["小刚", "我想请小丽吃饭，可是找不到好饭馆。", "wǒ xiǎng qǐng Xiǎolì chī fàn, kěshì zhǎo bu dào hǎo fànguǎn.", "Je voudrais inviter Xiaoli à dîner, mais je ne trouve pas de bon restaurant."],
+      ["同事", "那你请她听音乐会吧，她喜欢听音乐。", "nà nǐ qǐng tā tīng yīnyuèhuì ba, tā xǐhuan tīng yīnyuè.", "Alors invite-la à un concert, elle aime la musique."],
+      ["小刚", "音乐会人太多，买不到票。", "yīnyuèhuì rén tài duō, mǎi bu dào piào.", "Il y a trop de monde au concert, impossible d'avoir des billets."],
+      ["同事", "那去公园走走，聊聊天儿吧。", "nà qù gōngyuán zǒuzou, liáoliao tiānr ba.", "Alors allez vous promener au parc et bavarder."],
+      ["小刚", "公园太大，多累啊。", "gōngyuán tài dà, duō lèi a.", "Le parc est trop grand, c'est fatigant !"],
+    ]],
+    ["Texte 4 · Au salon", [
+      ["周太太", "你怎么还喝咖啡？", "nǐ zěnme hái hē kāfēi?", "Pourquoi tu bois encore du café ?"],
+      ["周明", "怎么了？", "zěnme le?", "Qu'est-ce qu'il y a ?"],
+      ["周太太", "你不是说晚上睡不着觉吗？", "nǐ bú shì shuō wǎnshang shuì bu zháo jiào ma?", "Tu ne disais pas que tu n'arrivais pas à dormir le soir ?"],
+      ["周明", "没事，我只喝一杯。", "méi shì, wǒ zhǐ hē yì bēi.", "Ce n'est rien, je n'en bois qu'une tasse."],
+      ["周太太", "你还是喝牛奶吧，可以睡得更好些。", "nǐ háishi hē niúnǎi ba, kěyǐ shuì de gèng hǎo xiē.", "Bois plutôt du lait, tu dormiras mieux."],
+      ["周明", "好吧，牛奶呢？", "hǎo ba, niúnǎi ne?", "D'accord, où est le lait ?"],
+      ["周太太", "还没买呢。", "hái méi mǎi ne.", "Je n'en ai pas encore acheté."],
+    ]],
+  ],
+  "HSK 3 · L8": [
+    ["Grammaire · 又 (déjà fait) et 再 (à venir)", [
+      ["", "上个星期我买了一条裤子，昨天又买了一条。", "shàng ge xīngqī wǒ mǎi le yì tiáo kùzi, zuótiān yòu mǎi le yì tiáo.", "La semaine dernière j'ai acheté un pantalon, et hier j'en ai racheté un."],
+      ["", "你上午已经喝了一杯咖啡，下午怎么又喝一杯？", "nǐ shàngwǔ yǐjīng hē le yì bēi kāfēi, xiàwǔ zěnme yòu hē yì bēi?", "Tu as déjà bu un café ce matin, pourquoi tu en reprends un cet après-midi ?"],
+      ["", "我昨天看了一个电影，今天又看了一个。", "wǒ zuótiān kàn le yí ge diànyǐng, jīntiān yòu kàn le yí ge.", "Hier j'ai vu un film, et aujourd'hui j'en ai vu un autre."],
+      ["", "你只吃了一点儿饭，再吃一点儿吧。", "nǐ zhǐ chī le yìdiǎnr fàn, zài chī yìdiǎnr ba.", "Tu n'as mangé qu'un peu, reprends-en un peu."],
+      ["", "家里只有一个面包了，我们再买一些吧？", "jiā li zhǐ yǒu yí ge miànbāo le, wǒmen zài mǎi yìxiē ba?", "Il ne reste qu'un pain à la maison, on en rachète ?"],
+      ["", "那个饭馆我昨天去了一次，明天还想再去一次。", "nàge fànguǎn wǒ zuótiān qù le yí cì, míngtiān hái xiǎng zài qù yí cì.", "Je suis allée dans ce restaurant hier, et je veux y retourner demain."],
+    ]],
+    ["Texte 1 · Dans la salle de repos", [
+      ["同事", "听说你最近打算买房子？", "tīngshuō nǐ zuìjìn dǎsuàn mǎi fángzi?", "Il paraît que tu comptes acheter un appartement ?"],
+      ["小丽", "是，昨天去看了看，今天又去看了看，明天还要再去看看。", "shì, zuótiān qù kàn le kàn, jīntiān yòu qù kàn le kàn, míngtiān hái yào zài qù kànkan.", "Oui : je suis allée en voir hier, j'y suis retournée aujourd'hui, et demain j'y retourne encore."],
+      ["同事", "都不满意吗？", "dōu bù mǎnyì ma?", "Aucun ne te plaît ?"],
+      ["小丽", "一个没有电梯，不方便。一个有电梯，但是在二十层。", "yí ge méiyǒu diàntī, bù fāngbiàn. yí ge yǒu diàntī, dànshì zài èrshí céng.", "L'un n'a pas d'ascenseur, ce n'est pas pratique. L'autre en a un, mais il est au vingtième étage."],
+      ["同事", "二十层怎么了？", "èrshí céng zěnme le?", "Qu'est-ce qu'il a, le vingtième étage ?"],
+      ["小丽", "太高了，往下看多害怕啊！", "tài gāo le, wǎng xià kàn duō hàipà a!", "C'est trop haut, ça fait peur de regarder en bas !"],
+    ]],
+    ["Grammaire · 就 entre deux mots interrogatifs", [
+      ["", "什么东西便宜我就买什么。", "shénme dōngxi piányi wǒ jiù mǎi shénme.", "J'achète ce qui est bon marché."],
+      ["", "你去哪儿我就去哪儿。", "nǐ qù nǎr wǒ jiù qù nǎr.", "Où tu vas, je vais."],
+      ["", "你哪天有时间就哪天来我家吧。", "nǐ nǎ tiān yǒu shíjiān jiù nǎ tiān lái wǒ jiā ba.", "Viens chez moi le jour où tu as le temps."],
+    ]],
+    ["Texte 2 · À l'école", [
+      ["小明", "听说你下个星期就要回国了？", "tīngshuō nǐ xià ge xīngqī jiù yào huí guó le?", "Il paraît que tu rentres dans ton pays la semaine prochaine ?"],
+      ["马可", "是啊，真不想离开北京。", "shì a, zhēn bù xiǎng líkāi Běijīng.", "Oui, je n'ai vraiment pas envie de quitter Pékin."],
+      ["小明", "我下星期不在北京，不能去机场送你了。", "wǒ xià xīngqī bú zài Běijīng, bù néng qù jīchǎng sòng nǐ le.", "La semaine prochaine je ne serai pas à Pékin, je ne pourrai pas t'accompagner à l'aéroport."],
+      ["马可", "没关系，你忙吧。", "méi guānxi, nǐ máng ba.", "Ce n'est pas grave, occupe-toi de tes affaires."],
+      ["小明", "这个小熊猫送给你，欢迎你以后再到中国来。", "zhège xiǎo xióngmāo sòng gěi nǐ, huānyíng nǐ yǐhòu zài dào Zhōngguó lái.", "Ce petit panda, c'est pour toi. Reviens en Chine quand tu veux."],
+      ["马可", "谢谢，希望以后能再见面。", "xièxie, xīwàng yǐhòu néng zài jiàn miàn.", "Merci, j'espère qu'on se reverra."],
+    ]],
+    ["Texte 3 · Au café", [
+      ["小丽", "小刚，我们坐哪儿？", "Xiǎogāng, wǒmen zuò nǎr?", "Xiaogang, on s'assoit où ?"],
+      ["小刚", "你坐哪儿我就坐哪儿。", "nǐ zuò nǎr wǒ jiù zuò nǎr.", "Je m'assois là où tu t'assois."],
+      ["小丽", "坐这儿吧，这儿安静。你想喝什么饮料？", "zuò zhèr ba, zhèr ānjìng. nǐ xiǎng hē shénme yǐnliào?", "Asseyons-nous ici, c'est calme. Qu'est-ce que tu veux boire ?"],
+      ["小刚", "你喝什么我就喝什么。", "nǐ hē shénme wǒ jiù hē shénme.", "Je bois ce que tu bois."],
+      ["小丽", "喝可乐吧，你等我一会儿，我马上回来。", "hē kělè ba, nǐ děng wǒ yíhuìr, wǒ mǎshàng huílai.", "Prenons un coca. Attends-moi un moment, je reviens tout de suite."],
+      ["小刚", "小丽，你去哪儿？你去哪儿我就去哪儿。", "Xiǎolì, nǐ qù nǎr? nǐ qù nǎr wǒ jiù qù nǎr.", "Xiaoli, tu vas où ? Où tu vas, je vais."],
+      ["小丽", "我去洗手间。", "wǒ qù xǐshǒujiān.", "Je vais aux toilettes."],
+    ]],
+    ["Grammaire · 谁说的？", [
+      ["A", "今天外面是不是很热？", "jīntiān wàimiàn shì bu shì hěn rè?", "Il fait très chaud dehors aujourd'hui, non ?"],
+      ["B", "谁说的？我都快冻死了！", "shéi shuō de? wǒ dōu kuài dòng sǐ le!", "Qui a dit ça ? Je meurs presque de froid !"],
+      ["A", "这么多年，你一点变化都没有。", "zhème duō nián, nǐ yìdiǎn biànhuà dōu méiyǒu.", "Après tant d'années, tu n'as pas changé du tout."],
+      ["B", "谁说的？我胖了！", "shéi shuō de? wǒ pàng le!", "Qui a dit ça ? J'ai grossi !"],
+    ]],
+    ["Texte 4 · Chez Zhou Ming", [
+      ["老同学", "快五年了，你几乎没变化。", "kuài wǔ nián le, nǐ jīhū méi biànhuà.", "Ça fait presque cinq ans, et tu n'as presque pas changé."],
+      ["周太太", "谁说的？我胖了，以前的衣服都不能穿了。", "shéi shuō de? wǒ pàng le, yǐqián de yīfu dōu bù néng chuān le.", "Qui a dit ça ? J'ai grossi, je ne rentre plus dans mes anciens vêtements."],
+      ["老同学", "健康最重要，胖瘦没关系。", "jiànkāng zuì zhòngyào, pàng shòu méi guānxi.", "Le plus important, c'est la santé ; gros ou mince, peu importe."],
+      ["周太太", "是呀，想吃什么就吃什么。", "shì ya, xiǎng chī shénme jiù chī shénme.", "C'est vrai : je mange ce que je veux."],
+      ["老同学", "你做饭还是周明做饭？", "nǐ zuò fàn háishi Zhōu Míng zuò fàn?", "C'est toi qui cuisines, ou Zhou Ming ?"],
+      ["周太太", "我做，我想吃什么就做什么，想吃多少就做多少。", "wǒ zuò, wǒ xiǎng chī shénme jiù zuò shénme, xiǎng chī duōshao jiù zuò duōshao.", "Moi : je cuisine ce que j'ai envie de manger, et autant que j'en veux."],
+    ]],
+  ],
+  "HSK 3 · L9": [
+    ["Vocabulaire et grammaire · A 跟 B 一样", [
+      ["", "你放心，我一定会等你的。", "nǐ fàngxīn, wǒ yídìng huì děng nǐ de.", "Ne t'inquiète pas, je t'attendrai, c'est sûr."],
+      ["", "儿子跟爸爸一样高。", "érzi gēn bàba yíyàng gāo.", "Le fils est aussi grand que son père."],
+      ["", "这辆车的颜色跟那辆车不一样。", "zhè liàng chē de yánsè gēn nà liàng chē bù yíyàng.", "La couleur de cette voiture n'est pas la même que celle de l'autre."],
+    ]],
+    ["Texte 1 · En classe", [
+      ["大山", "马可，你的中文越说越好了。", "Mǎkě, nǐ de Zhōngwén yuè shuō yuè hǎo le.", "Marco, ton chinois est de mieux en mieux."],
+      ["马可", "哪里哪里，我们班李静说得更好。", "nǎli nǎli, wǒmen bān Lǐ Jìng shuō de gèng hǎo.", "Pas du tout ! Dans notre classe, Li Jing parle encore mieux."],
+      ["大山", "怎么好？", "zěnme hǎo?", "Mieux comment ?"],
+      ["马可", "她的汉语说得跟中国人一样好。", "tā de Hànyǔ shuō de gēn Zhōngguó rén yíyàng hǎo.", "Elle parle chinois aussi bien qu'une Chinoise."],
+      ["大山", "李静？我怎么没听说过这个名字？", "Lǐ Jìng? wǒ zěnme méi tīngshuō guo zhège míngzi?", "Li Jing ? Comment ça se fait que je n'aie jamais entendu ce nom ?"],
+      ["马可", "她是我们的汉语老师。", "tā shì wǒmen de Hànyǔ lǎoshī.", "C'est notre professeure de chinois."],
+    ]],
+    ["Texte 2 · À la pâtisserie", [
+      ["小丽", "别吃了，你已经吃了三块蛋糕了。", "bié chī le, nǐ yǐjīng chī le sān kuài dàngāo le.", "Arrête de manger, tu as déjà mangé trois parts de gâteau."],
+      ["小刚", "这是最后一块。", "zhè shì zuìhòu yí kuài.", "C'est la dernière."],
+      ["小丽", "你总是吃甜的东西，会越吃越胖。", "nǐ zǒngshì chī tián de dōngxi, huì yuè chī yuè pàng.", "Tu manges toujours sucré, tu vas grossir de plus en plus."],
+      ["小刚", "你放心，我一定不会变胖。", "nǐ fàngxīn, wǒ yídìng bú huì biàn pàng.", "Ne t'inquiète pas, je ne vais sûrement pas grossir."],
+      ["小丽", "为什么？", "wèi shénme?", "Pourquoi ?"],
+      ["小刚", "我们家的人都很瘦，吃不胖。", "wǒmen jiā de rén dōu hěn shòu, chī bu pàng.", "Dans ma famille, tout le monde est mince : on ne grossit pas, même en mangeant."],
+    ]],
+    ["Grammaire · 越 + verbe + 越 + adjectif", [
+      ["", "你总是吃甜的食物，会越吃越胖。", "nǐ zǒngshì chī tián de shíwù, huì yuè chī yuè pàng.", "Tu manges toujours des aliments sucrés, tu vas grossir de plus en plus."],
+    ]],
+    ["Texte 3 · Sur la montagne", [
+      ["小丽", "我有点儿害怕。", "wǒ yǒudiǎnr hàipà.", "J'ai un peu peur."],
+      ["小刚", "怎么了？", "zěnme le?", "Qu'est-ce qu'il y a ?"],
+      ["小丽", "山越高，路越难走，我也越爬越冷。", "shān yuè gāo, lù yuè nán zǒu, wǒ yě yuè pá yuè lěng.", "Plus la montagne est haute, plus le chemin est dur, et plus je grimpe, plus j'ai froid."],
+      ["小刚", "不用担心，有我呢，我对这儿比较了解。", "bú yòng dānxīn, yǒu wǒ ne, wǒ duì zhèr bǐjiào liǎojiě.", "Ne t'inquiète pas, je suis là. Je connais assez bien le coin."],
+      ["小丽", "那我们先休息一下，一会儿再爬。", "nà wǒmen xiān xiūxi yíxià, yíhuìr zài pá.", "Alors faisons d'abord une pause, on grimpera après."],
+      ["小刚", "好，一会儿我们可以从中间那条路上去。", "hǎo, yíhuìr wǒmen kěyǐ cóng zhōngjiān nà tiáo lù shàngqu.", "D'accord, tout à l'heure on pourra monter par le chemin du milieu."],
+    ]],
+    ["Vocabulaire · 影响", [
+      ["", "天气会影响我们出门玩。", "tiānqì huì yǐngxiǎng wǒmen chū mén wán.", "La météo peut changer nos projets de sortie."],
+      ["", "熬夜会影响第二天的精神。", "áo yè huì yǐngxiǎng dì èr tiān de jīngshen.", "Veiller tard pèse sur l'énergie du lendemain."],
+      ["", "噪音会影响别人学习。", "zàoyīn huì yǐngxiǎng biérén xuéxí.", "Le bruit dérange les autres quand ils étudient."],
+      ["", "好习惯不影响我们的健康。", "hǎo xíguàn bù yǐngxiǎng wǒmen de jiànkāng.", "Les bonnes habitudes ne nuisent pas à notre santé."],
+    ]],
+    ["Grammaire · verbe + 得越……，verbe + 得越……", [
+      ["", "吃得越多，长得越胖。", "chī de yuè duō, zhǎng de yuè pàng.", "Plus on mange, plus on grossit."],
+    ]],
+    ["Texte 4 · Chez Xiaoming", [
+      ["同学", "小明，你的眼睛怎么跟大熊猫一样了？", "Xiǎomíng, nǐ de yǎnjing zěnme gēn dà xióngmāo yíyàng le?", "Xiaoming, pourquoi tes yeux ressemblent à ceux d'un panda ?"],
+      ["小明", "我这几天脚疼，没休息好。", "wǒ zhè jǐ tiān jiǎo téng, méi xiūxi hǎo.", "Ces jours-ci j'ai mal au pied, je ne me suis pas bien reposé."],
+      ["同学", "去医院了吗？医生说什么？", "qù yīyuàn le ma? yīshēng shuō shénme?", "Tu es allé à l'hôpital ? Qu'a dit le médecin ?"],
+      ["小明", "他让我多休息，休息得越多，好得越快。", "tā ràng wǒ duō xiūxi, xiūxi de yuè duō, hǎo de yuè kuài.", "Il m'a dit de me reposer davantage : plus je me repose, plus je guéris vite."],
+      ["同学", "下个月的篮球比赛，你能参加吗？", "xià ge yuè de lánqiú bǐsài, nǐ néng cānjiā ma?", "Tu pourras participer au match de basket le mois prochain ?"],
+      ["小明", "一定能参加，一点儿影响也没有。", "yídìng néng cānjiā, yìdiǎnr yǐngxiǎng yě méiyǒu.", "J'y participerai sûrement, ça ne change rien du tout."],
+    ]],
+  ],
+  "HSK 3 · L10": [
+    ["Expression du support · 不可同日而语", [
+      ["", "现在的生活和过去不可同日而语。", "xiànzài de shēnghuó hé guòqù bù kě tóng rì ér yǔ.", "La vie d'aujourd'hui n'a rien à voir avec celle d'avant."],
+      ["", "他的能力和我不可同日而语。", "tā de nénglì hé wǒ bù kě tóng rì ér yǔ.", "Ses capacités et les miennes n'ont rien à voir."],
+      ["", "他比我厉害得多。", "tā bǐ wǒ lìhai de duō.", "Il est bien plus fort que moi."],
+    ]],
+    ["Grammaire · A 比 B + adjectif + 一点儿/一些/得多/多了", [
+      ["", "我今天起得比昨天晚一些。", "wǒ jīntiān qǐ de bǐ zuótiān wǎn yìxiē.", "Aujourd'hui je me suis levée un peu plus tard qu'hier."],
+      ["", "大山比大卫矮一点儿。", "Dàshān bǐ Dàwèi ǎi yìdiǎnr.", "Dashan est un peu plus petit que David."],
+      ["", "今天的作业比昨天多得多。", "jīntiān de zuòyè bǐ zuótiān duō de duō.", "Il y a beaucoup plus de devoirs aujourd'hui qu'hier."],
+    ]],
+    ["Texte 1 · En classe", [
+      ["朋友", "大山，你和马可谁个子高？", "Dàshān, nǐ hé Mǎkě shéi gèzi gāo?", "Dashan, entre Marco et toi, qui est le plus grand ?"],
+      ["大山", "马可比我高，我比马可矮一点儿。", "Mǎkě bǐ wǒ gāo, wǒ bǐ Mǎkě ǎi yìdiǎnr.", "Marco est plus grand que moi, je suis un peu plus petit que lui."],
+      ["朋友", "那你们谁大？", "nà nǐmen shéi dà?", "Et qui est le plus âgé ?"],
+      ["大山", "我比马可大两岁。", "wǒ bǐ Mǎkě dà liǎng suì.", "J'ai deux ans de plus que Marco."],
+      ["朋友", "你们谁的汉语说得更好？", "nǐmen shéi de Hànyǔ shuō de gèng hǎo?", "Lequel de vous deux parle le mieux chinois ?"],
+      ["大山", "马可比我说得好一些，我的汉语没有他好。", "Mǎkě bǐ wǒ shuō de hǎo yìxiē, wǒ de Hànyǔ méiyǒu tā hǎo.", "Marco parle un peu mieux que moi, mon chinois n'est pas aussi bon que le sien."],
+    ]],
+    ["Texte 2 · En classe", [
+      ["小明", "我喜欢历史课、体育课，不喜欢数学课。", "wǒ xǐhuan lìshǐ kè, tǐyù kè, bù xǐhuan shùxué kè.", "J'aime les cours d'histoire et de sport, mais pas les maths."],
+      ["同学", "为什么？数学也很有意思啊。", "wèi shénme? shùxué yě hěn yǒu yìsi a.", "Pourquoi ? Les maths aussi, c'est intéressant."],
+      ["小明", "我觉得数学比历史难多了，我听不懂。", "wǒ juéde shùxué bǐ lìshǐ nán duō le, wǒ tīng bu dǒng.", "Je trouve les maths bien plus dures que l'histoire, je ne comprends rien."],
+      ["同学", "别担心，我可以帮你。", "bié dānxīn, wǒ kěyǐ bāng nǐ.", "Ne t'inquiète pas, je peux t'aider."],
+      ["小明", "好啊，我们每天学多长时间？", "hǎo a, wǒmen měi tiān xué duō cháng shíjiān?", "Super ! On étudie combien de temps par jour ?"],
+      ["同学", "一两个小时吧。", "yì liǎng ge xiǎoshí ba.", "Une heure ou deux."],
+    ]],
+    ["Grammaire · 一两, 两三, 三四……", [
+      ["", "我每天学习一两个小时汉语。", "wǒ měi tiān xuéxí yì liǎng ge xiǎoshí Hànyǔ.", "J'étudie le chinois une heure ou deux par jour."],
+      ["", "从小丽家到公司骑车七八分钟就能到。", "cóng Xiǎolì jiā dào gōngsī qí chē qī bā fēnzhōng jiù néng dào.", "De chez Xiaoli au bureau, il suffit de sept ou huit minutes à vélo."],
+      ["", "你都喝了三四杯咖啡了，别再喝了。", "nǐ dōu hē le sān sì bēi kāfēi le, bié zài hē le.", "Tu as déjà bu trois ou quatre cafés, n'en reprends plus."],
+    ]],
+    ["Texte 3 · Dans la salle de repos", [
+      ["同事", "你最近比以前来得早多了，搬家了？", "nǐ zuìjìn bǐ yǐqián lái de zǎo duō le, bān jiā le?", "Ces temps-ci tu arrives bien plus tôt qu'avant, tu as déménagé ?"],
+      ["小丽", "是啊，你不知道？我上个月就搬家了，走路二十分钟就到。", "shì a, nǐ bù zhīdào? wǒ shàng ge yuè jiù bān jiā le, zǒu lù èrshí fēnzhōng jiù dào.", "Oui, tu ne savais pas ? J'ai déménagé le mois dernier, j'arrive en vingt minutes à pied."],
+      ["同事", "那很方便啊。", "nà hěn fāngbiàn a.", "C'est très pratique !"],
+      ["小丽", "我还打算买辆自行车，骑车七八分钟就能到。", "wǒ hái dǎsuàn mǎi liàng zìxíngchē, qí chē qī bā fēnzhōng jiù néng dào.", "Je compte aussi acheter un vélo : à vélo, j'arriverai en sept ou huit minutes."],
+      ["同事", "你不是有一辆吗？", "nǐ bú shì yǒu yí liàng ma?", "Tu n'en as pas déjà un ?"],
+      ["小丽", "那辆太旧了，要换一辆，很便宜，两三百块钱。", "nà liàng tài jiù le, yào huàn yí liàng, hěn piányi, liǎng sān bǎi kuài qián.", "Il est trop vieux, je veux en changer. Ce n'est pas cher : deux ou trois cents yuans."],
+    ]],
+    ["Vocabulaire · 中介, 主要, 附近", [
+      ["", "我通过房产中介，顺利租到了合适的房子。", "wǒ tōngguò fángchǎn zhōngjiè, shùnlì zū dào le héshì de fángzi.", "Grâce à une agence immobilière, j'ai trouvé sans difficulté un logement qui me convient."],
+      ["", "他的主要兴趣是阅读和旅行。", "tā de zhǔyào xìngqù shì yuèdú hé lǚxíng.", "Ses principaux centres d'intérêt sont la lecture et les voyages."],
+      ["", "我家附近有一家超市。", "wǒ jiā fùjìn yǒu yì jiā chāoshì.", "Il y a un supermarché près de chez moi."],
+    ]],
+    ["Grammaire · A 没有 B（这么/那么）+ adjectif", [
+      ["", "咖啡没有茶好喝。", "kāfēi méiyǒu chá hǎohē.", "Le café n'est pas aussi bon que le thé."],
+      ["", "这个电影没有那个电影那么有意思。", "zhège diànyǐng méiyǒu nàge diànyǐng nàme yǒu yìsi.", "Ce film n'est pas aussi intéressant que l'autre."],
+      ["", "他没有我这么高。", "tā méiyǒu wǒ zhème gāo.", "Il n'est pas aussi grand que moi."],
+    ]],
+    ["Texte 4 · Visite de logements", [
+      ["大山", "这两个地方的房子一样吗？", "zhè liǎng ge dìfang de fángzi yíyàng ma?", "Les logements de ces deux endroits sont pareils ?"],
+      ["中介", "不一样。您看，学校外边的房子比学校里边的大一些。", "bù yíyàng. nín kàn, xuéxiào wàibian de fángzi bǐ xuéxiào lǐbian de dà yìxiē.", "Non. Regardez : ceux à l'extérieur de l'école sont un peu plus grands que ceux à l'intérieur."],
+      ["大山", "大小没关系，主要是环境，哪个更安静？", "dàxiǎo méi guānxi, zhǔyào shì huánjìng, nǎge gèng ānjìng?", "La taille, peu importe ; c'est surtout l'environnement. Lequel est le plus calme ?"],
+      ["中介", "学校里边的没有学校外边的那么安静。", "xuéxiào lǐbian de méiyǒu xuéxiào wàibian de nàme ānjìng.", "Ceux à l'intérieur ne sont pas aussi calmes que ceux à l'extérieur."],
+      ["大山", "哪个方便一些呢？", "nǎge fāngbiàn yìxiē ne?", "Et lequel est le plus pratique ?"],
+      ["中介", "学校里边比学校外边方便，附近有三四个车站。", "xuéxiào lǐbian bǐ xuéxiào wàibian fāngbiàn, fùjìn yǒu sān sì ge chēzhàn.", "L'intérieur est plus pratique que l'extérieur : il y a trois ou quatre arrêts tout près."],
+    ]],
+  ],
+};
+/* Les phrases d'une leçon, dans l'ordre du support, sans doublon. */
+function phrasesSupport(l) {
+  const vues = new Set(), out = [];
+  (PHRASES_SUPPORTS[l] || []).forEach(([groupe, lignes]) => lignes.forEach(([qui, hanzi, pinyin, fr]) => {
+    const k = normHanzi(hanzi);
+    if (vues.has(k)) return;
+    vues.add(k); out.push({ groupe, qui, hanzi, pinyin, fr });
+  }));
+  return out;
+}
 
 /* ---------- État ---------- */
 let PY = null; // index hanzi -> pinyin, (re)construit à la demande (voir pyIndex)
@@ -4733,9 +5223,10 @@ function renderCours() {
         <div class="q-phrase-fr">${esc(c.fr)}</div>
         ${c.usage ? `<p class="hint" style="margin:.2rem 0 0">${glose(c.usage)}</p>` : ""}
         <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(c.hanzi)})" aria-label="Écouter l'expression">🔊</button></div></div>`).join("")}</div>` : ""}
+    ${phrasesSupportHTML(l)}
     ${exos ? `<div class="panel"><h2>Autres exercices</h2>${exos}</div>` : ""}
     ${mots.length ? `<div class="panel"><h2>Vocabulaire (${mots.length})</h2><ul class="words">${mots.map(ligne).join("")}</ul></div>` : ""}
-    ${formu || exprs.length ? `<div class="panel"><h2>Phrases et expressions</h2>
+    ${formu || exprs.length ? `<div class="panel"><h2>Phrases vues en cours</h2>
       ${exprs.length ? `<ul class="words">${exprListe}</ul>` : ""}${formu}</div>` : ""}
     ${chars.length ? `<div class="panel"><h2>Caractères (${chars.length})</h2>
       ${nouveaux.length ? `<p class="hint" style="margin-top:0">Nouveaux dans l'app : <span class="cours-nouveau">${nouveaux.map(x => esc(x.ch)).join(" ")}</span></p>` : ""}
@@ -4855,6 +5346,30 @@ function vocabNouveau(l) {
   if (!manuel) return state.cards.filter(c => c.theme === l);
   const parHanzi = new Map(state.cards.map(c => [c.hanzi, c]));
   return manuel.map(h => parHanzi.get(h)).filter(Boolean);
+}
+/* Toutes les phrases du support, dans l'ordre où elles se lisent. */
+function startPhrasesSupport(l) {
+  const ph = phrasesSupport(l);
+  if (!ph.length) return;
+  startMix(ph.map(p => ({ kind: "srs", libre: true, v: { track: "zi", mode: "support",
+    card: { hanzi: p.hanzi, pinyin: p.pinyin, fr: p.fr, groupe: p.groupe, qui: p.qui, phrase: "", mots: [], son: {}, zi: {} } } })), true, true);
+}
+function phrasesSupportHTML(l) {
+  const groupes = PHRASES_SUPPORTS[l] || [];
+  if (!groupes.length) return "";
+  const n = phrasesSupport(l).length;
+  return `<div class="panel"><h2>Phrases du support (${n})</h2>
+      <p class="hint" style="margin-top:0">Les dialogues et les exemples de grammaire, dans l'ordre du support. Lis la phrase, puis découvre le pinyin et la traduction.</p>
+      <button class="btn" onclick="startPhrasesSupport(${jsattr(l)})">Revoir les ${n} phrases du support</button>
+      ${groupes.map(([titre, lignes]) => `<details class="gram-plus"><summary><strong>${esc(titre)}</strong> (${lignes.length})</summary>
+        ${lignes.map(([qui, hz, py, fr]) => `<div class="cours-formu">
+          ${qui ? `<div class="hint" style="margin:0">${esc(qui)}</div>` : ""}
+          <div class="hanzi" style="font-size:1.3rem">${esc(hz)}</div>
+          <div class="w-pinyin">${renderPinyin(py)}</div>
+          <div class="q-phrase-fr">${esc(fr)}</div>
+          <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(hz)})" aria-label="Écouter la phrase">🔊</button></div></div>`).join("")}
+      </details>`).join("")}
+    </div>`;
 }
 function startLecon(l, seulementNouveau) {
   const cartes = seulementNouveau ? vocabNouveau(l)
@@ -5769,6 +6284,14 @@ function cardHTML(c, mode) {
       <div id="answer-zone" class="hidden"></div>
     </div><div id="grades-slot"></div>`;
   }
+  /* Phrase d'un support de cours (2026-11-18) : la phrase en caractères, puis
+     le pinyin et la traduction d'une touche. Entraînement libre, non planifié. */
+  if (mode === "support") return `<div class="qcard tappable" onclick="cardTap(event)">
+      <div class="q-prompt">${c.groupe ? esc(c.groupe) : "Phrase du support"}${c.qui ? ` · ${esc(c.qui)}` : ""}</div>
+      <div class="q-hanzi hanzi" style="font-size:2rem;line-height:1.5">${esc(c.hanzi)}</div>
+      <div id="reveal-zone"><button class="btn secondary" onclick="reveal()">Voir le pinyin et la traduction</button></div>
+      <div id="answer-zone" class="hidden">${answer}${audio(c.hanzi, "la phrase")}</div>
+    </div>${gradesHTML()}`;
   if (mode === "lecture") return `<div class="qcard tappable" onclick="cardTap(event)">
       <div class="q-hanzi hanzi">${esc(c.hanzi)}</div>
       <div class="q-prompt">Pinyin et sens ?</div>
