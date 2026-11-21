@@ -150,6 +150,7 @@ function renderCours() {
     (s.formulations.length || mots.some(c => c.phrase)) && exo("trad", "Traduire des phrases"),
     esc_.length && exo("escalier", "Construire des phrases longues"),
     gram.length && exo("gram", "Pratiquer la grammaire"),
+    phrasesSupport(l).length && `<button class="btn secondary" onclick="startPhrasesSupport(${jsattr(l)})">Phrases du support (${phrasesSupport(l).length})</button>`,
   ].filter(Boolean).join("");
   const formu = s.formulations.map(f => `<div class="cours-formu"><div class="ruby">${rubyHTML(f.hanzi)}</div>
         <div class="q-phrase-fr">${esc(f.fr)}</div>
@@ -170,8 +171,8 @@ function renderCours() {
         <div class="q-phrase-fr">${esc(c.fr)}</div>
         ${c.usage ? `<p class="hint" style="margin:.2rem 0 0">${glose(c.usage)}</p>` : ""}
         <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(c.hanzi)})" aria-label="Écouter l'expression">🔊</button></div></div>`).join("")}</div>` : ""}
-    ${phrasesSupportHTML(l)}
     ${exos ? `<div class="panel"><h2>Autres exercices</h2>${exos}</div>` : ""}
+    ${phrasesSupportHTML(l)}
     ${mots.length ? `<div class="panel"><h2>Vocabulaire (${mots.length})</h2><ul class="words">${mots.map(ligne).join("")}</ul></div>` : ""}
     ${formu || exprs.length ? `<div class="panel"><h2>Phrases vues en cours</h2>
       ${exprs.length ? `<ul class="words">${exprListe}</ul>` : ""}${formu}</div>` : ""}
@@ -306,8 +307,7 @@ function phrasesSupportHTML(l) {
   if (!groupes.length) return "";
   const n = phrasesSupport(l).length;
   return `<div class="panel"><h2>Phrases du support (${n})</h2>
-      <p class="hint" style="margin-top:0">Les dialogues et les exemples de grammaire, dans l'ordre du support. Lis la phrase, puis découvre le pinyin et la traduction.</p>
-      <button class="btn" onclick="startPhrasesSupport(${jsattr(l)})">Revoir les ${n} phrases du support</button>
+      <p class="hint" style="margin-top:0">Les dialogues et les exemples de grammaire, dans l'ordre du support. Pour t'y entraîner : « Phrases du support » dans Autres exercices.</p>
       ${groupes.map(([titre, lignes]) => `<details class="gram-plus"><summary><strong>${esc(titre)}</strong> (${lignes.length})</summary>
         ${lignes.map(([qui, hz, py, fr]) => `<div class="cours-formu">
           ${qui ? `<div class="hint" style="margin:0">${esc(qui)}</div>` : ""}
