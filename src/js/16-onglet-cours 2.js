@@ -1,0 +1,414 @@
+/* ---------- Onglet Cours : réviser les nouveautés d'une séance ----------
+   Demande de Daphnée (2026-10-03) : une partie où réviser TOUT ce qui est venu
+   du dernier cours, vocabulaire, écriture, grammaire, expressions. Le contenu
+   d'une séance vit dans vocab/cours.json (EMBED_COURS) et ne fait que POINTER
+   vers des mots de vocab.json et des fiches de grammar.json : rien n'est dupliqué,
+   la progression de chaque mot reste la même qu'ailleurs dans l'app.
+   Les réponses comptent normalement (c'est une vraie révision). La session ne
+   met pas à zéro les compteurs du jour (`mixCours`) : elle s'ajoute à la
+   session du jour, elle ne la remplace pas. */
+let curCours = 0;
+const COURS_MOTS_MAX = 14; // mots par session : les moins sus d'abord, le reste attend
+function coursListe() { return EMBED_COURS.slice().sort((a, b) => b.date.localeCompare(a.date)); }
+function coursCartes(s) {
+  return (s.mots || []).concat(s.expressions || [])
+    .map(h => state.cards.find(c => c.hanzi === h)).filter(Boolean);
+}
+function coursEtat(c) {
+  if (!estCroise(c.son) && !estCroise(c.zi) && !c.vu) return "neuf";
+  return estConnu(c.son) && estConnu(c.zi) ? "su" : "encours";
+}
+/* Les caractères de la séance, et ceux qu'aucun autre mot de l'app ne contient :
+   ce sont les vrais nouveaux caractères à apprendre à lire et à écrire. */
+function coursCaracteres(s) {
+  const siens = new Set(coursCartes(s).map(c => c.hanzi));
+  const ailleurs = new Set();
+  state.cards.forEach(c => { if (!siens.has(c.hanzi)) [...c.hanzi].forEach(ch => ailleurs.add(ch)); });
+  const vus = new Set(), out = [];
+  coursCartes(s).forEach(c => [...c.hanzi].forEach(ch => {
+    if (!/[一-鿿]/.test(ch) || vus.has(ch)) return;
+    vus.add(ch); out.push({ ch: ch, nouveau: !ailleurs.has(ch) });
+  }));
+  return out;
+}
+function coursDate(d) {
+  const t = new Date(d + "T12:00:00");
+  return isNaN(t) ? d : t.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+/* ---------- Écran Cours : une page par leçon du manuel ----------
+   Demande de Daphnée (2026-11-13) : « on ne comprend vraiment rien à l'écran,
+   et il y a un problème entre les dates et les numéros de support de cours.
+   Tu peux t'en tenir seulement aux numéros de support ? » L'écran empilait les
+   mots récents, un menu de leçon et vingt puces de dates, puis le détail d'une
+   séance qui mêlait souvent deux leçons (« L9–L10 »). Désormais : on choisit
+   un numéro de leçon, et tout ce qui la concerne tient sur une seule page.
+   Le contenu d'une leçon (leconSeance) a la forme d'une séance, ce qui laisse
+   les exercices de séance (startCours, traduction, escaliers) inchangés :
+   - mots : la liste du support (leconCartes) ;
+   - grammaire : les fiches dont le thème est la leçon ;
+   - phrases, expressions, distinctions : celles des séances qui couvrent la
+     leçon, sans doublon ;
+   - phrases longues : celles rangées dans la leçon.
+   Les dates, résumés de séance, conseils et devoirs ne s'affichent plus. */
+const LECON_CLE = "lianxi-lecon";
+function leconNum(l) { const m = LECON_RE.exec(l || ""); return m ? { niv: m[1], n: m[2] } : null; }
+function leconNom(l) { const x = leconNum(l); return x ? `Leçon ${x.n}` : l; }
+/* Une séance « L9–L10 » mêle deux leçons : chacune de ses phrases, expressions
+   et distinctions va à la leçon dont elle contient le plus de mots ; sans mot
+   d'aucune liste (une phrase reprise d'une fiche de grammaire de la leçon
+   compte pour beaucoup), à la première leçon de la séance (qui finit d'ordinaire une
+   leçon avant d'introduire la suivante). */
+const GRAM_TEXTE = {};
+function gramTexteLecon(l) {
+  if (!(l in GRAM_TEXTE)) GRAM_TEXTE[l] = normHanzi(JSON.stringify(EMBED_GRAMMAR.filter(p => p.theme === l)));
+  return GRAM_TEXTE[l];
+}
+function leconDuTexte(s, texte) {
+  const ls = leconsSeance(s);
+  if (ls.length < 2) return ls[0];
+  let mieux = ls[0], max = 0;
+  ls.forEach(l => {
+    /* Une phrase reprise d'une fiche de grammaire de la leçon y appartient. */
+    const gram = gramTexteLecon(l).includes(normHanzi(texte)) ? 10 : 0;
+    const n = gram + leconCartes(l).filter(c => texte.includes(c.hanzi)).length;
+    if (n > max) { max = n; mieux = l; }
+  });
+  return mieux;
+}
+/* Phrases en escalier d'une leçon : celles rangées dans la leçon, plus celles
+   d'une plage (« L4–L6 ») que leconDuTexte attribue à cette leçon. */
+function escaliersLecon(l) {
+  return EMBED_ESCALIERS.filter(e => e.lecon === l || (leconsSeance(e).length > 1 && leconsSeance(e).includes(l)
+    && leconDuTexte(e, e.etapes[e.etapes.length - 1].hanzi) === l));
+}
+function leconSeance(l) {
+  const seances0 = EMBED_COURS.filter(s => leconsSeance(s).includes(l));
+  const garde = (s, arr, txt) => (arr || []).filter(x => leconDuTexte(s, txt(x)) === l);
+  const seances = seances0.map(s => ({
+    expressions: garde(s, s.expressions, h => h),
+    formulations: garde(s, s.formulations, f => f.hanzi),
+    distinctions: garde(s, s.distinctions, d => d),
+  }));
+  const uniq = (arr, cle) => { const vus = new Set(); return arr.filter(x => { const k = cle(x); if (vus.has(k)) return false; vus.add(k); return true; }); };
+  const mots = leconCartes(l).map(c => c.hanzi), siens = new Set(mots);
+  return {
+    id: l, lecon: l,
+    mots: mots,
+    expressions: uniq(seances.flatMap(s => s.expressions || []).filter(h => !siens.has(h)), h => h),
+    formulations: uniq(seances.flatMap(s => s.formulations || []), f => normHanzi(f.hanzi)),
+    distinctions: uniq(seances.flatMap(s => s.distinctions || []), d => d),
+    grammaire: EMBED_GRAMMAR.filter(p => p.theme === l).map(p => p.id),
+  };
+}
+function choisirLecon(l) {
+  curLecon = l;
+  try { localStorage.setItem(LECON_CLE, l); } catch (e) { /* préférence non gardée */ }
+  renderCours();
+}
+function leconChoixHTML(liste) {
+  const niveaux = [...new Set(liste.map(l => leconNum(l).niv))];
+  const niv = leconNum(curLecon).niv;
+  const puces = niveaux.length > 1 ? `<div class="chips" style="justify-content:flex-start;margin:0 0 .7rem">${niveaux.map(n =>
+      `<button class="chip" aria-pressed="${n === niv}" onclick="choisirLecon(${jsattr(liste.find(l => leconNum(l).niv === n))})">HSK ${n}</button>`).join("")}</div>` : "";
+  const duNiveau = liste.filter(l => leconNum(l).niv === niv).sort((a, b) => leconNum(a).n - leconNum(b).n);
+  return `<div class="panel">
+      <h2>Choisis ta leçon</h2>
+      ${puces}
+      <div class="lecon-grille">${duNiveau.map(l =>
+        `<button class="chip" aria-pressed="${l === curLecon}" aria-label="${esc(leconNom(l))}" onclick="choisirLecon(${jsattr(l)})">${esc(leconNum(l).n)}</button>`).join("")}</div>
+    </div>`;
+}
+function renderCours() {
+  const liste = leconsListe(), z = $("cours-body");
+  if (!liste.length) { z.innerHTML = `<div class="panel"><p class="hint">Aucune leçon pour l'instant. Les leçons apparaissent ici dès que leurs mots sont dans l'app.</p></div>`; return; }
+  if (!liste.includes(curLecon)) {
+    let garde = null;
+    try { garde = localStorage.getItem(LECON_CLE); } catch (e) { /* rien */ }
+    curLecon = liste.includes(garde) ? garde : liste[0];
+  }
+  const l = curLecon, s = leconSeance(l), nom = leconNom(l), titre = LECONS_TITRES[l];
+  const mots = coursCartes({ mots: s.mots });
+  const exprs = s.expressions.map(h => state.cards.find(c => c.hanzi === h)).filter(Boolean);
+  const gram = s.grammaire.map(id => EMBED_GRAMMAR.find(p => p.id === id)).filter(Boolean);
+  const chars = coursCaracteres(s), nouveaux = chars.filter(x => x.nouveau);
+  const esc_ = escaliersLecon(l);
+  const sus = mots.filter(c => coursEtat(c) === "su").length;
+  const dictons = dictonsLecon(l), nouveaux_ = vocabNouveau(l);
+  const ligne = c => {
+    const e = coursEtat(c);
+    return `<li><span class="w-hanzi hanzi">${esc(c.hanzi)}</span>
+      <span class="w-mid"><span class="w-pinyin">${renderPinyin(c.pinyin)}</span>
+      <span class="cours-etat ${e === "su" ? "su" : ""}">${e === "su" ? "su" : e === "neuf" ? "nouveau" : "en cours"}</span><br>
+      <span class="w-fr">${esc(c.fr)}</span></span>
+      <button class="audio-btn" style="margin-left:auto" onclick="speak(${jsattr(c.hanzi)})" aria-label="Écouter ${esc(c.hanzi)}">🔊</button></li>`;
+  };
+  const exo = (q, txt) => `<button class="btn secondary" onclick="startCours(${jsattr(l)}, '${q}')">${txt}</button>`;
+  const exos = [
+    chars.length && exo("reco", "Reconnaître les caractères"),
+    chars.length && exo("ecriture", "Écrire les caractères"),
+    mots.length && exo("lecture", "Lire sans pinyin"),
+    (s.formulations.length || mots.some(c => c.phrase)) && exo("trad", "Traduire des phrases"),
+    esc_.length && exo("escalier", "Construire des phrases longues"),
+    gram.length && exo("gram", "Pratiquer la grammaire"),
+    phrasesSupport(l).length && `<button class="btn secondary" onclick="startPhrasesSupport(${jsattr(l)})">Phrases du support (${phrasesSupport(l).length})</button>`,
+  ].filter(Boolean).join("");
+  const formu = s.formulations.map(f => `<div class="cours-formu"><div class="ruby">${rubyHTML(f.hanzi)}</div>
+        <div class="q-phrase-fr">${esc(f.fr)}</div>
+        <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(f.hanzi)})" aria-label="Écouter la phrase">🔊</button></div></div>`).join("");
+  const exprListe = exprs.map(c => ligne(c) + (c.usage ? `<li style="display:block;border-bottom:none;padding-top:0"><div class="q-phrase-fr">${glose(c.usage)}</div></li>` : "")).join("");
+  z.innerHTML = `${leconChoixHTML(liste)}
+    <div class="panel">
+      <p class="cours-date">HSK ${esc(leconNum(l).niv)} · ${esc(nom)}</p>
+      ${titre ? `<h2 class="cours-titre hanzi" style="text-transform:none;letter-spacing:0;color:var(--ink)">${esc(titre[0])}</h2>
+      <p style="margin:-.3rem 0 .8rem;font-size:1.05rem">${esc(titre[1])}</p>` : ""}
+      <p class="hint" style="margin:0">${mots.length} mots · ${sus} sus · ${mots.length - sus} à travailler</p>
+      <button class="btn" onclick="startLecon(${jsattr(l)})">Réviser toute la ${esc(nom.toLowerCase())}</button>
+      <p class="hint" style="margin-top:0">${dictons.length ? "Le vocabulaire, les mots vus en cours et l'expression du support." : "Le vocabulaire et les mots vus en cours."}</p>
+      ${nouveaux_.length ? `<button class="btn secondary" onclick="startLecon(${jsattr(l)}, true)">Nouveau vocabulaire seulement (${nouveaux_.length} mots)</button>` : ""}
+    </div>
+    ${dictons.length ? `<div class="panel"><h2>${dictons.length > 1 ? "Expressions du support" : "Expression du support"}</h2>
+      ${dictons.map(c => `<div class="cours-formu"><div class="ruby">${rubyHTML(c.hanzi)}</div>
+        <div class="q-phrase-fr">${esc(c.fr)}</div>
+        ${c.usage ? `<p class="hint" style="margin:.2rem 0 0">${glose(c.usage)}</p>` : ""}
+        <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(c.hanzi)})" aria-label="Écouter l'expression">🔊</button></div></div>`).join("")}</div>` : ""}
+    ${exos ? `<div class="panel"><h2>Autres exercices</h2>${exos}</div>` : ""}
+    ${phrasesSupportHTML(l)}
+    ${mots.length ? `<div class="panel"><h2>Vocabulaire (${mots.length})</h2><ul class="words">${mots.map(ligne).join("")}</ul></div>` : ""}
+    ${formu || exprs.length ? `<div class="panel"><h2>Phrases vues en cours</h2>
+      ${exprs.length ? `<ul class="words">${exprListe}</ul>` : ""}${formu}</div>` : ""}
+    ${chars.length ? `<div class="panel"><h2>Caractères (${chars.length})</h2>
+      ${nouveaux.length ? `<p class="hint" style="margin-top:0">Nouveaux dans l'app : <span class="cours-nouveau">${nouveaux.map(x => esc(x.ch)).join(" ")}</span></p>` : ""}
+      ${charsHTML(chars.map(x => x.ch))}</div>` : ""}
+    ${gram.length ? `<div class="panel"><h2>Grammaire</h2>
+      ${gram.map(p => `<details class="gram-plus"><summary><strong>${esc(p.titre)}</strong></summary>
+        <div style="margin-top:.5rem">${gramWeakBodyHTML({ p: p })}</div></details>`).join("")}</div>` : ""}
+    ${s.distinctions.length ? `<div class="panel"><h2>À ne pas confondre</h2>
+      <ul class="cours-liste">${s.distinctions.map(x => `<li>${glose(x)}</li>`).join("")}</ul></div>` : ""}`;
+}
+/* Les mots les moins sus d'abord (à découvrir, puis en cours, puis sus), puis un
+   tirage pour ne pas resservir toujours les mêmes à égalité. */
+function coursChoisir(cartes, max) {
+  const poids = c => (estConnu(c.son) ? 1 : 0) + (estConnu(c.zi) ? 1 : 0);
+  return shuffle(cartes).sort((a, b) => poids(a) - poids(b)).slice(0, max);
+}
+function coursItems(cartes, formats) {
+  const out = [];
+  cartes.forEach(c => {
+    const jamaisVu = !c.son.reviews && !c.zi.reviews && !c.vu && !c.son.connu && !c.zi.connu;
+    if (jamaisVu) out.push({ card: c, track: "son", mode: "decouverte" });
+    formats.forEach(f => out.push(f(c)));
+  });
+  return out;
+}
+const COURS_SON = c => ({ card: c, track: "son" });
+const COURS_ZI = c => ({ card: c, track: "zi" });
+function startCours(id, quoi) {
+  const s = LECON_RE.test(id) ? leconSeance(id) : EMBED_COURS.find(x => x.id === id);
+  if (!s) return;
+  const cartes = coursCartes(s);
+  const gram = (s.grammaire || []).map(i => EMBED_GRAMMAR.find(p => p.id === i)).filter(Boolean);
+  const nouveauxCh = new Set(coursCaracteres(s).filter(x => x.nouveau).map(x => x.ch));
+  let items = [], grams = [], choisis = [];
+  if (quoi === "tout" || quoi === "vocab") {
+    choisis = coursChoisir(cartes, quoi === "tout" ? 10 : COURS_MOTS_MAX);
+    items = coursItems(choisis, [COURS_SON, COURS_ZI]);
+  }
+  if (quoi === "tout") {
+    /* Quatre écritures au plus, sur les mots qui portent un caractère nouveau,
+       réparties dans la seconde moitié de la file plutôt qu'en bloc final. */
+    const ecrire = coursChoisir(choisis.filter(c => [...c.hanzi].some(ch => nouveauxCh.has(ch))), 4);
+    const n = ecrire.length, base = items.length;
+    ecrire.forEach((c, i) => items.splice(Math.floor(base * (0.4 + 0.55 * (i + 1) / (n + 1))) + i, 0,
+      { card: c, track: "zi", mode: "ecriture" }));
+  }
+  if (quoi === "ecriture") {
+    const avec = cartes.filter(c => [...c.hanzi].some(ch => nouveauxCh.has(ch)));
+    const base = avec.length >= 4 ? avec : cartes;
+    items = coursItems(coursChoisir(base, 10), [c => ({ card: c, track: "zi", mode: "ecriture" })]);
+  }
+  if (quoi === "lecture") {
+    items = coursItems(coursChoisir(cartes, COURS_MOTS_MAX), [c => ({ card: c, track: "zi", mode: "lecture" })]);
+  }
+  /* Les règles seules : plusieurs exercices par règle, comme depuis l'onglet
+     Grammaire. Un seul exercice par règle ne suffisait pas à la pratiquer. */
+  if (quoi === "gram") { startGramCible(gram.map(p => p.id)); return; }
+  if (quoi === "reco") { startReco(cartes); return; }
+  if (quoi === "trad") { startTraduction([s]); return; }
+  if (quoi === "escalier") { startEscaliers(LECON_RE.test(id) ? escaliersLecon(id) : escaliersDe([s])); return; }
+  if (quoi === "tout") grams = shuffle(gram);
+  if (!items.length && !grams.length) return;
+  const parts = spread(items).map(it => ({ kind: "srs", v: it }));
+  /* Les règles s'intercalent à intervalles réguliers dans le vocabulaire. */
+  grams.forEach((p, i) => parts.splice(Math.floor((i + 1) * parts.length / (grams.length + 1)) + i, 0, { kind: "gram", v: p }));
+  startMix(placerDecouvertes(parts), true);
+}
+
+/* ---------- Réviser tout le vocabulaire d'une leçon du manuel ----------
+   Demande de Daphnée (2026-11-11) : « réviser tout le nouveau vocabulaire
+   d'une leçon ». Les boutons par séance plafonnent à 14 mots et une leçon
+   s'étale sur plusieurs séances. Les mots d'une leçon : ceux dont le thème est
+   la leçon (« HSK 3 · L9 »), plus les mots des séances qui couvrent cette
+   leçon et qui n'ont pas encore été rangés dans une leçon (thème « à venir »,
+   sans thème, Expressions) : sans ce rattrapage, une leçon toute récente dont
+   les mots ne sont pas encore rethémés paraîtrait vide.
+   Depuis le relevé des supports du Drive (LECONS_MANUEL), une leçon dont on a
+   la liste officielle prend toute cette liste, plus les mots rangés dans son
+   thème ; le rattrapage par les séances ne sert plus qu'aux leçons sans liste,
+   et il écarte les mots que le manuel place dans une autre leçon (une séance
+   « L9–L10 » mêle les deux).
+   Tous les mots, une carte par mot sur la piste la moins sue ; un mot jamais
+   vu passe d'abord par sa carte de découverte. Notation normale. */
+let curLecon = null;
+const LECON_RE = /^HSK (\d) · L(\d+)$/;
+function leconsSeance(s) {
+  const m = /HSK (\d) · L(\d+)(?:\s*[–-]\s*L?(\d+))?/.exec(s.lecon || "");
+  if (!m) return [];
+  const out = [];
+  for (let k = +m[2]; k <= +(m[3] || m[2]); k++) out.push(`HSK ${m[1]} · L${k}`);
+  return out;
+}
+function leconCartes(l) {
+  const set = new Set(state.cards.filter(c => c.theme === l));
+  const manuel = LECONS_MANUEL[l];
+  if (manuel) {
+    const parHanzi = new Map(state.cards.map(c => [c.hanzi, c]));
+    manuel.forEach(h => { const c = parHanzi.get(h); if (c) set.add(c); });
+    return [...set];
+  }
+  const libre = c => (!c.theme || /à venir$/.test(c.theme) || c.theme === "Expressions") && !LECON_DU_MOT[c.hanzi];
+  EMBED_COURS.forEach(s => { if (leconsSeance(s).includes(l)) coursCartes(s).filter(libre).forEach(c => set.add(c)); });
+  return [...set];
+}
+function leconsListe() {
+  const set = new Set();
+  state.cards.forEach(c => { if (LECON_RE.test(c.theme || "")) set.add(c.theme); });
+  EMBED_COURS.forEach(s => leconsSeance(s).forEach(l => set.add(l)));
+  Object.keys(LECONS_MANUEL).forEach(l => set.add(l));
+  const rang = l => { const m = LECON_RE.exec(l); return +m[1] * 100 + +m[2]; };
+  return [...set].filter(l => leconCartes(l).length).sort((a, b) => rang(b) - rang(a));
+}
+/* Le nouveau vocabulaire seul : la liste du support (ou, sans liste, les mots
+   rangés dans la leçon), sans les mots vus en séance ni les expressions. */
+function vocabNouveau(l) {
+  const manuel = LECONS_MANUEL[l];
+  if (!manuel) return state.cards.filter(c => c.theme === l);
+  const parHanzi = new Map(state.cards.map(c => [c.hanzi, c]));
+  return manuel.map(h => parHanzi.get(h)).filter(Boolean);
+}
+/* Toutes les phrases du support, dans l'ordre où elles se lisent. */
+function startPhrasesSupport(l) {
+  const ph = phrasesSupport(l);
+  if (!ph.length) return;
+  startMix(ph.map(p => ({ kind: "srs", libre: true, v: { track: "zi", mode: "support",
+    card: { hanzi: p.hanzi, pinyin: p.pinyin, fr: p.fr, groupe: p.groupe, qui: p.qui, phrase: "", mots: [], son: {}, zi: {} } } })), true, true);
+}
+function phrasesSupportHTML(l) {
+  const groupes = PHRASES_SUPPORTS[l] || [];
+  if (!groupes.length) return "";
+  const n = phrasesSupport(l).length;
+  return `<div class="panel"><h2>Phrases du support (${n})</h2>
+      <p class="hint" style="margin-top:0">Les dialogues et les exemples de grammaire, dans l'ordre du support. Pour t'y entraîner : « Phrases du support » dans Autres exercices.</p>
+      ${groupes.map(([titre, lignes]) => `<details class="gram-plus"><summary><strong>${esc(titre)}</strong> (${lignes.length})</summary>
+        ${lignes.map(([qui, hz, py, fr]) => `<div class="cours-formu">
+          ${qui ? `<div class="hint" style="margin:0">${esc(qui)}</div>` : ""}
+          <div class="hanzi" style="font-size:1.3rem">${esc(hz)}</div>
+          <div class="w-pinyin">${renderPinyin(py)}</div>
+          <div class="q-phrase-fr">${esc(fr)}</div>
+          <div class="audio-row"><button class="audio-btn" onclick="speak(${jsattr(hz)})" aria-label="Écouter la phrase">🔊</button></div></div>`).join("")}
+      </details>`).join("")}
+    </div>`;
+}
+function startLecon(l, seulementNouveau) {
+  const cartes = seulementNouveau ? vocabNouveau(l)
+    : [...new Set(leconCartes(l).concat(dictonsLecon(l)))];
+  if (!cartes.length) return;
+  const items = [];
+  shuffle(cartes).forEach(c => {
+    const jamaisVu = !c.son.reviews && !c.zi.reviews && !c.vu && !c.son.connu && !c.zi.connu;
+    if (jamaisVu) items.push({ card: c, track: "son", mode: "decouverte" });
+    items.push({ card: c, track: jamaisVu || !estConnu(c.son) ? "son" : "zi" });
+  });
+  startMix(placerDecouvertes(spread(items).map(it => ({ kind: "srs", v: it }))), true);
+}
+
+/* ---------- Reconnaître les caractères récents ----------
+   Demande de Daphnée (2026-10-27) : une section dédiée à la reconnaissance des
+   caractères des mots appris récemment. Deux questions qui alternent, notées
+   par l'app : un caractère sans pinyin à relier à son sens, ou un sens à relier
+   au bon caractère parmi des formes proches. Les leurres partagent d'abord un
+   caractère ou une brique avec le mot, puis viennent des mots récents : ce sont
+   ceux qu'elle confond vraiment.
+   Rien n'est planifié : choisir parmi quatre options est plus facile que
+   retrouver seule, et créditer la piste Caractères sur un QCM ferait passer
+   pour su un mot seulement reconnu. Un mot manqué rejoint les mots du jour à
+   consolider, où il est retravaillé en lecture et en écriture. */
+const RECO_JOURS = 21, RECO_MAX = 12;
+function seancesRecentes() {
+  const lim = cleDate(new Date(Date.now() - RECO_JOURS * 864e5));
+  const liste = coursListe();
+  const seances = liste.filter(s => s.date >= lim);
+  return seances.length >= 2 ? seances : liste.slice(0, 3);
+}
+function motsRecents() {
+  const lim = cleDate(new Date(Date.now() - RECO_JOURS * 864e5));
+  const set = new Set();
+  seancesRecentes().forEach(s => coursCartes(s).forEach(c => set.add(c)));
+  state.cards.forEach(c => { if (c.vu && c.vu >= lim) set.add(c); });
+  return [...set];
+}
+function recoLeurres(c, pool) {
+  const parts = ch => ((hzIndex().get(ch) || {}).parts || []).map(x => x[0]);
+  const siens = new Set([...c.hanzi]), briques = new Set([...c.hanzi].flatMap(parts));
+  const recents = new Set(pool.map(d => d.hanzi));
+  const fr = d => (d.fr || "").trim().toLowerCase();
+  const vus = new Set([c.hanzi]);
+  const cand = pool.concat(shuffle(state.cards.slice())).filter(d => {
+    if (vus.has(d.hanzi) || !d.fr || fr(d) === fr(c)) return false;
+    if (d.hanzi.includes(c.hanzi) || c.hanzi.includes(d.hanzi)) return false;
+    vus.add(d.hanzi); return true;
+  });
+  const score = d => [...d.hanzi].reduce((s, ch) => s + (siens.has(ch) ? 3 : 0)
+      + parts(ch).filter(b => briques.has(b)).length * 2, 0)
+    + ([...d.hanzi].length === [...c.hanzi].length ? 1 : 0) + (recents.has(d.hanzi) ? 1 : 0);
+  const tri = shuffle(cand).sort((a, b) => score(b) - score(a));
+  return shuffle(tri.slice(0, 6)).slice(0, 3);
+}
+function startReco(cartes) {
+  /* Les caractères les moins sus d'abord, à égalité tirés au sort. */
+  const choisis = shuffle(cartes.slice())
+    .sort((a, b) => (estConnu(a.zi) ? 1 : 0) - (estConnu(b.zi) ? 1 : 0)).slice(0, RECO_MAX);
+  if (choisis.length < 2) return;
+  const items = choisis.map((c, i) => ({ card: c, track: "zi", mode: "reco",
+    variante: i % 2 ? "forme" : "sens", opts: shuffle([c].concat(recoLeurres(c, cartes))) }));
+  startMix(spread(items).map(it => ({ kind: "srs", v: it })), true);
+}
+function startRecoRecents() { startReco(motsRecents()); }
+
+/* ---------- Traduire les phrases du cours ----------
+   Cours du 2026-10-27 : la prof révise une leçon en faisant produire ses
+   phrases depuis la langue de départ, et Daphnée n'avait révisé que le
+   vocabulaire. Ici : le français seul, elle écrit la phrase entière au clavier
+   chinois (mode « construire » de l'atelier), indice facultatif = le pinyin.
+   Les phrases de la prof (`formulations`) passent d'abord, puis les phrases
+   d'exemple des mots de la séance. Entraînement libre : rien n'est planifié,
+   une phrase de la prof n'est pas une carte et il existe d'autres traductions
+   justes que la comparaison caractère par caractère compterait fausses. */
+const TRAD_MAX = 10;
+function startTraduction(seances) {
+  const vues = new Set(), formu = [], mots = [];
+  seances.forEach(s => (s.formulations || []).forEach(f => {
+    if (vues.has(normHanzi(f.hanzi))) return;
+    vues.add(normHanzi(f.hanzi));
+    formu.push({ hanzi: f.hanzi, pinyin: f.pinyin, fr: f.fr, phrase: f.hanzi, phraseFr: f.fr,
+      mots: [[f.hanzi, f.pinyin, f.fr]], son: {}, zi: {} });
+  }));
+  seances.forEach(s => coursCartes(s).forEach(c => {
+    if (!c.phrase || (c.mots || []).length < 3 || vues.has(normHanzi(c.phrase))) return;
+    vues.add(normHanzi(c.phrase)); mots.push(c);
+  }));
+  const pris = shuffle(formu).slice(0, Math.ceil(TRAD_MAX * 0.7));
+  const liste = pris.concat(shuffle(mots).slice(0, TRAD_MAX - pris.length));
+  if (!liste.length) return;
+  startMix(shuffle(liste).map(c => ({ kind: "srs", v: { card: c, track: "zi", mode: "construire" }, libre: true })), true, true);
+}
+
