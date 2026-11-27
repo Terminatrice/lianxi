@@ -71,13 +71,23 @@ function schedule(tr, ok, kind, calibrable) {
     if (tr.reviews === 1 && !tr.inter && TRACKS.indexOf(k) >= 0 && calibrable !== false) tr.inter = CALIB_OK;
     else if (tr.inter < STEP_1) tr.inter = STEP_1;
     else if (tr.inter < step2) tr.inter = step2;
-    else tr.inter = Math.min(MAX_INTER, Math.round(tr.inter * tr.ease));
+    /* Grammaire, briques et phrases reprises en cours (2026-11-26, retour de
+       Daphnée : « ce n'est pas possible qu'une fiche revienne jusqu'à 10 fois
+       en un mois, surtout quand je la maîtrise ») : deux échecs anciens
+       rabotaient la facilité à 1.6, et chaque réussite ne lui rendait que
+       0.02. Une fiche ratée deux fois revenait ensuite tous les 3 à 5 jours,
+       réussie ou non. Désormais une réussite au moins double l'intervalle. */
+    else tr.inter = Math.min(MAX_INTER, Math.round(tr.inter * (k === "gram" ? Math.max(2, tr.ease) : tr.ease)));
     tr.ease = Math.min(EASE_MAX, tr.ease + EASE_UP);
   } else {
     tr.errors++;
     /* Un mot déjà tenu trois semaines qui flanche une fois n'a pas tout perdu :
        il redescend à quelques jours. Un mot fragile revient dès demain. */
-    tr.inter = (tr.bestGap || 0) >= MATURE
+    /* Une fiche de grammaire déjà retrouvée après 6 jours ou plus n'est pas
+       une fiche fragile : un faux pas la rapproche, il ne la renvoie pas à
+       demain (2026-11-26, même retour). */
+    const mure = (tr.bestGap || 0) >= (k === "gram" ? 6 : MATURE);
+    tr.inter = mure
       ? Math.min(7, Math.max(2, Math.round(tr.inter * 0.3)))
       : 1;
     tr.ease = Math.max(EASE_MIN, tr.ease - EASE_DOWN);

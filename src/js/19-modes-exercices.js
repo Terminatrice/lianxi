@@ -423,6 +423,19 @@ function finDecouverte() {
    longue : on note qu'elle n'a plus besoin d'être travaillée, on ne prétend
    pas qu'elle a été prouvée. Sert à purger la file de ce qu'elle sait déjà. */
 function markKnown() {
+  if (sessMode === "gram" && !sessPractice) {
+    const p = gramQueue[gIndex];
+    if (!p) return;
+    const pr = gramProg(p.id), etaitConnu = estConnu(pr);
+    pr.vue = true;
+    pr.inter = Math.max(pr.inter || 0, 60);
+    pr.due = Date.now() + pr.inter * 864e5;
+    pr.connu = true;
+    if (!etaitConnu) noteSu("gram");
+    save();
+    advanceGram();
+    return;
+  }
   if (sessMode !== "srs" || sessPractice) return;
   const it = queue[qIndex];
   if (!it) return;

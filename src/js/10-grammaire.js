@@ -36,7 +36,10 @@ function gramDue() {
   /* Trois priorités, dans cet ordre : ce qu'elle rate, puis ce qui vient de sa
      dernière leçon, puis le retard ordinaire. Le tri par seule échéance faisait
      remonter les fiches de la leçon 1 avant celles du cours de la semaine. */
-  const score = x => x.tr.reviews && x.tr.errors ? 2 : !x.tr.reviews ? 1 : 0;
+  /* « Ce qu'elle rate » = raté au dernier passage (intervalle remis à un
+     jour), plus « raté un jour » : une fiche réussie depuis gardait la
+     priorité à vie (2026-11-26). */
+  const score = x => x.tr.reviews && x.tr.errors && x.tr.inter <= 1 ? 2 : !x.tr.reviews ? 1 : 0;
   return prog.filter(x => x.tr.due <= now)
     .sort((a, b) => score(b) - score(a)
       || (score(a) === 2 ? (b.tr.errors / b.tr.reviews) - (a.tr.errors / a.tr.reviews) : 0)
@@ -50,7 +53,7 @@ function gramDue() {
 function gramWeak() {
   return EMBED_GRAMMAR
     .map(p => ({ p, g: gramProg(p.id) }))
-    .filter(x => x.g.errors >= 1)
+    .filter(x => x.g.errors >= 1 && !x.g.connu)
     .sort((a, b) => (b.g.errors / b.g.reviews) - (a.g.errors / a.g.reviews) || b.g.errors - a.g.errors)
     .slice(0, 10);
 }
@@ -444,7 +447,9 @@ function nextGram(forceExo) {
   if (gIndex >= gramQueue.length) { endGramSession(); return; }
   const p = gramQueue[gIndex], g = gramProg(p.id);
   $("sess-track").textContent = "📐";
-  $("know-btn").classList.add("hidden");
+  /* « Acquis » vaut aussi pour une fiche maîtrisée (2026-11-26) : elle part à
+     60 jours, comme un mot. Pas pendant un repassage, où rien n'est planifié. */
+  $("know-btn").classList.toggle("hidden", sessPractice);
   majProgres(gIndex, gramTotal);
   /* En drill ou en atelier, l'exercice est imposé d'avance : pas d'écran de
      fiche, on enchaîne directement, façon série d'exercices. */

@@ -39,6 +39,15 @@ const MATURE = 21, ANCRE = 90;     // paliers de rétention démontrée, en jour
    (bug relevé le 2026-08-20 : file qui tourne en rond, compteur de découvertes
    figé à zéro, progression bloquée sans que rien ne le signale). */
 const NEW_WORDS_PER_DAY = 8;       // mots jamais rencontrés introduits par jour (6 -> 8 le 2026-09-20, « j'ai l'impression de stagner »)
+/* Frein des nouveautés (2026-11-26, diagnostic « je tourne en rond, je ne
+   progresse pas ») : tant que le retard de révision du vocabulaire dépasse
+   SEUIL_DETTE pistes, les mots nouveaux passent de 8 à NEW_WORDS_FREIN par
+   jour. Huit mots par jour sur une dette qui grossit, c'était réapprendre des
+   mots oubliés au lieu de consolider : au simulateur, 282 mots solides au
+   bout de 45 jours contre 335 avec le frein et la session rendue au
+   vocabulaire. Le frein se lève seul quand le retard se résorbe. */
+const NEW_WORDS_FREIN = 4;
+const SEUIL_DETTE = 100;
 const NEW_RESERVE = 8;             // places gardées aux nouveautés dans une session
 const NEW_DAY_CAP = 16;            // plafond du jour, ciblages de niveau cumulés (12 -> 16 le 2026-08-25)
 /* Mise à jour : le premier passage sert de test de niveau. Réussi du premier

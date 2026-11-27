@@ -184,9 +184,19 @@ function decouvertesJour() { return (state.decouvertes || {})[todayKey()] || 0; 
    doit gater newQuotaLeft, sinon la révision normale du cours (HSK 2) épuise
    le quota d'un ciblage HSK 2 jamais demandé (2026-08-31). */
 function decouvertesCible(n) { return (((state.decCible || {})[todayKey()]) || {})[n] || 0; }
+/* Pistes de vocabulaire déjà rencontrées dont l'échéance est passée, tous
+   thèmes confondus : la mesure du retard qui déclenche le frein. */
+function detteVocab() {
+  const now = Date.now();
+  let n = 0;
+  state.cards.forEach(c => TRACKS.forEach(t => { if (c[t] && c[t].reviews && c[t].due <= now) n++; }));
+  return n;
+}
+function freinActif() { return detteVocab() > SEUIL_DETTE; }
+function quotaNouveautes() { return freinActif() ? NEW_WORDS_FREIN : NEW_WORDS_PER_DAY; }
 function newQuotaLeft() {
   const total = decouvertesJour();
-  if (curNiveau === "all") return Math.max(0, NEW_WORDS_PER_DAY - total);
+  if (curNiveau === "all") return Math.max(0, quotaNouveautes() - total);
   return Math.max(0, Math.min(NEW_WORDS_PER_DAY - decouvertesCible(curNiveau),
                               NEW_DAY_CAP - total));
 }

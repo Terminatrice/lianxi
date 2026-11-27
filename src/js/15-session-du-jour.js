@@ -22,13 +22,25 @@
 /* Places réservées par format, pour qu'aucun ne puisse être évincé par un autre.
    Les phrases reprises en cours passent en premier : c'est le principe posé le
    2026-08-12, il survit à la disparition de leur panneau. */
+/* Resserrées le 2026-11-26 (diagnostic « je tourne en rond ») : avec 4, 6, 3,
+   3 et 2 places, près de la moitié de chaque session puisait dans cinq petits
+   réservoirs (50 briques, 38 familles de sons, 64 phrases reprises...), qui
+   revenaient donc chaque semaine (82 % des cartes d'oreille et 69 % des tons
+   déjà vus dans les 7 jours, mesuré au simulateur), et il ne restait qu'une
+   douzaine de vraies révisions de vocabulaire par jour. Briques, tons et
+   oreille n'entrent plus que pour un élément déjà travaillé et arrivé à
+   échéance (`dejaTravaille`) : on les découvre dans leur onglet. */
 const MIX_PARTS = [
-  { kind: "err",  max: 4 },
-  { kind: "gram", max: 6 },
-  { kind: "comp", max: 3 },
-  { kind: "ton",  max: 3 },
-  { kind: "oreille", max: 2 },
+  { kind: "err",  max: 2 },
+  { kind: "gram", max: 4 },
+  { kind: "comp", max: 1, revus: true },
+  { kind: "ton",  max: 1, revus: true },
+  { kind: "oreille", max: 1, revus: true },
 ];
+function dejaTravaille(kind, v) {
+  const tr = kind === "comp" ? compProg(v.id) : kind === "oreille" ? paireProg(v.id) : tonProg(v.hanzi);
+  return tr.reviews > 0;
+}
 /* Les formats s'alternent : deux cartes du même type peuvent se suivre, jamais
    trois. Un bloc de six points de grammaire d'affilée, c'est la session par
    sections qu'on vient justement de supprimer. */
@@ -61,7 +73,7 @@ function sessionMixte() {
       : x.kind === "comp" ? compDue()
       : x.kind === "oreille" ? pairesDue()
       : tonsDue();
-    due.slice(0, Math.max(1, Math.round(x.max * echelle))).forEach(v => parts.push({ kind: x.kind, v: v }));
+    (x.revus ? due.filter(v => dejaTravaille(x.kind, v)) : due).slice(0, Math.max(1, Math.round(x.max * echelle))).forEach(v => parts.push({ kind: x.kind, v: v }));
   });
   /* Le vocabulaire prend toute la place qui reste : c'est le gros du travail,
      et sa propre file réserve déjà ses nouveautés. Le plafond est ferme : les

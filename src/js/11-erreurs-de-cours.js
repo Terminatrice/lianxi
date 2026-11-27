@@ -37,6 +37,30 @@ function startErrSession() {
   document.body.style.overflow = "hidden";
   nextErr();
 }
+/* Production plutôt que reconnaissance (2026-11-26). Jusqu'ici l'exercice
+   proposait la version juste et la version dite en cours : un choix à deux,
+   que la règle de l'app interdit, et qui après trois mois se résolvait en
+   reconnaissant la phrase elle-même. Désormais elle reconstruit la phrase
+   juste depuis le français. Les morceaux propres à sa version de cours (le 了
+   en trop, le mauvais mot) sont mêlés aux blocs comme leurres : c'est son
+   erreur réelle qu'elle doit refuser de refaire. Jamais un leurre contenu
+   dans la réponse (règle absolue des exercices d'ordre). */
+let errLibre = [], errChoisi = [];
+function errBlocs(texte) {
+  let segs = segment(texte).filter(x => !x[2]).map(x => x[0]);
+  /* Phrase trop courte pour un vrai ordre : on descend au caractère. */
+  if (segs.length < 3) segs = [...normHanzi(texte)];
+  return segs;
+}
+function errLeurres(e) {
+  const cible = normHanzi(e.correct);
+  const out = [];
+  errBlocs(e.dit).forEach(s => { if (cible.indexOf(s) < 0 && out.indexOf(s) < 0) out.push(s); });
+  const vocab = shuffle(state.cards.filter(w => [...w.hanzi].length <= 2 && cible.indexOf(normHanzi(w.hanzi)) < 0
+    && out.indexOf(w.hanzi) < 0));
+  while (out.length < 2 && vocab.length) out.push(vocab.shift().hanzi);
+  return out.slice(0, 3);
+}
 function nextErr() {
   if (window.speechSynthesis) speechSynthesis.cancel();
   if (eIndex >= errQueue.length) { endErrSession(); return; }
@@ -45,26 +69,42 @@ function nextErr() {
   $("know-btn").classList.add("hidden");
   majProgres(eIndex, errTotal);
   $("session").scrollTop = 0;
-  /* L'ordre des deux propositions change à chaque passage : sinon la bonne
-     réponse se repère à sa position au lieu de sa structure. */
-  errOrder = shuffle([e.correct, e.dit]);
+  const leurres = errLeurres(e);
+  errLibre = shuffle(errBlocs(e.correct).concat(leurres).map((s, i) => ({ s, i })));
+  errChoisi = [];
   $("card-zone").innerHTML = `<div class="qcard">
-      <div class="q-prompt">Repris en cours le ${esc(e.date)}. Laquelle est juste ?</div>
+      <div class="q-prompt">Repris en cours le ${esc(e.date)}. Dis-le juste :
+        <strong>${leurres.length} morceau${leurres.length > 1 ? "x" : ""} en trop.</strong></div>
       <div class="q-fr">« ${esc(e.fr)} »</div>
-      <div class="opts" id="opts">${errOrder.map(o =>
-        `<button onclick="answerErr(${jsattr(o)})"><span class="ruby">${rubyHTML(o)}</span></button>`).join("")}</div>
+      <div class="drop" id="drop"></div>
+      <div class="segs" id="segs"></div>
+      <div id="reveal-zone"><button class="btn secondary" onclick="answerErr()">Vérifier</button>
+        <button class="btn ghost" onclick="answerErr(true)">Voir la réponse</button></div>
       <div id="answer-zone" class="hidden"></div>
     </div><div id="grades-slot"></div>`;
+  renderErrOrdre();
 }
-function answerErr(choix) {
-  const e = errQueue[eIndex], ok = choix === e.correct;
-  const opts = $("opts");
-  [...opts.children].forEach((b, i) => {
-    b.disabled = true;
-    b.classList.add(errOrder[i] === e.correct ? "good" : "bad");
-  });
+function renderErrOrdre() {
+  const drop = $("drop"), segs = $("segs");
+  if (!drop || !segs) return;
+  drop.innerHTML = errChoisi.length
+    ? errChoisi.map((it, k) => `<button onclick="errRetirer(${k})"><span class="ruby">${rubyHTML(it.s)}</span></button>`).join("")
+    : `<span class="ph">Touche les mots dans le bon ordre</span>`;
+  segs.innerHTML = errLibre.map((it, k) =>
+    `<button onclick="errAjouter(${k})"><span class="ruby">${rubyHTML(it.s)}</span></button>`).join("");
+}
+function errAjouter(k) { errChoisi.push(errLibre[k]); errLibre.splice(k, 1); renderErrOrdre(); }
+function errRetirer(k) { errLibre.push(errChoisi[k]); errChoisi.splice(k, 1); renderErrOrdre(); }
+function answerErr(vu) {
+  const e = errQueue[eIndex];
+  const got = normHanzi(errChoisi.map(it => it.s).join(""));
+  const ok = !vu && got === normHanzi(e.correct);
+  const refait = !vu && got === normHanzi(e.dit);
+  $("reveal-zone").classList.add("hidden");
+  $("segs").innerHTML = "";
+  [...$("drop").children].forEach(b => { if (b.tagName === "BUTTON") b.disabled = true; });
   $("answer-zone").innerHTML =
-    `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "✓ Correct" : "✕ C'est la version que tu avais dite en cours"}</div>
+    `<div class="verdict ${ok ? "ok" : "ko"}">${ok ? "✓ Correct" : vu ? "La version juste" : refait ? "✕ C'est la version que tu avais dite en cours" : "✕ Pas tout à fait"}</div>
      <div class="contraste">
        <div class="ct ok"><span class="ct-m">✓</span><span class="ruby">${rubyHTML(e.correct)}</span></div>
        <div class="ct ko"><span class="ct-m">✕</span><span class="ruby">${rubyHTML(e.dit)}</span></div>

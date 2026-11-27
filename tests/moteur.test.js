@@ -168,3 +168,46 @@ test("Cours : revoir toutes les phrases d'un support, avec pinyin et traduction,
   assert.equal(r.mode, "support");
   assert.ok(r.libre && r.complet && r.cartes);
 });
+
+/* 2026-11-26 : « ce n'est pas possible qu'une fiche revienne jusqu'à 10 fois
+   en un mois, surtout quand je la maîtrise ». Une fiche ratée deux fois puis
+   réussie à chaque passage revient au plus 4 fois dans les 30 jours qui
+   suivent le second échec (mesure de la refonte, CLAUDE.md). Calcul : nouvelle
+   règle, retours aux jours 2, 5, 11, 23 (4) ; ancienne, 2, 5, 10, 18, 31 (5). */
+test("planification : une fiche ratée deux fois puis réussie ne revient pas plus de 4 fois en 30 jours (2026-11-26)", async () => {
+  /* sessPractice remis à false : un test précédent (révision libre d'un support)
+     le laisse à true, et schedule ne planifie alors rien, la date ne bouge plus
+     et la boucle tournait sans fin, gelant toute la barrière (27/11/2026).
+     Boucle plafonnée à 50 tours pour qu'une régression échoue au lieu de geler. */
+  const r = await ev(() => { sessPractice = false; Math.random = () => 0; const tr = { reviews: 0, errors: 0, inter: 0 };
+    const realNow = Date.now; let t = realNow(); Date.now = () => t;
+    schedule(tr, false, "gram"); t += 864e5; schedule(tr, false, "gram");
+    let passages = 0, debut = t;
+    for (let i = 0; i < 50; i++) { t = tr.due; if (!(t - debut <= 30 * 864e5)) break; schedule(tr, true, "gram"); passages++; }
+    Date.now = realNow; return passages; });
+  assert.ok(r <= 4, `${r} retours`);
+});
+test("planification : un faux pas sur une fiche déjà tenue 6 jours ne la renvoie pas à demain (2026-11-26)", async () => {
+  const r = await ev(() => { sessPractice = false; const tr = { reviews: 4, errors: 0, inter: 13, bestGap: 6.5 }; schedule(tr, false, "gram"); return tr.inter; });
+  assert.ok(r >= 2, `intervalle ${r}`);
+});
+test("session du jour : une place au plus pour briques, tons et oreille, et jamais un élément neuf (2026-11-26)", async () => {
+  const r = await ev(() => { state.taille = 35; curNiveau = "all"; const m = sessionMixte();
+    const k = x => m.filter(e => e.kind === x);
+    return { comp: k("comp").length, ton: k("ton").length, or: k("oreille").length,
+      neufs: ["comp", "ton", "oreille"].some(x => k(x).some(e => !dejaTravaille(x, e.v))) }; });
+  assert.ok(r.comp <= 1 && r.ton <= 1 && r.or <= 1, JSON.stringify(r));
+  assert.equal(r.neufs, false);
+});
+test("nouveautés : frein à 4 mots par jour quand le retard dépasse le seuil (2026-11-26)", async () => {
+  const r = await ev(() => { curNiveau = "all"; state.decouvertes = {}; return { frein: freinActif(), quota: newQuotaLeft(), dette: detteVocab() }; });
+  assert.equal(r.frein, r.dette > 100);
+  assert.equal(r.quota, r.frein ? 4 : 8);
+});
+test("phrases reprises en cours : reconstruction avec leurres, jamais un leurre contenu dans la réponse (2026-11-26)", async () => {
+  const r = await ev(() => EMBED_ERREURS.map(e => { const cible = normHanzi(e.correct);
+    const blocs = errBlocs(e.correct), l = errLeurres(e);
+    return { id: e.id, recompose: normHanzi(blocs.join("")) === cible, n: blocs.length, leurres: l.length, dedans: l.some(x => cible.indexOf(x) >= 0) }; })
+    .filter(x => !x.recompose || x.n < 3 || x.leurres < 2 || x.dedans));
+  assert.deepEqual(r, []);
+});

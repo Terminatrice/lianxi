@@ -404,6 +404,10 @@ function render() {
         ? `tu en as déjà découvert ${decouvertesCible(curNiveau)} en ciblant ce niveau`
         : `le plafond de ${NEW_DAY_CAP} nouveautés du jour est atteint`}. Le panneau « mots jamais testés » ci-dessous n'est pas soumis à ce quota.`
     : "";
+  /* Le frein des nouveautés se dit, sinon la baisse ressemble à une panne. */
+  const motFrein = curNiveau === "all" && freinActif()
+    ? ` ${NEW_WORDS_FREIN} mots nouveaux aujourd'hui au lieu de ${NEW_WORDS_PER_DAY} : la place va d'abord aux révisions en retard, le rythme reprend dès qu'elles sont rattrapées.`
+    : "";
   /* Quitter en cours de route n'efface rien : chaque réponse est écrite au
      moment où elle est donnée. Le dire explicitement, sinon la croix en haut à
      gauche ressemble à un bouton qui annule la session. */
@@ -412,8 +416,8 @@ function render() {
         ? "Bien joué. Si tu veux en faire plus, commence par consolider les mots qui ont coincé aujourd'hui."
         : "Bien joué, et rien n'a coincé aujourd'hui. Reviens demain.")
     : rep
-    ? `<strong>${rep.faites} carte${rep.faites > 1 ? "s" : ""} déjà faite${rep.faites > 1 ? "s" : ""} aujourd'hui, c'est enregistré.</strong><br>${programme}${esc(motQuota)}`
-    : programme + esc(motQuota);
+    ? `<strong>${rep.faites} carte${rep.faites > 1 ? "s" : ""} déjà faite${rep.faites > 1 ? "s" : ""} aujourd'hui, c'est enregistré.</strong><br>${programme}${esc(motQuota + motFrein)}`
+    : programme + esc(motQuota + motFrein);
   $("taille-chips").innerHTML = TAILLES.map(n =>
     `<button class="chip" aria-pressed="${mixMax() === n}" onclick="setTaille(${n})">${n} cartes</button>`).join("");
   $("no-due-hint").style.display = total === 0 && !fait ? "" : "none";
